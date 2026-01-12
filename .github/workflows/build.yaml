@@ -1,31 +1,58 @@
 # Cosmopolitan Python Build Workflow
-# TODO: implement build matrix for Python versions
 name: build
 
 on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: "Python version to build"
+        description: "Python version to build (e.g., 3.12.8)"
         required: true
-        type: choice
-        options:
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
+        default: "3.12.8"
+        type: string
+
+env:
+  COSMOCC_VERSION: "4.0.2"
 
 jobs:
-  build:
+  build-x86_64:
     runs-on: ubuntu-latest
+    env:
+      WORK_DIR: ${{ github.workspace }}/work
+      DIST_DIR: ${{ github.workspace }}/dist
+      COSMO_DIR: /tmp/cosmo
+      INSTALL_DIR: /tmp/cosmo
     steps:
       - uses: actions/checkout@v4
 
-      # TODO: implement build steps
-      # - fetch cosmopolitan toolchain
-      # - fetch python source
-      # - build with superconfigure approach
-      # - package artifacts
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config zlib1g-dev
 
-      - name: placeholder
-        run: echo "Build workflow not yet implemented"
+      - name: Setup cosmocc
+        run: ./scripts/setup-cosmocc.sh
+
+      - name: Register APE with binfmt_misc
+        run: |
+          sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
+          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
+
+      - name: Download Python
+        run: ./scripts/download-python.sh "${{ inputs.python_version }}"
+
+      - name: Build Python (x86_64)
+        run: ./scripts/build.sh "${{ inputs.python_version }}" x86_64
+
+      - name: Package
+        run: ./scripts/package.sh "${{ inputs.python_version }}" x86_64
+
+      - name: Test binary
+        run: |
+          ./dist/python-${{ inputs.python_version }}-cosmo-x86_64.com --version || echo "Test skipped"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-${{ inputs.python_version }}-cosmo-x86_64
+          path: dist/
+          if-no-files-found: warn
