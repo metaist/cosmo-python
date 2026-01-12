@@ -1,6 +1,11 @@
 # cosmo-python
 
+> **Note:** This project is under development and has not yet published any releases.
+> See the [issues] for progress.
+
 Standalone versioned [Cosmopolitan] Python builds.
+
+[issues]: https://github.com/metaist/cosmo-python/issues
 
 [cosmopolitan]: https://github.com/jart/cosmopolitan
 
