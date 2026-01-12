@@ -1,0 +1,32 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "aigen",
+    "ahgamut",
+    "capsys",
+    "chdir",
+    "codeql",
+    "cosmopolitan",
+    "docstrings",
+    "doctest",
+    "htmlcov",
+    "jart",
+    "levelname",
+    "libc",
+    "metaist",
+    "mypy",
+    "nojekyll",
+    "oneline",
+    "pdoc",
+    "pyproject",
+    "pyrefly",
+    "pyright",
+    "pytest",
+    "PYTHONPATH",
+    "pythonversion",
+    "setuptools",
+    "superconfigure",
+    "venv"
+  ]
+}

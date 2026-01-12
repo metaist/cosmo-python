@@ -1,0 +1,31 @@
+# Cosmopolitan Python Build Workflow
+# TODO: implement build matrix for Python versions
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: "Python version to build"
+        required: true
+        type: choice
+        options:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: implement build steps
+      # - fetch cosmopolitan toolchain
+      # - fetch python source
+      # - build with superconfigure approach
+      # - package artifacts
+
+      - name: placeholder
+        run: echo "Build workflow not yet implemented"

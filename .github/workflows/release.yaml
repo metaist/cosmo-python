@@ -1,0 +1,22 @@
+# Release Workflow
+# TODO: implement release automation
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: implement release steps
+      # - download build artifacts
+      # - generate checksums
+      # - create GitHub release
+
+      - name: placeholder
+        run: echo "Release workflow not yet implemented"
