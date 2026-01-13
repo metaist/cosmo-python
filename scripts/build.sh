@@ -77,7 +77,9 @@ echo "Configuring..."
   PANEL_CFLAGS=" " \
   PANEL_LIBS=" " \
   GDBM_CFLAGS=" " \
-  GDBM_LIBS=" "
+  GDBM_LIBS=" " \
+  OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
+  OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto"
 
 # For cosmopolitan, we need all modules built statically into the binary
 # Patch Setup.stdlib to use *static* instead of *shared*
@@ -88,7 +90,8 @@ sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
 echo "Removing unavailable modules from Setup.stdlib..."
 
 # List of modules to remove (need headers cosmocc doesn't have)
-DISABLE_MODULES="readline _ctypes _ctypes_test _crypt _uuid _dbm _gdbm _ssl _hashlib"
+# Note: _ssl and _hashlib are now enabled via OpenSSL
+DISABLE_MODULES="readline _ctypes _ctypes_test _crypt _uuid _dbm _gdbm"
 
 for mod in $DISABLE_MODULES; do
   # Comment out the module line in Setup.stdlib
