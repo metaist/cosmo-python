@@ -6,6 +6,7 @@ PYTHON_VERSION="${1:-3.12.8}"
 ARCH="${2:-x86_64}"
 WORK_DIR="${WORK_DIR:-$(pwd)/work}"
 COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
+DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
 
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 BUILD_DIR="${WORK_DIR}/build-${ARCH}"
@@ -23,8 +24,8 @@ echo "Building Python ${PYTHON_VERSION} for ${ARCH}..."
 export CC="${COSMO_DIR}/bin/cosmocc"
 export CXX="${COSMO_DIR}/bin/cosmoc++"
 export AR="${COSMO_DIR}/bin/cosmoar"
-export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib"
-export LDFLAGS="-L${COSMO_DIR}/lib"
+export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include"
+export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 
 # Verify cosmocc exists
 if [ ! -x "${CC}" ]; then
@@ -41,7 +42,6 @@ cd "${BUILD_DIR}"
 cat > "${SRC_DIR}/Modules/Setup.local" << 'SETUP'
 *disabled*
 _tkinter
-_lzma
 _dbm
 _gdbm
 nis
@@ -66,8 +66,10 @@ echo "Configuring..."
   --prefix=/zip \
   ZLIB_CFLAGS="-I${COSMO_DIR}/include/third_party/zlib" \
   ZLIB_LIBS=" " \
-  LIBLZMA_CFLAGS=" " \
-  LIBLZMA_LIBS=" " \
+  BZIP2_CFLAGS="-I${DEPS_DIR}/include" \
+  BZIP2_LIBS="-L${DEPS_DIR}/lib -lbz2" \
+  LIBLZMA_CFLAGS="-I${DEPS_DIR}/include" \
+  LIBLZMA_LIBS="-L${DEPS_DIR}/lib -llzma" \
   LIBREADLINE_CFLAGS=" " \
   LIBREADLINE_LIBS=" " \
   CURSES_CFLAGS=" " \
@@ -86,7 +88,7 @@ sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
 echo "Removing unavailable modules from Setup.stdlib..."
 
 # List of modules to remove (need headers cosmocc doesn't have)
-DISABLE_MODULES="_lzma readline _ctypes _ctypes_test _crypt _uuid _bz2 _dbm _gdbm _ssl _hashlib"
+DISABLE_MODULES="readline _ctypes _ctypes_test _crypt _uuid _dbm _gdbm _ssl _hashlib"
 
 for mod in $DISABLE_MODULES; do
   # Comment out the module line in Setup.stdlib
