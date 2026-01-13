@@ -47,7 +47,6 @@ _gdbm
 nis
 _curses
 _curses_panel
-readline
 _ctypes
 _ctypes_test
 SETUP
@@ -70,8 +69,8 @@ echo "Configuring..."
   BZIP2_LIBS="-L${DEPS_DIR}/lib -lbz2" \
   LIBLZMA_CFLAGS="-I${DEPS_DIR}/include" \
   LIBLZMA_LIBS="-L${DEPS_DIR}/lib -llzma" \
-  LIBREADLINE_CFLAGS=" " \
-  LIBREADLINE_LIBS=" " \
+  LIBREADLINE_CFLAGS="-I${DEPS_DIR}/include" \
+  LIBREADLINE_LIBS="-L${DEPS_DIR}/lib -lreadline -ltinfo" \
   CURSES_CFLAGS=" " \
   CURSES_LIBS=" " \
   PANEL_CFLAGS=" " \
@@ -90,8 +89,8 @@ sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
 echo "Removing unavailable modules from Setup.stdlib..."
 
 # List of modules to remove (need headers cosmocc doesn't have)
-# Note: _ssl and _hashlib are now enabled via OpenSSL
-DISABLE_MODULES="readline _ctypes _ctypes_test _crypt _uuid _dbm _gdbm"
+# Note: _ssl, _hashlib, and readline are now enabled via our deps
+DISABLE_MODULES="_ctypes _ctypes_test _crypt _uuid _dbm _gdbm"
 
 for mod in $DISABLE_MODULES; do
   # Comment out the module line in Setup.stdlib
