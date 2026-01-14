@@ -79,12 +79,7 @@ fi
 
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
-# NOTE: We don't use ccache for Python builds because cosmocc creates
-# companion .aarch64/*.o files that ccache doesn't handle properly.
-# The fat APE build requires these files to exist alongside x86_64 .o files.
-export CC="${COSMO_DIR}/bin/cosmocc"
-export CXX="${COSMO_DIR}/bin/cosmoc++"
-export AR="${COSMO_DIR}/bin/cosmoar"
+setup_cosmocc
 export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include"
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
