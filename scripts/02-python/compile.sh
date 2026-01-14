@@ -155,10 +155,28 @@ sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' Modules/Setup.stdlib
 sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 
 # Remove modules that need unavailable headers/libraries
-# - _crypt: deprecated in 3.11, removed in 3.13 (PEP 594)
-# - _uuid: requires libuuid; Python fallback works fine
-# - _dbm/_gdbm: require database libraries not available
-# - _curses/_curses_panel: ncurses symbols missing in our build
+#
+# _crypt: Deprecated 3.11, removed 3.13 (PEP 594). Security concerns:
+#   - Only DES guaranteed (2^56 key space - extremely weak)
+#   - Not cross-platform (doesn't exist on Windows)
+#   - Can't interact with system passwords (must use PAM)
+#   - Better alternatives: hashlib.pbkdf2_hmac(), hashlib.scrypt()
+#   - Would require building libxcrypt for a deprecated insecure module
+#
+# _uuid: Requires libuuid (part of util-linux, complex to extract/build).
+#   Python's fallback is sufficient:
+#   - uuid4() (most common) uses os.urandom(), doesn't need libuuid
+#   - uuid1() fallback uses time.time_ns() + random + getnode()
+#   - Only downside: potential race under heavy multi-threaded uuid1()
+#   - superconfigure also skips libuuid
+#
+# _dbm/_gdbm: Require ndbm/gdbm database libraries (not commonly needed)
+#
+# _curses/_curses_panel: Our ncurses build is missing symbols that Python
+#   needs. Cosmopolitan has ncurses in third_party/ncurses but it's a
+#   subset. Would need to match their build approach.
+#   See: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
+#
 DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
 for mod in $DISABLE_MODULES; do
   sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
