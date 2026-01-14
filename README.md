@@ -176,6 +176,7 @@ Note: cosmocc does not currently provide attestations. We pin to a specific vers
 | **Python** | 3.10-3.13 | [python.org][python-src] |
 | **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] |
 | **CA certs** | 2025-12-02 | [curl.se][cacert-src] |
+| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] |
 | **libffi** | 3.4.2 | [GitHub Releases][libffi-src] |
 | **xz** | 5.4.5 | [GitHub Releases][xz-src] |
 | **bz2** | 1.0.8 | [sourceware.org][bz2-src] |
@@ -186,6 +187,7 @@ Note: cosmocc does not currently provide attestations. We pin to a specific vers
 [python-src]: https://www.python.org/ftp/python/
 [openssl-src]: https://github.com/openssl/openssl/releases
 [cacert-src]: https://curl.se/docs/caextract.html
+[sqlite-src]: https://www.sqlite.org/download.html
 [libffi-src]: https://github.com/libffi/libffi/releases
 [xz-src]: https://github.com/tukaani-project/xz/releases
 [bz2-src]: https://sourceware.org/pub/bzip2/

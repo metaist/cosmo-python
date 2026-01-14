@@ -120,6 +120,24 @@ run_test "import bz2" "import bz2; bz2.compress(b'test')"
 run_test "import lzma" "import lzma; lzma.compress(b'test')"
 
 #
+# SQLite (our deps)
+#
+echo ""
+echo "SQLite module..."
+
+run_test "import sqlite3" "import sqlite3; sqlite3.sqlite_version"
+run_test "sqlite3 operations" "
+import sqlite3
+conn = sqlite3.connect(':memory:')
+c = conn.cursor()
+c.execute('CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)')
+c.execute('INSERT INTO test (value) VALUES (?)', ('hello',))
+c.execute('SELECT value FROM test')
+assert c.fetchone()[0] == 'hello'
+conn.close()
+"
+
+#
 # SSL/crypto (our deps)
 #
 echo ""

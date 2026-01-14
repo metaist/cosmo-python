@@ -113,6 +113,9 @@ log_info "building bzip2..."
 log_info "building xz/liblzma..."
 "${SCRIPT_DIR}/01-deps/xz.sh"
 
+log_info "building sqlite..."
+"${SCRIPT_DIR}/01-deps/sqlite.sh"
+
 #
 # Phase 2: Compile Python
 #

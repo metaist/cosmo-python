@@ -43,6 +43,7 @@ REQUIRED_LIBS=(
   "${DEPS_DIR}/lib/libffi.a"
   "${DEPS_DIR}/lib/libbz2.a"
   "${DEPS_DIR}/lib/liblzma.a"
+  "${DEPS_DIR}/lib/libsqlite3.a"
 )
 
 for lib in "${REQUIRED_LIBS[@]}"; do
@@ -132,7 +133,9 @@ log_info "configuring..."
   OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
   OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto" \
   LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi"
+  LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi" \
+  LIBSQLITE3_CFLAGS="-I${DEPS_DIR}/include" \
+  LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3"
 
 # For cosmopolitan, we need all modules built statically into the binary
 # Patch Setup.stdlib to use *static* instead of *shared*
