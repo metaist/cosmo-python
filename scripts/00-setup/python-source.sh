@@ -11,14 +11,15 @@ fi
 
 PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
 
-# Get expected SHA256 from versions.json
-PYTHON_SHA256="$(get_python_sha256 "$PYTHON_MAJOR_MINOR")"
-EXPECTED_VERSION="$(get_python_version "$PYTHON_MAJOR_MINOR")"
+# Get expected SHA256 from versions.json (using full version)
+PYTHON_SHA256="$(get_python_sha256 "$PYTHON_VERSION")"
 
-# Verify requested version matches versions.json
-if [ "$PYTHON_VERSION" != "$EXPECTED_VERSION" ]; then
-  log_warn "requested ${PYTHON_VERSION} but versions.json has ${EXPECTED_VERSION}"
-  log_warn "checksum verification will use ${EXPECTED_VERSION}'s hash"
+# Verify version exists in versions.json
+if [ "$PYTHON_SHA256" = "null" ] || [ -z "$PYTHON_SHA256" ]; then
+  log_error "Python ${PYTHON_VERSION} not found in versions.json"
+  log_error "available versions:"
+  jq -r '.python.versions | keys[]' "${VERSIONS_FILE}" | sed 's/^/  /'
+  exit 1
 fi
 
 PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"

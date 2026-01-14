@@ -41,8 +41,8 @@ if [ "$1" = "--all" ]; then
     exit 1
   fi
   
-  # Extract versions from new structure: .python."3.12".version
-  mapfile -t VERSIONS < <(jq -r '.python | to_entries[] | select(.key | test("^[0-9]")) | .value.version' "$VERSIONS_FILE")
+  # Extract all Python versions from .python.versions
+  mapfile -t VERSIONS < <(jq -r '.python.versions | keys[]' "$VERSIONS_FILE")
   
   if [ ${#VERSIONS[@]} -eq 0 ]; then
     log_error "no versions found in versions.json"

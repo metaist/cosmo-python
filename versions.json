@@ -1,68 +1,98 @@
 {
   "python": {
-    "3.10": {
-      "version": "3.10.16",
-      "sha256": "f2e22ed965a93cfeb642378ed6e6cdbc127682664b24123679f3d013fafe9cd0",
-      "status": "security",
-      "eol": "2026-10"
+    "versions": {
+      "3.10.16": {
+        "sha256": "f2e22ed965a93cfeb642378ed6e6cdbc127682664b24123679f3d013fafe9cd0",
+        "status": "security",
+        "eol": "2026-10"
+      },
+      "3.11.11": {
+        "sha256": "883bddee3c92fcb91cf9c09c5343196953cbb9ced826213545849693970868ed",
+        "status": "security",
+        "eol": "2027-10"
+      },
+      "3.12.8": {
+        "sha256": "5978435c479a376648cb02854df3b892ace9ed7d32b1fead652712bee9d03a45",
+        "status": "security",
+        "eol": "2028-10"
+      },
+      "3.13.1": {
+        "sha256": "1513925a9f255ef0793dbf2f78bb4533c9f184bdd0ad19763fd7f47a400a7c55",
+        "status": "bugfix",
+        "eol": "2029-10"
+      }
     },
-    "3.11": {
-      "version": "3.11.11",
-      "sha256": "883bddee3c92fcb91cf9c09c5343196953cbb9ced826213545849693970868ed",
-      "status": "security",
-      "eol": "2027-10"
-    },
-    "3.12": {
-      "version": "3.12.8",
-      "sha256": "5978435c479a376648cb02854df3b892ace9ed7d32b1fead652712bee9d03a45",
-      "status": "security",
-      "eol": "2028-10"
-    },
-    "3.13": {
-      "version": "3.13.1",
-      "sha256": "1513925a9f255ef0793dbf2f78bb4533c9f184bdd0ad19763fd7f47a400a7c55",
-      "status": "bugfix",
-      "eol": "2029-10"
+    "latest": {
+      "3.10": "3.10.16",
+      "3.11": "3.11.11",
+      "3.12": "3.12.8",
+      "3.13": "3.13.1"
     },
     "default": "3.12",
     "url_template": "https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
   },
-  "deps": {
-    "cosmocc": {
-      "version": "4.0.2",
-      "sha256": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44",
-      "url_template": "https://github.com/jart/cosmopolitan/releases/download/{version}/cosmocc-{version}.zip"
+  "cosmocc": {
+    "versions": {
+      "4.0.2": {
+        "sha256": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44"
+      }
     },
-    "openssl": {
-      "version": "1.1.1u",
-      "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
-      "url_template": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_{version_underscores}.tar.gz",
-      "notes": "1.1.1 is EOL but matches superconfigure; 3.0.x upgrade tracked separately"
+    "default": "4.0.2",
+    "url_template": "https://github.com/jart/cosmopolitan/releases/download/{version}/cosmocc-{version}.zip"
+  },
+  "openssl": {
+    "versions": {
+      "1.1.1u": {
+        "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
+        "notes": "EOL but matches superconfigure; stable with Cosmopolitan"
+      }
     },
-    "libffi": {
-      "version": "3.4.2",
-      "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620",
-      "url_template": "https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz"
+    "default": "1.1.1u",
+    "url_template": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_{version_underscores}.tar.gz"
+  },
+  "libffi": {
+    "versions": {
+      "3.4.2": {
+        "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620"
+      }
     },
-    "xz": {
-      "version": "5.4.5",
-      "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6",
-      "url_template": "https://github.com/tukaani-project/xz/releases/download/v{version}/xz-{version}.tar.gz"
+    "default": "3.4.2",
+    "url_template": "https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz"
+  },
+  "xz": {
+    "versions": {
+      "5.4.5": {
+        "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6"
+      }
     },
-    "bz2": {
-      "version": "1.0.8",
-      "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
-      "url_template": "https://sourceware.org/pub/bzip2/bzip2-{version}.tar.gz"
+    "default": "5.4.5",
+    "url_template": "https://github.com/tukaani-project/xz/releases/download/v{version}/xz-{version}.tar.gz"
+  },
+  "bz2": {
+    "versions": {
+      "1.0.8": {
+        "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+      }
     },
-    "ncurses": {
-      "version": "6.4",
-      "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159",
-      "url_template": "https://ftp.gnu.org/gnu/ncurses/ncurses-{version}.tar.gz"
+    "default": "1.0.8",
+    "url_template": "https://sourceware.org/pub/bzip2/bzip2-{version}.tar.gz"
+  },
+  "ncurses": {
+    "versions": {
+      "6.4": {
+        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
+      }
     },
-    "readline": {
-      "version": "8.2",
-      "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35",
-      "url_template": "https://ftp.gnu.org/gnu/readline/readline-{version}.tar.gz"
-    }
+    "default": "6.4",
+    "url_template": "https://ftp.gnu.org/gnu/ncurses/ncurses-{version}.tar.gz"
+  },
+  "readline": {
+    "versions": {
+      "8.2": {
+        "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
+      }
+    },
+    "default": "8.2",
+    "url_template": "https://ftp.gnu.org/gnu/readline/readline-{version}.tar.gz"
   }
 }

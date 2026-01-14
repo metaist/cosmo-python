@@ -123,43 +123,61 @@ ensure_dirs() {
   mkdir -p "${WORK_DIR}" "${DEPS_DIR}/lib" "${DEPS_DIR}/lib/.aarch64" "${DEPS_DIR}/include"
 }
 
-# Read a value from versions.json
-# Usage: get_version deps cosmocc version  -> "4.0.2"
-# Usage: get_version deps cosmocc sha256   -> "85b8c37..."
-# Usage: get_version python 3.12 version   -> "3.12.8"
-get_version() {
-  local section="$1"
-  local key="$2"
+# Get the default version for a package
+# Usage: get_pkg_default python   -> "3.12"
+# Usage: get_pkg_default openssl  -> "1.1.1u"
+get_pkg_default() {
+  local pkg="$1"
+  jq -r ".${pkg}.default" "${VERSIONS_FILE}"
+}
+
+# Get a specific version's field for a package
+# Usage: get_pkg_version_field python 3.12.8 sha256  -> "5978435c..."
+# Usage: get_pkg_version_field openssl 1.1.1u sha256 -> "fafe2720..."
+get_pkg_version_field() {
+  local pkg="$1"
+  local version="$2"
   local field="$3"
-  jq -r ".${section}.\"${key}\".${field}" "${VERSIONS_FILE}"
+  jq -r ".${pkg}.versions.\"${version}\".${field}" "${VERSIONS_FILE}"
 }
 
-# Get Python version from minor version
-# Usage: get_python_version 3.12  -> "3.12.8"
-get_python_version() {
-  local minor="$1"
-  get_version python "$minor" version
+# Get the SHA256 for a specific version of a package
+# Usage: get_pkg_sha256 python 3.12.8   -> "5978435c..."
+# Usage: get_pkg_sha256 openssl 1.1.1u  -> "fafe2720..."
+get_pkg_sha256() {
+  local pkg="$1"
+  local version="$2"
+  get_pkg_version_field "$pkg" "$version" sha256
 }
 
-# Get Python SHA256 from minor version
-# Usage: get_python_sha256 3.12  -> "5978435c..."
-get_python_sha256() {
-  local minor="$1"
-  get_version python "$minor" sha256
-}
-
-# Get dependency version
+# Get the default version for a dependency (convenience wrapper)
 # Usage: get_dep_version openssl  -> "1.1.1u"
 get_dep_version() {
   local dep="$1"
-  get_version deps "$dep" version
+  get_pkg_default "$dep"
 }
 
-# Get dependency SHA256
+# Get SHA256 for default version of a dependency (convenience wrapper)
 # Usage: get_dep_sha256 openssl  -> "fafe2720..."
 get_dep_sha256() {
   local dep="$1"
-  get_version deps "$dep" sha256
+  local version
+  version=$(get_dep_version "$dep")
+  get_pkg_sha256 "$dep" "$version"
+}
+
+# Get Python latest version from minor
+# Usage: get_python_latest 3.12  -> "3.12.8"
+get_python_latest() {
+  local minor="$1"
+  jq -r ".python.latest.\"${minor}\"" "${VERSIONS_FILE}"
+}
+
+# Get Python SHA256 for a full version
+# Usage: get_python_sha256 3.12.8  -> "5978435c..."
+get_python_sha256() {
+  local version="$1"
+  get_pkg_sha256 python "$version"
 }
 
 # Verify SHA256 checksum of a file

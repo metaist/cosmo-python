@@ -86,8 +86,8 @@ fi
 echo ""
 echo "Checking versions.json parsing..."
 if [ -f "${REPO_ROOT}/versions.json" ]; then
-  # New structure: .python."3.12".version
-  versions=$(jq -r '.python | to_entries[] | select(.key | test("^[0-9]")) | .value.version' versions.json 2>/dev/null | tr '\n' ' ')
+  # Flattened structure: .python.versions has version keys
+  versions=$(jq -r '.python.versions | keys[]' versions.json 2>/dev/null | tr '\n' ' ')
   
   if [ -n "$versions" ]; then
     pass "parsed versions: $versions"
