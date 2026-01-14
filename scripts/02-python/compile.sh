@@ -10,10 +10,12 @@
 source "$(dirname "$0")/../common.sh"
 
 PYTHON_VERSION="${1:-}"
+FORCE_REBUILD="${2:-}"
 
 if [ -z "$PYTHON_VERSION" ]; then
-  log_error "usage: $0 <python_version>"
+  log_error "usage: $0 <python_version> [--force]"
   log_error "example: $0 3.12.8"
+  log_error "example: $0 3.12.8 --force  # incremental rebuild"
   exit 1
 fi
 
@@ -21,8 +23,8 @@ SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 # Note: cosmocc names the build dir with x86_64 suffix but builds both archs
 BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-x86_64"
 
-# Idempotency: skip if already built
-if [ -f "${BUILD_DIR}/python.com" ]; then
+# Idempotency: skip if already built (unless --force)
+if [ -f "${BUILD_DIR}/python.com" ] && [ "$FORCE_REBUILD" != "--force" ]; then
   log_skip "Python ${PYTHON_VERSION} already compiled at ${BUILD_DIR}/python.com"
   exit 0
 fi
@@ -112,9 +114,11 @@ _gdbm
 nis
 SETUP
 
-log_info "configuring..."
-# Set pkg-config vars to empty to prevent detection of system libs
-"${SRC_DIR}/configure" \
+# Skip configure if Makefile exists (for incremental rebuilds)
+if [ ! -f "${BUILD_DIR}/Makefile" ]; then
+  log_info "configuring..."
+  # Set pkg-config vars to empty to prevent detection of system libs
+  "${SRC_DIR}/configure" \
   --disable-shared \
   --disable-ipv6 \
   --disable-loadable-sqlite-extensions \
@@ -143,6 +147,9 @@ log_info "configuring..."
   LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi" \
   LIBSQLITE3_CFLAGS="-I${DEPS_DIR}/include" \
   LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3"
+else
+  log_info "skipping configure (Makefile exists)"
+fi
 
 # For cosmopolitan, we need all modules built statically into the binary
 # Patch Setup.stdlib to use *static* instead of *shared*
