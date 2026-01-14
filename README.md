@@ -164,14 +164,14 @@ All dependencies are SHA256 verified against known-good hashes in `versions.json
 
 | Component | Version | Source | Trust Model |
 |-----------|---------|--------|-------------|
+| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |
 | **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 verified |
 | **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 verified |
-| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |
 | **gdbm** | 1.23 | [GNU FTP][gdbm-src] | SHA256 verified |
 | **libffi** | 3.4.2 | [GitHub Releases][libffi-src] | SHA256 verified |
 | **ncurses** | 6.4 | [GNU FTP][ncurses-src] | SHA256 verified |
 | **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 verified |
-| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |
 | **readline** | 8.2 | [GNU FTP][readline-src] | SHA256 verified |
 | **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 verified |
 | **xz** | 5.4.5 | [GitHub Releases][xz-src] | SHA256 verified |

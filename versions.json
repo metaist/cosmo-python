@@ -40,34 +40,6 @@
     "default": "4.0.2",
     "url_template": "https://github.com/jart/cosmopolitan/releases/download/{version}/cosmocc-{version}.zip"
   },
-  "openssl": {
-    "versions": {
-      "1.1.1u": {
-        "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
-        "notes": "EOL but matches superconfigure; stable with Cosmopolitan"
-      }
-    },
-    "default": "1.1.1u",
-    "url_template": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_{version_underscores}.tar.gz"
-  },
-  "libffi": {
-    "versions": {
-      "3.4.2": {
-        "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620"
-      }
-    },
-    "default": "3.4.2",
-    "url_template": "https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz"
-  },
-  "xz": {
-    "versions": {
-      "5.4.5": {
-        "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6"
-      }
-    },
-    "default": "5.4.5",
-    "url_template": "https://github.com/tukaani-project/xz/releases/download/v{version}/xz-{version}.tar.gz"
-  },
   "bz2": {
     "versions": {
       "1.0.8": {
@@ -76,24 +48,6 @@
     },
     "default": "1.0.8",
     "url_template": "https://sourceware.org/pub/bzip2/bzip2-{version}.tar.gz"
-  },
-  "ncurses": {
-    "versions": {
-      "6.4": {
-        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
-      }
-    },
-    "default": "6.4",
-    "url_template": "https://ftp.gnu.org/gnu/ncurses/ncurses-{version}.tar.gz"
-  },
-  "readline": {
-    "versions": {
-      "8.2": {
-        "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
-      }
-    },
-    "default": "8.2",
-    "url_template": "https://ftp.gnu.org/gnu/readline/readline-{version}.tar.gz"
   },
   "cacert": {
     "versions": {
@@ -105,6 +59,52 @@
     "default": "2025-12-02",
     "url_template": "https://curl.se/ca/cacert-{version}.pem"
   },
+  "gdbm": {
+    "versions": {
+      "1.23": {
+        "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd"
+      }
+    },
+    "default": "1.23",
+    "url_template": "https://ftp.gnu.org/gnu/gdbm/gdbm-{version}.tar.gz"
+  },
+  "libffi": {
+    "versions": {
+      "3.4.2": {
+        "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620"
+      }
+    },
+    "default": "3.4.2",
+    "url_template": "https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz"
+  },
+  "ncurses": {
+    "versions": {
+      "6.4": {
+        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
+      }
+    },
+    "default": "6.4",
+    "url_template": "https://ftp.gnu.org/gnu/ncurses/ncurses-{version}.tar.gz"
+  },
+  "openssl": {
+    "versions": {
+      "1.1.1u": {
+        "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
+        "notes": "EOL but matches superconfigure; stable with Cosmopolitan"
+      }
+    },
+    "default": "1.1.1u",
+    "url_template": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_{version_underscores}.tar.gz"
+  },
+  "readline": {
+    "versions": {
+      "8.2": {
+        "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
+      }
+    },
+    "default": "8.2",
+    "url_template": "https://ftp.gnu.org/gnu/readline/readline-{version}.tar.gz"
+  },
   "sqlite": {
     "versions": {
       "3.51.2": {
@@ -115,13 +115,13 @@
     "default": "3.51.2",
     "url_template": "https://www.sqlite.org/2026/sqlite-autoconf-{autoconf_version}.tar.gz"
   },
-  "gdbm": {
+  "xz": {
     "versions": {
-      "1.23": {
-        "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd"
+      "5.4.5": {
+        "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6"
       }
     },
-    "default": "1.23",
-    "url_template": "https://ftp.gnu.org/gnu/gdbm/gdbm-{version}.tar.gz"
+    "default": "5.4.5",
+    "url_template": "https://github.com/tukaani-project/xz/releases/download/v{version}/xz-{version}.tar.gz"
   }
 }
