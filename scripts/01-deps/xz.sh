@@ -6,7 +6,9 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-XZ_VERSION="${XZ_VERSION:-5.4.5}"
+# Get version and checksum from versions.json
+XZ_VERSION="${XZ_VERSION:-$(get_dep_version xz)}"
+XZ_SHA256="$(get_dep_sha256 xz)"
 XZ_URL="https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.gz"
 XZ_DIR="${WORK_DIR}/xz-${XZ_VERSION}"
 
@@ -30,11 +32,11 @@ fi
 
 # Download if needed
 if [ ! -d "${XZ_DIR}" ]; then
-  log_info "downloading xz ${XZ_VERSION}..."
   cd "${WORK_DIR}"
-  timed curl -fsSL "${XZ_URL}" -o "xz-${XZ_VERSION}.tar.gz"
-  tar xzf "xz-${XZ_VERSION}.tar.gz"
-  rm "xz-${XZ_VERSION}.tar.gz"
+  TARBALL="xz-${XZ_VERSION}.tar.gz"
+  download_and_verify "${XZ_URL}" "${TARBALL}" "${XZ_SHA256}" "xz ${XZ_VERSION}"
+  tar xzf "${TARBALL}"
+  rm "${TARBALL}"
 fi
 
 cd "${XZ_DIR}"

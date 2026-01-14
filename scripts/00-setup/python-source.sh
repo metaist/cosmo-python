@@ -9,8 +9,19 @@ if [ -z "$PYTHON_VERSION" ]; then
   exit 1
 fi
 
-PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
+
+# Get expected SHA256 from versions.json
+PYTHON_SHA256="$(get_python_sha256 "$PYTHON_MAJOR_MINOR")"
+EXPECTED_VERSION="$(get_python_version "$PYTHON_MAJOR_MINOR")"
+
+# Verify requested version matches versions.json
+if [ "$PYTHON_VERSION" != "$EXPECTED_VERSION" ]; then
+  log_warn "requested ${PYTHON_VERSION} but versions.json has ${EXPECTED_VERSION}"
+  log_warn "checksum verification will use ${EXPECTED_VERSION}'s hash"
+fi
+
+PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 
 # Check if already downloaded and extracted
@@ -24,16 +35,17 @@ log_build "downloading Python ${PYTHON_VERSION} source"
 mkdir -p "${WORK_DIR}"
 cd "${WORK_DIR}"
 
-log_info "fetching ${PYTHON_URL}..."
-timed wget -q "${PYTHON_URL}" -O "Python-${PYTHON_VERSION}.tgz"
+TARBALL="Python-${PYTHON_VERSION}.tgz"
+
+# Download and verify checksum
+download_and_verify "${PYTHON_URL}" "${TARBALL}" "${PYTHON_SHA256}" "Python ${PYTHON_VERSION}"
 
 log_info "extracting..."
-tar xzf "Python-${PYTHON_VERSION}.tgz"
-rm "Python-${PYTHON_VERSION}.tgz"
+tar xzf "${TARBALL}"
+rm "${TARBALL}"
 
 # Apply version-specific patches if they exist
-SCRIPT_DIR="$(dirname "$0")"
-PATCHES_DIR="${SCRIPT_DIR}/../../patches/${PYTHON_MAJOR_MINOR}"
+PATCHES_DIR="${REPO_ROOT}/patches/${PYTHON_MAJOR_MINOR}"
 
 if [ -d "${PATCHES_DIR}" ]; then
   log_info "applying patches from ${PATCHES_DIR}..."

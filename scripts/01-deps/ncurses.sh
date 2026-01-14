@@ -9,7 +9,9 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-NCURSES_VERSION="${NCURSES_VERSION:-6.4}"
+# Get version and checksum from versions.json
+NCURSES_VERSION="${NCURSES_VERSION:-$(get_dep_version ncurses)}"
+NCURSES_SHA256="$(get_dep_sha256 ncurses)"
 NCURSES_URL="https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
 NCURSES_DIR="${WORK_DIR}/ncurses-${NCURSES_VERSION}"
 
@@ -34,11 +36,11 @@ fi
 
 # Download if needed
 if [ ! -d "${NCURSES_DIR}" ]; then
-  log_info "downloading ncurses ${NCURSES_VERSION}..."
   cd "${WORK_DIR}"
-  timed curl -fsSL "${NCURSES_URL}" -o "ncurses-${NCURSES_VERSION}.tar.gz"
-  tar xzf "ncurses-${NCURSES_VERSION}.tar.gz"
-  rm "ncurses-${NCURSES_VERSION}.tar.gz"
+  TARBALL="ncurses-${NCURSES_VERSION}.tar.gz"
+  download_and_verify "${NCURSES_URL}" "${TARBALL}" "${NCURSES_SHA256}" "ncurses ${NCURSES_VERSION}"
+  tar xzf "${TARBALL}"
+  rm "${TARBALL}"
 fi
 
 cd "${NCURSES_DIR}"

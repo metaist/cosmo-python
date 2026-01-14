@@ -86,15 +86,8 @@ fi
 echo ""
 echo "Checking versions.json parsing..."
 if [ -f "${REPO_ROOT}/versions.json" ]; then
-  versions=$(bash -c '
-    VERSIONS=()
-    while IFS= read -r line; do
-      if [[ "$line" =~ \"latest\":\ *\"([0-9]+\.[0-9]+\.[0-9]+)\" ]]; then
-        VERSIONS+=("${BASH_REMATCH[1]}")
-      fi
-    done < "versions.json"
-    echo "${VERSIONS[*]}"
-  ')
+  # New structure: .python."3.12".version
+  versions=$(jq -r '.python | to_entries[] | select(.key | test("^[0-9]")) | .value.version' versions.json 2>/dev/null | tr '\n' ' ')
   
   if [ -n "$versions" ]; then
     pass "parsed versions: $versions"

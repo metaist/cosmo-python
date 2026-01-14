@@ -18,7 +18,9 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-LIBFFI_VERSION="${LIBFFI_VERSION:-3.4.2}"
+# Get version and checksum from versions.json
+LIBFFI_VERSION="${LIBFFI_VERSION:-$(get_dep_version libffi)}"
+LIBFFI_SHA256="$(get_dep_sha256 libffi)"
 LIBFFI_URL="https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz"
 LIBFFI_SRC="${WORK_DIR}/libffi-${LIBFFI_VERSION}"
 
@@ -38,11 +40,11 @@ fi
 
 # Download if needed
 if [ ! -d "${LIBFFI_SRC}" ]; then
-  log_info "downloading libffi ${LIBFFI_VERSION}..."
   cd "${WORK_DIR}"
-  timed curl -fsSL "${LIBFFI_URL}" -o "libffi-${LIBFFI_VERSION}.tar.gz"
-  tar xzf "libffi-${LIBFFI_VERSION}.tar.gz"
-  rm "libffi-${LIBFFI_VERSION}.tar.gz"
+  TARBALL="libffi-${LIBFFI_VERSION}.tar.gz"
+  download_and_verify "${LIBFFI_URL}" "${TARBALL}" "${LIBFFI_SHA256}" "libffi ${LIBFFI_VERSION}"
+  tar xzf "${TARBALL}"
+  rm "${TARBALL}"
 fi
 
 # Common configure flags for both architectures

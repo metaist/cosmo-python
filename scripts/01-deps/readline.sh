@@ -9,7 +9,9 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-READLINE_VERSION="${READLINE_VERSION:-8.2}"
+# Get version and checksum from versions.json
+READLINE_VERSION="${READLINE_VERSION:-$(get_dep_version readline)}"
+READLINE_SHA256="$(get_dep_sha256 readline)"
 READLINE_URL="https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
 READLINE_DIR="${WORK_DIR}/readline-${READLINE_VERSION}"
 
@@ -40,11 +42,11 @@ fi
 
 # Download if needed
 if [ ! -d "${READLINE_DIR}" ]; then
-  log_info "downloading readline ${READLINE_VERSION}..."
   cd "${WORK_DIR}"
-  timed curl -fsSL "${READLINE_URL}" -o "readline-${READLINE_VERSION}.tar.gz"
-  tar xzf "readline-${READLINE_VERSION}.tar.gz"
-  rm "readline-${READLINE_VERSION}.tar.gz"
+  TARBALL="readline-${READLINE_VERSION}.tar.gz"
+  download_and_verify "${READLINE_URL}" "${TARBALL}" "${READLINE_SHA256}" "readline ${READLINE_VERSION}"
+  tar xzf "${TARBALL}"
+  rm "${TARBALL}"
 fi
 
 cd "${READLINE_DIR}"

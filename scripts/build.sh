@@ -35,18 +35,14 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ "$1" = "--all" ]; then
-  # Read versions from versions.json
-  VERSIONS_JSON="${SCRIPT_DIR}/../versions.json"
-  if [ ! -f "$VERSIONS_JSON" ]; then
-    log_error "versions.json not found"
+  # Read versions from versions.json using jq
+  if [ ! -f "$VERSIONS_FILE" ]; then
+    log_error "versions.json not found at $VERSIONS_FILE"
     exit 1
   fi
-  # Extract latest versions using basic tools (no jq required)
-  while IFS= read -r line; do
-    if [[ "$line" =~ \"latest\":\ *\"([0-9]+\.[0-9]+\.[0-9]+)\" ]]; then
-      VERSIONS+=("${BASH_REMATCH[1]}")
-    fi
-  done < "$VERSIONS_JSON"
+  
+  # Extract versions from new structure: .python."3.12".version
+  mapfile -t VERSIONS < <(jq -r '.python | to_entries[] | select(.key | test("^[0-9]")) | .value.version' "$VERSIONS_FILE")
   
   if [ ${#VERSIONS[@]} -eq 0 ]; then
     log_error "no versions found in versions.json"

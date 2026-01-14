@@ -6,7 +6,9 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-BZ2_VERSION="${BZ2_VERSION:-1.0.8}"
+# Get version and checksum from versions.json
+BZ2_VERSION="${BZ2_VERSION:-$(get_dep_version bz2)}"
+BZ2_SHA256="$(get_dep_sha256 bz2)"
 BZ2_URL="https://sourceware.org/pub/bzip2/bzip2-${BZ2_VERSION}.tar.gz"
 BZ2_DIR="${WORK_DIR}/bzip2-${BZ2_VERSION}"
 
@@ -30,11 +32,11 @@ fi
 
 # Download if needed
 if [ ! -d "${BZ2_DIR}" ]; then
-  log_info "downloading bzip2 ${BZ2_VERSION}..."
   cd "${WORK_DIR}"
-  timed curl -fsSL "${BZ2_URL}" -o "bzip2-${BZ2_VERSION}.tar.gz"
-  tar xzf "bzip2-${BZ2_VERSION}.tar.gz"
-  rm "bzip2-${BZ2_VERSION}.tar.gz"
+  TARBALL="bzip2-${BZ2_VERSION}.tar.gz"
+  download_and_verify "${BZ2_URL}" "${TARBALL}" "${BZ2_SHA256}" "bzip2 ${BZ2_VERSION}"
+  tar xzf "${TARBALL}"
+  rm "${TARBALL}"
 fi
 
 cd "${BZ2_DIR}"

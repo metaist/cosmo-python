@@ -14,14 +14,13 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-OPENSSL_VERSION="${OPENSSL_VERSION:-1.1.1u}"
+# Get version and checksum from versions.json
+OPENSSL_VERSION="${OPENSSL_VERSION:-$(get_dep_version openssl)}"
+OPENSSL_SHA256="$(get_dep_sha256 openssl)"
 # OpenSSL uses underscore format for tags: OpenSSL_1_1_1u
 OPENSSL_TAG="OpenSSL_${OPENSSL_VERSION//./_}"
 OPENSSL_URL="https://github.com/openssl/openssl/archive/refs/tags/${OPENSSL_TAG}.tar.gz"
 OPENSSL_DIR="${WORK_DIR}/openssl-${OPENSSL_TAG}"
-
-# Known good checksum for 1.1.1u
-OPENSSL_SHA256="fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7"
 
 ensure_dirs
 
@@ -45,23 +44,9 @@ fi
 
 # Download if needed
 if [ ! -d "${OPENSSL_DIR}" ]; then
-  log_info "downloading openssl ${OPENSSL_VERSION}..."
   cd "${WORK_DIR}"
-
   TARBALL="openssl-${OPENSSL_TAG}.tar.gz"
-  timed curl -fsSL "${OPENSSL_URL}" -o "${TARBALL}"
-
-  # Verify checksum
-  log_info "verifying checksum..."
-  ACTUAL_SHA256=$(sha256sum "${TARBALL}" | cut -d' ' -f1)
-  if [ "${ACTUAL_SHA256}" != "${OPENSSL_SHA256}" ]; then
-    log_error "checksum mismatch!"
-    log_error "  expected: ${OPENSSL_SHA256}"
-    log_error "  got:      ${ACTUAL_SHA256}"
-    rm -f "${TARBALL}"
-    exit 1
-  fi
-
+  download_and_verify "${OPENSSL_URL}" "${TARBALL}" "${OPENSSL_SHA256}" "openssl ${OPENSSL_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

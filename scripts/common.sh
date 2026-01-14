@@ -111,12 +111,87 @@ timed() {
 }
 
 # Common directories (can be overridden by environment)
-WORK_DIR="${WORK_DIR:-$(pwd)/work}"
-DIST_DIR="${DIST_DIR:-$(pwd)/dist}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+WORK_DIR="${WORK_DIR:-${REPO_ROOT}/work}"
+DIST_DIR="${DIST_DIR:-${REPO_ROOT}/dist}"
 COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
 DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
+VERSIONS_FILE="${VERSIONS_FILE:-${REPO_ROOT}/versions.json}"
 
 # Ensure work directories exist
 ensure_dirs() {
   mkdir -p "${WORK_DIR}" "${DEPS_DIR}/lib" "${DEPS_DIR}/lib/.aarch64" "${DEPS_DIR}/include"
+}
+
+# Read a value from versions.json
+# Usage: get_version deps cosmocc version  -> "4.0.2"
+# Usage: get_version deps cosmocc sha256   -> "85b8c37..."
+# Usage: get_version python 3.12 version   -> "3.12.8"
+get_version() {
+  local section="$1"
+  local key="$2"
+  local field="$3"
+  jq -r ".${section}.\"${key}\".${field}" "${VERSIONS_FILE}"
+}
+
+# Get Python version from minor version
+# Usage: get_python_version 3.12  -> "3.12.8"
+get_python_version() {
+  local minor="$1"
+  get_version python "$minor" version
+}
+
+# Get Python SHA256 from minor version
+# Usage: get_python_sha256 3.12  -> "5978435c..."
+get_python_sha256() {
+  local minor="$1"
+  get_version python "$minor" sha256
+}
+
+# Get dependency version
+# Usage: get_dep_version openssl  -> "1.1.1u"
+get_dep_version() {
+  local dep="$1"
+  get_version deps "$dep" version
+}
+
+# Get dependency SHA256
+# Usage: get_dep_sha256 openssl  -> "fafe2720..."
+get_dep_sha256() {
+  local dep="$1"
+  get_version deps "$dep" sha256
+}
+
+# Verify SHA256 checksum of a file
+# Usage: verify_checksum "/path/to/file" "expected_sha256" "description"
+# Returns 0 if match, exits with error if mismatch
+verify_checksum() {
+  local file="$1"
+  local expected="$2"
+  local desc="${3:-$file}"
+
+  local actual
+  actual=$(sha256sum "$file" | cut -d' ' -f1)
+
+  if [ "$actual" != "$expected" ]; then
+    log_error "checksum mismatch for $desc"
+    log_error "  expected: $expected"
+    log_error "  got:      $actual"
+    rm -f "$file"
+    exit 1
+  fi
+  log_info "checksum verified for $desc"
+}
+
+# Download a file and verify its checksum
+# Usage: download_and_verify "url" "output_file" "expected_sha256" "description"
+download_and_verify() {
+  local url="$1"
+  local output="$2"
+  local expected_sha256="$3"
+  local desc="${4:-$output}"
+
+  log_info "downloading $desc..."
+  timed curl -fsSL "$url" -o "$output"
+  verify_checksum "$output" "$expected_sha256" "$desc"
 }
