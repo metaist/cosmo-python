@@ -1,0 +1,82 @@
+# Check for Dependency Updates
+#
+# Runs weekly to check for newer versions of all dependencies.
+# If updates are found, creates/updates a PR with the changes.
+# The PR triggers CI to validate the build works with new versions.
+#
+name: Check Updates
+
+on:
+  schedule:
+    # Run every Monday at 9:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Check for updates
+        id: check
+        run: |
+          ./scripts/check-updates.sh 2>&1 | tee /tmp/update-output.txt
+          
+          # Check if versions.json changed
+          if git diff --quiet versions.json README.md; then
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+            echo "No updates found"
+          else
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            echo "Updates found!"
+            
+            # Capture diff for PR body
+            {
+              echo 'diff_stat<<EOF'
+              git diff --stat
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update/dependencies
+          delete-branch: false  # Keep branch for updates
+          title: "update: dependency versions"
+          body: |
+            Automated dependency update check found newer versions available.
+
+            ## Changes
+
+            ```
+            ${{ steps.check.outputs.diff_stat }}
+            ```
+
+            ## Next Steps
+
+            1. Review the changes to `versions.json` and `README.md`
+            2. CI will build all Python versions to verify compatibility
+            3. If CI passes, merge to accept updates
+            4. If CI fails, investigate which dependency caused the failure
+
+            ---
+            *This PR was automatically created by the check-updates workflow.*
+          commit-message: "update: dependency versions"
+          labels: |
+            aigen
+            dependencies

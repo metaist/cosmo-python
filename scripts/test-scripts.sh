@@ -38,6 +38,7 @@ echo "Checking syntax..."
 for f in \
   scripts/common.sh \
   scripts/build.sh \
+  scripts/check-updates.sh \
   scripts/00-setup/*.sh \
   scripts/01-deps/*.sh \
   scripts/02-python/*.sh \
