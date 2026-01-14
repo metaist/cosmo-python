@@ -163,3 +163,18 @@ echo ""
 if [ $FAIL -gt 0 ]; then
   exit 1
 fi
+
+#
+# Check test scripts
+#
+echo ""
+echo "Checking test scripts..."
+for script in scripts/04-test/*.sh; do
+  if [ -f "$script" ]; then
+    if [ -x "$script" ]; then
+      pass "$script (executable)"
+    else
+      fail "$script (not executable)"
+    fi
+  fi
+done

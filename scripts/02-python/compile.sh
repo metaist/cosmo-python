@@ -16,7 +16,7 @@ if [ -z "$PYTHON_VERSION" ]; then
 fi
 
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
-BUILD_DIR="${WORK_DIR}/build-${ARCH}"
+BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-${ARCH}"
 
 # Idempotency: skip if already built
 if [ -f "${BUILD_DIR}/python.com" ]; then
