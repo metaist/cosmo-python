@@ -66,11 +66,12 @@ make distclean 2>/dev/null || true
 #
 log_info "configuring..."
 
-# ncurses 6.6 configure has stricter compiler checks
-# Pre-set these to avoid "C compiler cannot create executables" errors
-export cf_cv_posix_c_source=no
-export ac_cv_prog_cc_cross=yes
-
+# ncurses configure tries to run compiled binaries to test the compiler.
+# Since cosmocc produces APE binaries that need binfmt_misc registration,
+# we must tell configure this is a cross-compile to skip execution tests.
+# Use cross_compiling=yes to force cross-compile mode while keeping
+# --host=x86_64-linux for compatibility with older ncurses versions.
+cross_compiling=yes \
 ./configure \
   --host=x86_64-linux \
   --without-libtool \
