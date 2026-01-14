@@ -93,31 +93,31 @@ echo "========================================"
 echo "  Phase 1: Dependencies"
 echo "========================================"
 
-# Order matters! ncurses must be built before readline
+# Order matters: ncurses must be built before readline
 log_info "building ncurses..."
 "${SCRIPT_DIR}/01-deps/ncurses.sh"
 
 log_info "building readline..."
 "${SCRIPT_DIR}/01-deps/readline.sh"
 
-# These can be built in any order
-log_info "building openssl..."
-"${SCRIPT_DIR}/01-deps/openssl.sh"
+# Remaining deps in alphabetical order
+log_info "building bzip2..."
+"${SCRIPT_DIR}/01-deps/bz2.sh"
+
+log_info "building gdbm..."
+"${SCRIPT_DIR}/01-deps/gdbm.sh"
 
 log_info "building libffi..."
 "${SCRIPT_DIR}/01-deps/libffi.sh"
 
-log_info "building bzip2..."
-"${SCRIPT_DIR}/01-deps/bz2.sh"
-
-log_info "building xz/liblzma..."
-"${SCRIPT_DIR}/01-deps/xz.sh"
+log_info "building openssl..."
+"${SCRIPT_DIR}/01-deps/openssl.sh"
 
 log_info "building sqlite..."
 "${SCRIPT_DIR}/01-deps/sqlite.sh"
 
-log_info "building gdbm..."
-"${SCRIPT_DIR}/01-deps/gdbm.sh"
+log_info "building xz/liblzma..."
+"${SCRIPT_DIR}/01-deps/xz.sh"
 
 #
 # Phase 2: Compile Python
