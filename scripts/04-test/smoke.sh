@@ -129,6 +129,13 @@ run_test "import ssl" "import ssl; ssl.OPENSSL_VERSION"
 run_test "import hashlib" "import hashlib; hashlib.sha256(b'test').hexdigest()"
 run_test "import hmac" "import hmac; hmac.new(b'key', b'msg', 'sha256').hexdigest()"
 
+# HTTPS connection test - critical for detecting OpenSSL 3.x runtime issues
+# See: https://github.com/ahgamut/superconfigure/issues/52
+run_test "https connection" "
+import urllib.request
+urllib.request.urlopen('https://www.python.org/', timeout=10)
+" 15
+
 #
 # ctypes/libffi (our deps)
 #
