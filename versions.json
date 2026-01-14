@@ -94,5 +94,15 @@
     },
     "default": "8.2",
     "url_template": "https://ftp.gnu.org/gnu/readline/readline-{version}.tar.gz"
+  },
+  "cacert": {
+    "versions": {
+      "2025-12-02": {
+        "sha256": "f1407d974c5ed87d544bd931a278232e13925177e239fca370619aba63c757b4",
+        "notes": "Mozilla CA certificate bundle from curl.se"
+      }
+    },
+    "default": "2025-12-02",
+    "url_template": "https://curl.se/ca/cacert-{version}.pem"
   }
 }

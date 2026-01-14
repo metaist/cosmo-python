@@ -130,14 +130,25 @@ fi
 # Download Mozilla CA certificate bundle for SSL verification
 # This will be bundled into the final Python binary at /zip/share/ssl/certs/
 # We store locally at ${DEPS_DIR}/share/ssl/ to match the /zip/ structure
-CA_BUNDLE_URL="https://curl.se/ca/cacert.pem"
+CACERT_VERSION="${CACERT_VERSION:-$(get_dep_version cacert)}"
+CACERT_SHA256="$(get_dep_sha256 cacert)"
+CA_BUNDLE_URL="https://curl.se/ca/cacert-${CACERT_VERSION}.pem"
 CA_BUNDLE_DIR="${DEPS_DIR}/share/ssl/certs"
 CA_BUNDLE_FILE="${DEPS_DIR}/share/ssl/cert.pem"
 
 if [ ! -f "${CA_BUNDLE_FILE}" ]; then
-  log_info "downloading Mozilla CA certificate bundle..."
+  log_info "downloading Mozilla CA certificate bundle ${CACERT_VERSION}..."
   mkdir -p "${CA_BUNDLE_DIR}"
-  curl -fsSL "${CA_BUNDLE_URL}" -o "${CA_BUNDLE_FILE}"
+  
+  # Download and verify
+  curl -fsSL "${CA_BUNDLE_URL}" -o "${CA_BUNDLE_FILE}.tmp"
+  echo "${CACERT_SHA256}  ${CA_BUNDLE_FILE}.tmp" | sha256sum -c - > /dev/null 2>&1 || {
+    log_error "CA bundle checksum verification failed!"
+    rm -f "${CA_BUNDLE_FILE}.tmp"
+    exit 1
+  }
+  mv "${CA_BUNDLE_FILE}.tmp" "${CA_BUNDLE_FILE}"
+  log_info "CA bundle checksum verified"
   
   # Also create individual cert files for compatibility
   # Some tools expect a directory of individual certs
