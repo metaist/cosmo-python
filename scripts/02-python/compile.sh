@@ -170,12 +170,18 @@ sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 #   - Only downside: potential race under heavy multi-threaded uuid1()
 #   - superconfigure also skips libuuid
 #
-# _dbm/_gdbm: Require ndbm/gdbm database libraries (not commonly needed)
+# _dbm/_gdbm: Require ndbm/gdbm database libraries.
+#   Python's dbm.dumb (pure Python) works as fallback:
+#   - shelve module works (main use case for dbm)
+#   - O(n) vs O(1) lookup, but sufficient for most uses
+#   - For serious database needs, use sqlite3 (which we support)
+#   superconfigure builds gdbm; we skip for simplicity.
+#   See: https://github.com/metaist/cosmo-python/issues/20
 #
-# _curses/_curses_panel: Our ncurses build is missing symbols that Python
-#   needs. Cosmopolitan has ncurses in third_party/ncurses but it's a
-#   subset. Would need to match their build approach.
-#   See: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
+# _curses/_curses_panel: Link order issue with ncurses symbols.
+#   We build ncurses and symbols exist, but link fails.
+#   superconfigure has working curses - fixable with build tweaks.
+#   See: https://github.com/metaist/cosmo-python/issues/19
 #
 DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
 for mod in $DISABLE_MODULES; do
