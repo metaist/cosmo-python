@@ -1,143 +1,169 @@
 #!/bin/bash
-# Build Python with cosmocc
+# Build Cosmopolitan Python
+#
+# This is the main orchestrator that runs all build phases in order.
+# Each phase is idempotent - it will skip if outputs already exist.
+#
+# Usage:
+#   ./scripts/build.sh <python_version>           # Build single version
+#   ./scripts/build.sh <version1> <version2> ...  # Build multiple versions
+#   ./scripts/build.sh --all                      # Build all versions from versions.json
+#
+# Examples:
+#   ./scripts/build.sh 3.12.8
+#   ./scripts/build.sh 3.11.11 3.12.8 3.13.1
+#   ./scripts/build.sh --all
+#
+# Build phases:
+#   00-setup     Download toolchain and Python source
+#   01-deps      Build dependencies (ncurses, readline, openssl, etc.)
+#   02-python    Compile Python
+#   03-package   Create distributable archive
+#
 set -euo pipefail
 
-PYTHON_VERSION="${1:-3.12.8}"
-ARCH="${2:-x86_64}"
-WORK_DIR="${WORK_DIR:-$(pwd)/work}"
-COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
-DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
-
-SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
-BUILD_DIR="${WORK_DIR}/build-${ARCH}"
-
-if [ ! -d "${SRC_DIR}" ]; then
-  echo "Error: Python source not found at ${SRC_DIR}"
-  echo "Run download-python.sh first"
-  exit 1
-fi
-
-echo "Building Python ${PYTHON_VERSION} for ${ARCH}..."
-
-# Apply Cosmopolitan-specific patches
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PATCHES_DIR="${SCRIPT_DIR}/../patches"
+source "${SCRIPT_DIR}/common.sh"
 
-if [ -d "${PATCHES_DIR}" ]; then
-  for patch in "${PATCHES_DIR}"/*.patch; do
-    if [ -f "$patch" ]; then
-      patch_name=$(basename "$patch")
-      if ! grep -q "COSMO_PATCH_APPLIED_${patch_name}" "${SRC_DIR}/.cosmo_patches" 2>/dev/null; then
-        echo "Applying patch: ${patch_name}"
-        cd "${SRC_DIR}"
-        patch -p1 < "$patch" || echo "Warning: patch may have already been applied"
-        echo "COSMO_PATCH_APPLIED_${patch_name}" >> "${SRC_DIR}/.cosmo_patches"
-        cd -
-      fi
-    fi
-  done
-fi
+# Parse arguments
+VERSIONS=()
 
-# Setup compiler with cosmocc include paths only
-# DO NOT mix system headers - they conflict with cosmopolitan
-export CC="${COSMO_DIR}/bin/cosmocc"
-export CXX="${COSMO_DIR}/bin/cosmoc++"
-export AR="${COSMO_DIR}/bin/cosmoar"
-export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include"
-export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
-# Add library dependencies that modules need (for all Python versions)
-export LIBS="-lreadline -ltinfo -lffi"
-
-# Verify cosmocc exists
-if [ ! -x "${CC}" ]; then
-  echo "Error: cosmocc not found at ${CC}"
-  echo "Run setup-cosmocc.sh first"
+if [ $# -eq 0 ]; then
+  log_error "usage: $0 <python_version> [version2 ...]"
+  log_error "       $0 --all"
   exit 1
 fi
 
-# Build out-of-tree
-mkdir -p "${BUILD_DIR}"
-cd "${BUILD_DIR}"
+if [ "$1" = "--all" ]; then
+  # Read versions from versions.json
+  VERSIONS_JSON="${SCRIPT_DIR}/../versions.json"
+  if [ ! -f "$VERSIONS_JSON" ]; then
+    log_error "versions.json not found"
+    exit 1
+  fi
+  # Extract latest versions using basic tools (no jq required)
+  while IFS= read -r line; do
+    if [[ "$line" =~ \"latest\":\ *\"([0-9]+\.[0-9]+\.[0-9]+)\" ]]; then
+      VERSIONS+=("${BASH_REMATCH[1]}")
+    fi
+  done < "$VERSIONS_JSON"
+  
+  if [ ${#VERSIONS[@]} -eq 0 ]; then
+    log_error "no versions found in versions.json"
+    exit 1
+  fi
+  log_info "building all versions: ${VERSIONS[*]}"
+else
+  VERSIONS=("$@")
+fi
 
-# Disable modules that need headers cosmocc doesn't have
-cat > "${SRC_DIR}/Modules/Setup.local" << 'SETUP'
-*disabled*
-_tkinter
-_dbm
-_gdbm
-nis
-_curses
-_curses_panel
-SETUP
+# Track timing
+BUILD_START=$(date +%s)
 
-echo "Configuring..."
-# Set pkg-config vars to empty to prevent detection of system libs
-"${SRC_DIR}/configure" \
-  --disable-shared \
-  --disable-ipv6 \
-  --disable-loadable-sqlite-extensions \
-  --disable-test-modules \
-  --without-ensurepip \
-  --without-system-expat \
-  --with-lto=no \
-  --prefix=/zip \
-  ZLIB_CFLAGS="-I${COSMO_DIR}/include/third_party/zlib" \
-  ZLIB_LIBS=" " \
-  BZIP2_CFLAGS="-I${DEPS_DIR}/include" \
-  BZIP2_LIBS="-L${DEPS_DIR}/lib -lbz2" \
-  LIBLZMA_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBLZMA_LIBS="-L${DEPS_DIR}/lib -llzma" \
-  LIBREADLINE_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBREADLINE_LIBS="-L${DEPS_DIR}/lib -lreadline -ltinfo" \
-  CURSES_CFLAGS=" " \
-  CURSES_LIBS=" " \
-  PANEL_CFLAGS=" " \
-  PANEL_LIBS=" " \
-  GDBM_CFLAGS=" " \
-  GDBM_LIBS=" " \
-  OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
-  OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto" \
-  LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi"
+echo ""
+echo "========================================"
+echo "  Cosmopolitan Python Build"
+echo "========================================"
+echo ""
+echo "  Versions: ${VERSIONS[*]}"
+echo "  Work dir: ${WORK_DIR}"
+echo "  Dist dir: ${DIST_DIR}"
+echo ""
 
-# For cosmopolitan, we need all modules built statically into the binary
-# Patch Setup.stdlib to use *static* instead of *shared*
-echo "Patching Setup.stdlib for static module building..."
-sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
+#
+# Phase 0: Setup
+#
+echo ""
+echo "========================================"
+echo "  Phase 0: Setup"
+echo "========================================"
 
-# Enable modules that configure might not have detected
-# These are built with our custom deps (libffi, readline, ncurses, openssl)
-echo "Enabling modules built with our dependencies..."
+log_info "checking system dependencies..."
+"${SCRIPT_DIR}/00-setup/system-deps.sh"
 
-# Enable readline (uncomment if commented)
-sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' Modules/Setup.stdlib
-sed -i 's/^#readline /readline /' Modules/Setup.stdlib
+log_info "setting up cosmocc toolchain..."
+"${SCRIPT_DIR}/00-setup/cosmocc.sh"
 
-# Enable _ctypes (uncomment if commented)
-sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' Modules/Setup.stdlib
-sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
-
-# Remove modules that need unavailable headers from Setup.stdlib
-echo "Removing unavailable modules from Setup.stdlib..."
-
-# List of modules to remove (need headers cosmocc doesn't have)
-# Note: _ssl, _hashlib, readline, and _ctypes are now enabled via our deps
-DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
-
-for mod in $DISABLE_MODULES; do
-  # Comment out the module line in Setup.stdlib
-  sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
+for version in "${VERSIONS[@]}"; do
+  log_info "downloading Python ${version} source..."
+  "${SCRIPT_DIR}/00-setup/python-source.sh" "${version}"
 done
 
-# Copy patched Setup.stdlib to Setup.local so makesetup uses it
-cp Modules/Setup.stdlib Modules/Setup.local
+#
+# Phase 1: Dependencies
+#
+echo ""
+echo "========================================"
+echo "  Phase 1: Dependencies"
+echo "========================================"
 
-# Regenerate Makefile to pick up Setup.local changes
-echo "Regenerating Makefile with static modules..."
-make Makefile
+# Order matters! ncurses must be built before readline
+log_info "building ncurses..."
+"${SCRIPT_DIR}/01-deps/ncurses.sh"
 
-echo "Building..."
-make -j"$(nproc)"
+log_info "building readline..."
+"${SCRIPT_DIR}/01-deps/readline.sh"
 
-echo "Build complete: ${BUILD_DIR}"
-ls -la python* 2>/dev/null || ls -la Programs/python* 2>/dev/null || echo "Binary location may vary"
+# These can be built in any order
+log_info "building openssl..."
+"${SCRIPT_DIR}/01-deps/openssl.sh"
+
+log_info "building libffi..."
+"${SCRIPT_DIR}/01-deps/libffi.sh"
+
+log_info "building bzip2..."
+"${SCRIPT_DIR}/01-deps/bz2.sh"
+
+log_info "building xz/liblzma..."
+"${SCRIPT_DIR}/01-deps/xz.sh"
+
+#
+# Phase 2: Compile Python
+#
+echo ""
+echo "========================================"
+echo "  Phase 2: Compile Python"
+echo "========================================"
+
+for version in "${VERSIONS[@]}"; do
+  log_info "compiling Python ${version}..."
+  "${SCRIPT_DIR}/02-python/compile.sh" "${version}"
+done
+
+#
+# Phase 3: Package
+#
+echo ""
+echo "========================================"
+echo "  Phase 3: Package"
+echo "========================================"
+
+for version in "${VERSIONS[@]}"; do
+  log_info "packaging Python ${version}..."
+  "${SCRIPT_DIR}/03-package/package.sh" "${version}"
+done
+
+#
+# Summary
+#
+BUILD_END=$(date +%s)
+BUILD_DURATION=$((BUILD_END - BUILD_START))
+
+echo ""
+echo "========================================"
+echo "  Build Complete"
+echo "========================================"
+echo ""
+echo "  Duration: $((BUILD_DURATION / 60))m $((BUILD_DURATION % 60))s"
+echo ""
+echo "  Artifacts:"
+for artifact in "${DIST_DIR}"/python-*-cosmo-*.com; do
+  if [ -f "$artifact" ]; then
+    size=$(du -h "$artifact" | cut -f1)
+    echo "    $(basename "$artifact") ($size)"
+  fi
+done
+echo ""
+echo "  To generate a release manifest:"
+echo "    ./scripts/03-package/manifest.sh <release-tag>"
+echo ""

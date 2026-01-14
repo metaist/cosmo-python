@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: "Python version to build (e.g., 3.12.8)"
+        description: "Python version to build (e.g., 3.12.8), or 'all' for all versions"
         required: true
         default: "3.12.8"
         type: string
@@ -14,45 +14,48 @@ env:
   COSMOCC_VERSION: "4.0.2"
 
 jobs:
-  build-x86_64:
+  build:
     runs-on: ubuntu-latest
     env:
       WORK_DIR: ${{ github.workspace }}/work
       DIST_DIR: ${{ github.workspace }}/dist
       COSMO_DIR: /tmp/cosmo
-      INSTALL_DIR: /tmp/cosmo
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config zlib1g-dev
-
-      - name: Setup cosmocc
-        run: ./scripts/setup-cosmocc.sh
-
       - name: Register APE with binfmt_misc
         run: |
-          sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
-          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
+          # This allows running Cosmopolitan binaries directly
+          sudo mkdir -p /usr/bin
+          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
 
-      - name: Download Python
-        run: ./scripts/download-python.sh "${{ inputs.python_version }}"
+      - name: Build Python
+        run: |
+          if [ "${{ inputs.python_version }}" = "all" ]; then
+            ./scripts/build.sh --all
+          else
+            ./scripts/build.sh "${{ inputs.python_version }}"
+          fi
 
-      - name: Build Python (x86_64)
-        run: ./scripts/build.sh "${{ inputs.python_version }}" x86_64
-
-      - name: Package
-        run: ./scripts/package.sh "${{ inputs.python_version }}" x86_64
+      - name: Copy APE loader for binfmt
+        run: |
+          # Copy APE loader after cosmocc is downloaded
+          if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
+            sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
+          fi
 
       - name: Test binary
         run: |
-          ./dist/python-${{ inputs.python_version }}-cosmo-x86_64.com --version || echo "Test skipped"
+          for bin in dist/python-*-cosmo-*.com; do
+            if [ -f "$bin" ]; then
+              echo "Testing: $bin"
+              "$bin" --version || echo "Test skipped (may need APE loader)"
+            fi
+          done
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: python-${{ inputs.python_version }}-cosmo-x86_64
+          name: cosmo-python-${{ inputs.python_version }}
           path: dist/
           if-no-files-found: warn
