@@ -19,6 +19,25 @@ fi
 
 echo "Building Python ${PYTHON_VERSION} for ${ARCH}..."
 
+# Apply Cosmopolitan-specific patches
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PATCHES_DIR="${SCRIPT_DIR}/../patches"
+
+if [ -d "${PATCHES_DIR}" ]; then
+  for patch in "${PATCHES_DIR}"/*.patch; do
+    if [ -f "$patch" ]; then
+      patch_name=$(basename "$patch")
+      if ! grep -q "COSMO_PATCH_APPLIED_${patch_name}" "${SRC_DIR}/.cosmo_patches" 2>/dev/null; then
+        echo "Applying patch: ${patch_name}"
+        cd "${SRC_DIR}"
+        patch -p1 < "$patch" || echo "Warning: patch may have already been applied"
+        echo "COSMO_PATCH_APPLIED_${patch_name}" >> "${SRC_DIR}/.cosmo_patches"
+        cd -
+      fi
+    fi
+  done
+fi
+
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
 export CC="${COSMO_DIR}/bin/cosmocc"
@@ -47,8 +66,6 @@ _gdbm
 nis
 _curses
 _curses_panel
-_ctypes
-_ctypes_test
 SETUP
 
 echo "Configuring..."
@@ -60,7 +77,6 @@ echo "Configuring..."
   --disable-test-modules \
   --without-ensurepip \
   --without-system-expat \
-  --without-system-ffi \
   --with-lto=no \
   --prefix=/zip \
   ZLIB_CFLAGS="-I${COSMO_DIR}/include/third_party/zlib" \
@@ -78,7 +94,9 @@ echo "Configuring..."
   GDBM_CFLAGS=" " \
   GDBM_LIBS=" " \
   OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
-  OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto"
+  OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto" \
+  LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
+  LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi"
 
 # For cosmopolitan, we need all modules built statically into the binary
 # Patch Setup.stdlib to use *static* instead of *shared*
@@ -89,8 +107,8 @@ sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
 echo "Removing unavailable modules from Setup.stdlib..."
 
 # List of modules to remove (need headers cosmocc doesn't have)
-# Note: _ssl, _hashlib, and readline are now enabled via our deps
-DISABLE_MODULES="_ctypes _ctypes_test _crypt _uuid _dbm _gdbm"
+# Note: _ssl, _hashlib, readline, and _ctypes are now enabled via our deps
+DISABLE_MODULES="_crypt _uuid _dbm _gdbm"
 
 for mod in $DISABLE_MODULES; do
   # Comment out the module line in Setup.stdlib
