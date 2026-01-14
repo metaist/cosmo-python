@@ -17,6 +17,8 @@
     "jart",
     "levelname",
     "libc",
+    "liblzma",
+    "LZMA",
     "metaist",
     "mypy",
     "nojekyll",
@@ -29,6 +31,8 @@
     "PYTHONPATH",
     "pythonversion",
     "setuptools",
+    "sigstore",
+    "sourceware",
     "superconfigure",
     "Venkatasubramanian",
     "venv"

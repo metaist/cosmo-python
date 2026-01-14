@@ -46,6 +46,30 @@ unzip python-3.x.y-cosmo.zip
 ./python.com --version
 ```
 
+## Upstream Sources
+
+All external dependencies are fetched from official sources:
+
+| Component | Version | Source | Why |
+|-----------|---------|--------|-----|
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | Official Cosmopolitan compiler toolchain |
+| **Python** | 3.10-3.13 | [python.org][python-src] | Official release tarballs with pre-generated `configure` and sigstore attestations |
+| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | Official releases |
+| **libffi** | 3.4.2 | [GitHub Releases][libffi-src] | Official releases |
+| **xz** | 5.4.5 | [GitHub Releases][xz-src] | Official releases (liblzma for LZMA compression) |
+| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | Official bzip2 releases |
+| **ncurses** | 6.4 | [GNU FTP][ncurses-src] | Official GNU releases |
+| **readline** | 8.2 | [GNU FTP][readline-src] | Official GNU releases |
+
+[cosmocc-src]: https://github.com/jart/cosmopolitan/releases
+[python-src]: https://www.python.org/ftp/python/
+[openssl-src]: https://github.com/openssl/openssl/releases
+[libffi-src]: https://github.com/libffi/libffi/releases
+[xz-src]: https://github.com/tukaani-project/xz/releases
+[bz2-src]: https://sourceware.org/pub/bzip2/
+[ncurses-src]: https://ftp.gnu.org/gnu/ncurses/
+[readline-src]: https://ftp.gnu.org/gnu/readline/
+
 ## Acknowledgments
 
 This project builds upon the excellent work of:

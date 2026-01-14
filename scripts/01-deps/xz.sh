@@ -7,7 +7,7 @@
 source "$(dirname "$0")/../common.sh"
 
 XZ_VERSION="${XZ_VERSION:-5.4.5}"
-XZ_URL="https://tukaani.org/xz/xz-${XZ_VERSION}.tar.gz"
+XZ_URL="https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.gz"
 XZ_DIR="${WORK_DIR}/xz-${XZ_VERSION}"
 
 ensure_dirs

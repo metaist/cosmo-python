@@ -10,7 +10,7 @@
 source "$(dirname "$0")/../common.sh"
 
 NCURSES_VERSION="${NCURSES_VERSION:-6.4}"
-NCURSES_URL="https://mirrors.ocf.berkeley.edu/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
+NCURSES_URL="https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
 NCURSES_DIR="${WORK_DIR}/ncurses-${NCURSES_VERSION}"
 
 ensure_dirs
