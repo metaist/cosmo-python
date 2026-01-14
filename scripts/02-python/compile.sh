@@ -149,14 +149,15 @@ fi
 # For cosmopolitan, we need all modules built statically into the binary
 #
 # Python 3.11+ has Modules/Setup.stdlib; Python 3.10 uses Modules/Setup directly
+# Note: Files are in SRC_DIR, not BUILD_DIR (out-of-tree build)
 log_info "patching for static module building..."
 
-if [ -f Modules/Setup.stdlib ]; then
+if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
   # Python 3.11+: Patch Setup.stdlib to use *static* instead of *shared*
-  SETUP_FILE="Modules/Setup.stdlib"
+  SETUP_FILE="${SRC_DIR}/Modules/Setup.stdlib"
 else
   # Python 3.10: Use Modules/Setup directly
-  SETUP_FILE="Modules/Setup"
+  SETUP_FILE="${SRC_DIR}/Modules/Setup"
 fi
 
 sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
@@ -192,9 +193,9 @@ for mod in $DISABLE_MODULES; do
   sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
 done
 
-# For 3.11+, copy to Setup.local; for 3.10, it's already the right file
-if [ -f Modules/Setup.stdlib ]; then
-  cp Modules/Setup.stdlib Modules/Setup.local
+# For 3.11+, copy to Setup.local in source dir; for 3.10, it's already the right file
+if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
+  cp "${SRC_DIR}/Modules/Setup.stdlib" "${SRC_DIR}/Modules/Setup.local"
 fi
 
 # Regenerate Makefile
