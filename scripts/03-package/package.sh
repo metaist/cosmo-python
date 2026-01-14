@@ -4,24 +4,29 @@
 # This creates a self-contained Cosmopolitan Python executable with
 # the standard library embedded as a ZIP archive.
 #
+# The output is a "fat" APE binary that runs on both x86_64 and aarch64.
+# cosmocc automatically compiles for both architectures and embeds both
+# in a single binary.
+#
 # Dependencies: 02-python/compile.sh must have run successfully
-# Outputs: ${DIST_DIR}/python-${VERSION}-cosmo-${ARCH}.com
+# Outputs: ${DIST_DIR}/python-${VERSION}-cosmo.com
 #
 source "$(dirname "$0")/../common.sh"
 
 PYTHON_VERSION="${1:-}"
-ARCH="${2:-x86_64}"
 
 if [ -z "$PYTHON_VERSION" ]; then
-  log_error "usage: $0 <python_version> [arch]"
-  log_error "example: $0 3.12.8 x86_64"
+  log_error "usage: $0 <python_version>"
+  log_error "example: $0 3.12.8"
   exit 1
 fi
 
 PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
-BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-${ARCH}"
-STAGING_DIR="${WORK_DIR}/staging-${PYTHON_VERSION}-${ARCH}"
-OUTPUT_NAME="python-${PYTHON_VERSION}-cosmo-${ARCH}.com"
+# Note: BUILD_DIR still uses x86_64 suffix because that's how cosmocc names it,
+# but the binary inside contains both x86_64 and aarch64 code
+BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-x86_64"
+STAGING_DIR="${WORK_DIR}/staging-${PYTHON_VERSION}"
+OUTPUT_NAME="python-${PYTHON_VERSION}-cosmo.com"
 OUTPUT_PATH="${DIST_DIR}/${OUTPUT_NAME}"
 
 # Idempotency: skip if already packaged
@@ -45,7 +50,7 @@ if [ -z "${BINARY}" ]; then
   exit 1
 fi
 
-log_build "packaging Python ${PYTHON_VERSION} (${ARCH})"
+log_build "packaging Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
 mkdir -p "${DIST_DIR}"
 
@@ -71,7 +76,7 @@ chmod +x "${OUTPUT_PATH}"
 # Create a ZIP of the standard library
 # The ZIP is appended to the binary and accessible via /zip/ paths
 log_info "creating stdlib ZIP archive..."
-STDLIB_ZIP="${WORK_DIR}/stdlib-${ARCH}.zip"
+STDLIB_ZIP="${WORK_DIR}/stdlib-${PYTHON_VERSION}.zip"
 rm -f "${STDLIB_ZIP}"
 
 cd "${STAGING_DIR}/zip"

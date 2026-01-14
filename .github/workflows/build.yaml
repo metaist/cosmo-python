@@ -46,7 +46,7 @@ jobs:
 
       - name: Test binary
         run: |
-          for bin in dist/python-*-cosmo-*.com; do
+          for bin in dist/python-*-cosmo.com; do
             if [ -f "$bin" ]; then
               echo "Testing: $bin"
               "$bin" --version || echo "Test skipped (may need APE loader)"

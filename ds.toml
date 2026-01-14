@@ -43,7 +43,7 @@ smoke.shell = "./scripts/04-test/smoke.sh $@"
 smoke-all.help = "run smoke tests on all binaries in dist/"
 smoke-all.shell = """
   failed=0;
-  for bin in dist/python-*-cosmo-*.com; do
+  for bin in dist/python-*-cosmo.com; do
     if [ -f "$bin" ]; then
       echo "Testing: $bin";
       ./scripts/04-test/smoke.sh "$bin" || failed=1;

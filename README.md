@@ -26,10 +26,10 @@ We use **date-based releases** (e.g., `20260114-153042`) rather than Python-vers
 Each release includes:
 
 ```
-python-3.10.16-cosmo-x86_64.com
-python-3.11.11-cosmo-x86_64.com
-python-3.12.8-cosmo-x86_64.com
-python-3.13.1-cosmo-x86_64.com
+python-3.10.16-cosmo.com
+python-3.11.11-cosmo.com
+python-3.12.8-cosmo.com
+python-3.13.1-cosmo.com
 manifest.json
 checksums.txt
 ```
@@ -42,12 +42,12 @@ The `manifest.json` provides metadata for programmatic access. It acts as a span
   "cosmocc": "4.0.2",
   "versions": {
     "3.12.8": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114-153042/python-3.12.8-cosmo-x86_64.com",
+      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114-153042/python-3.12.8-cosmo.com",
       "sha256": "...",
       "release": "20260114-153042"
     },
     "3.12.9": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/20260115-120000/python-3.12.9-cosmo-x86_64.com",
+      "url": "https://github.com/metaist/cosmo-python/releases/download/20260115-120000/python-3.12.9-cosmo.com",
       "sha256": "...",
       "release": "20260115-120000"
     }
@@ -68,14 +68,14 @@ Download the appropriate release for your Python version:
 
 ```bash
 # Download latest release
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo-x86_64.com
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
 
 # Or fetch manifest to find available versions
 curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
 
 # Make executable and run
-chmod +x python-3.12.8-cosmo-x86_64.com
-./python-3.12.8-cosmo-x86_64.com --version
+chmod +x python-3.12.8-cosmo.com
+./python-3.12.8-cosmo.com --version
 ```
 
 ## When We Release
@@ -96,7 +96,7 @@ Each release includes `checksums.txt` with SHA256 hashes:
 ```bash
 # Download checksums and binary
 curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo-x86_64.com
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
 
 # Verify
 sha256sum -c checksums.txt --ignore-missing

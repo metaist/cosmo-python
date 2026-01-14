@@ -1,22 +1,25 @@
 #!/bin/bash
 # Compile Python with cosmocc
 #
+# cosmocc automatically compiles for both x86_64 and aarch64 architectures,
+# creating a "fat" APE binary that runs on both.
+#
 # Dependencies: all 01-deps/* must be built first
-# Outputs: ${WORK_DIR}/build-${ARCH}/python.com
+# Outputs: ${WORK_DIR}/build-${PYTHON_VERSION}-x86_64/python (fat APE)
 #
 source "$(dirname "$0")/../common.sh"
 
 PYTHON_VERSION="${1:-}"
-ARCH="${2:-x86_64}"
 
 if [ -z "$PYTHON_VERSION" ]; then
-  log_error "usage: $0 <python_version> [arch]"
-  log_error "example: $0 3.12.8 x86_64"
+  log_error "usage: $0 <python_version>"
+  log_error "example: $0 3.12.8"
   exit 1
 fi
 
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
-BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-${ARCH}"
+# Note: cosmocc names the build dir with x86_64 suffix but builds both archs
+BUILD_DIR="${WORK_DIR}/build-${PYTHON_VERSION}-x86_64"
 
 # Idempotency: skip if already built
 if [ -f "${BUILD_DIR}/python.com" ]; then

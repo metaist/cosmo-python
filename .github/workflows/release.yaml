@@ -62,7 +62,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          for bin in dist/python-*-cosmo-*.com; do
+          for bin in dist/python-*-cosmo.com; do
             if [ -f "$bin" ]; then
               echo "Testing: $bin"
               ./scripts/04-test/smoke.sh "$bin"
@@ -135,20 +135,20 @@ jobs:
 
             | Python Version | Download |
             |----------------|----------|
-            | 3.10.x | `python-3.10.16-cosmo-x86_64.com` |
-            | 3.11.x | `python-3.11.11-cosmo-x86_64.com` |
-            | 3.12.x | `python-3.12.8-cosmo-x86_64.com` |
-            | 3.13.x | `python-3.13.1-cosmo-x86_64.com` |
+            | 3.10.x | `python-3.10.16-cosmo.com` |
+            | 3.11.x | `python-3.11.11-cosmo.com` |
+            | 3.12.x | `python-3.12.8-cosmo.com` |
+            | 3.13.x | `python-3.13.1-cosmo.com` |
 
             ### Usage
 
             ```bash
             # Download
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.release_tag }}/python-3.12.8-cosmo-x86_64.com
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.release_tag }}/python-3.12.8-cosmo.com
 
             # Make executable and run
-            chmod +x python-3.12.8-cosmo-x86_64.com
-            ./python-3.12.8-cosmo-x86_64.com --version
+            chmod +x python-3.12.8-cosmo.com
+            ./python-3.12.8-cosmo.com --version
             ```
 
             ### Programmatic Access

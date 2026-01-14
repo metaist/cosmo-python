@@ -75,11 +75,11 @@ fi
 declare -A NEW_VERSIONS
 declare -A NEW_CHECKSUMS
 
-for artifact in "${DIST_DIR}"/python-*-cosmo-*.com; do
+for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
   if [ -f "$artifact" ]; then
     filename=$(basename "$artifact")
-    # Extract version from filename: python-3.12.8-cosmo-x86_64.com
-    version=$(echo "$filename" | sed -E 's/python-([0-9]+\.[0-9]+\.[0-9]+)-cosmo-.*/\1/')
+    # Extract version from filename: python-3.12.8-cosmo.com
+    version=$(echo "$filename" | sed -E 's/python-([0-9]+\.[0-9]+\.[0-9]+)-cosmo\.com/\1/')
     
     # Get checksum
     checksum_file="${artifact}.sha256"
