@@ -19,13 +19,12 @@ skip_if_exists "${DEPS_DIR}/lib/libbz2.a" "bzip2 ${BZ2_VERSION}"
 
 log_build "bzip2 ${BZ2_VERSION}"
 
-# Setup cosmocc
-export CC="${COSMO_DIR}/bin/cosmocc"
-export AR="${COSMO_DIR}/bin/cosmoar"
+# Setup cosmocc (with ccache if available)
+setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
-if [ ! -x "${CC}" ]; then
-  log_error "cosmocc not found at ${CC}"
+if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
+  log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
   log_error "run 00-setup/cosmocc.sh first"
   exit 1
 fi

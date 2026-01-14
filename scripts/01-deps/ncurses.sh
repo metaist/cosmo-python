@@ -22,14 +22,12 @@ skip_if_exists "${DEPS_DIR}/lib/libncurses.a" "ncurses ${NCURSES_VERSION}"
 
 log_build "ncurses ${NCURSES_VERSION}"
 
-# Setup cosmocc
-export CC="${COSMO_DIR}/bin/cosmocc"
-export CXX="${COSMO_DIR}/bin/cosmoc++"
-export AR="${COSMO_DIR}/bin/cosmoar"
+# Setup cosmocc (with ccache if available)
+setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
-if [ ! -x "${CC}" ]; then
-  log_error "cosmocc not found at ${CC}"
+if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
+  log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
   log_error "run 00-setup/cosmocc.sh first"
   exit 1
 fi
@@ -82,6 +80,7 @@ log_info "configuring..."
   --without-cxx-binding \
   --without-tests \
   --with-termlib \
+  --with-ticlib \
   --without-dlsym \
   --without-pcre2 \
   --without-manpages \
@@ -121,6 +120,13 @@ cd "${DEPS_DIR}/include"
 rm -rf ncurses 2>/dev/null || true
 ln -sf ncursesw ncurses 2>/dev/null || true
 
+# Create top-level symlinks for headers that Python configure looks for
+# (Python's configure doesn't use CURSES_CFLAGS for header detection)
+ln -sf ncurses/curses.h curses.h 2>/dev/null || true
+ln -sf ncurses/ncurses.h ncurses.h 2>/dev/null || true
+ln -sf ncurses/panel.h panel.h 2>/dev/null || true
+ln -sf ncurses/term.h term.h 2>/dev/null || true
+
 # Handle aarch64 if objects exist
 if [ -d "${NCURSES_DIR}/objects/.aarch64" ]; then
   log_info "creating aarch64 libraries..."
@@ -128,8 +134,17 @@ if [ -d "${NCURSES_DIR}/objects/.aarch64" ]; then
   cd "${NCURSES_DIR}"
   find objects/.aarch64 -name "*.o" -exec ar rcs "${DEPS_DIR}/lib/.aarch64/libncursesw.a" {} +
   cd "${DEPS_DIR}/lib/.aarch64"
+  # Create all the symlinks that x86_64 has
   ln -sf libncursesw.a libncurses.a 2>/dev/null || true
   ln -sf libncursesw.a libtinfo.a 2>/dev/null || true
+  ln -sf libncursesw.a libtinfow.a 2>/dev/null || true
+  ln -sf libncursesw.a libpanelw.a 2>/dev/null || true
+  ln -sf libncursesw.a libpanel.a 2>/dev/null || true
+  ln -sf libncursesw.a libformw.a 2>/dev/null || true
+  ln -sf libncursesw.a libform.a 2>/dev/null || true
+  ln -sf libncursesw.a libmenuw.a 2>/dev/null || true
+  ln -sf libncursesw.a libmenu.a 2>/dev/null || true
+  ln -sf libncursesw.a libticw.a 2>/dev/null || true
 fi
 
 log_ok "ncurses ${NCURSES_VERSION} installed"

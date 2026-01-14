@@ -118,6 +118,22 @@ COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
 DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
 VERSIONS_FILE="${VERSIONS_FILE:-${REPO_ROOT}/versions.json}"
 
+# Setup cosmocc compiler with optional ccache
+# Usage: setup_cosmocc (call after sourcing common.sh)
+# Sets: CC, CXX, AR, and basic CFLAGS/LDFLAGS
+setup_cosmocc() {
+  if command -v ccache &> /dev/null; then
+    export CC="ccache ${COSMO_DIR}/bin/cosmocc"
+    export CXX="ccache ${COSMO_DIR}/bin/cosmoc++"
+  else
+    export CC="${COSMO_DIR}/bin/cosmocc"
+    export CXX="${COSMO_DIR}/bin/cosmoc++"
+  fi
+  export AR="${COSMO_DIR}/bin/cosmoar"
+  export CFLAGS="${CFLAGS:--Os}"
+  export LDFLAGS="${LDFLAGS:-}"
+}
+
 # Ensure work directories exist
 ensure_dirs() {
   mkdir -p "${WORK_DIR}" "${DEPS_DIR}/lib" "${DEPS_DIR}/lib/.aarch64" "${DEPS_DIR}/include"

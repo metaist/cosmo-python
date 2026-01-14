@@ -175,6 +175,15 @@ echo "Interactive modules..."
 run_test "import readline" "import readline"
 
 #
+# curses (TUI support)
+#
+echo ""
+echo "Terminal UI..."
+
+run_test "import curses" "import curses; curses.version"
+run_test "import curses.panel" "import curses.panel"
+
+#
 # File I/O
 #
 echo ""

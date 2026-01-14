@@ -77,6 +77,9 @@ fi
 
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
+# NOTE: We don't use ccache for Python builds because cosmocc creates
+# companion .aarch64/*.o files that ccache doesn't handle properly.
+# The fat APE build requires these files to exist alongside x86_64 .o files.
 export CC="${COSMO_DIR}/bin/cosmocc"
 export CXX="${COSMO_DIR}/bin/cosmoc++"
 export AR="${COSMO_DIR}/bin/cosmoar"
@@ -84,8 +87,8 @@ export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
 
-if [ ! -x "${CC}" ]; then
-  log_error "cosmocc not found at ${CC}"
+if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
+  log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
   log_error "run 00-setup/cosmocc.sh first"
   exit 1
 fi
@@ -107,8 +110,6 @@ _tkinter
 _dbm
 _gdbm
 nis
-_curses
-_curses_panel
 SETUP
 
 log_info "configuring..."
@@ -130,10 +131,10 @@ log_info "configuring..."
   LIBLZMA_LIBS="-L${DEPS_DIR}/lib -llzma" \
   LIBREADLINE_CFLAGS="-I${DEPS_DIR}/include" \
   LIBREADLINE_LIBS="-L${DEPS_DIR}/lib -lreadline -ltinfo" \
-  CURSES_CFLAGS=" " \
-  CURSES_LIBS=" " \
-  PANEL_CFLAGS=" " \
-  PANEL_LIBS=" " \
+  CURSES_CFLAGS="-I${DEPS_DIR}/include/ncurses" \
+  CURSES_LIBS="-L${DEPS_DIR}/lib -lncursesw -ltinfow" \
+  PANEL_CFLAGS="-I${DEPS_DIR}/include/ncurses" \
+  PANEL_LIBS="-L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfow" \
   GDBM_CFLAGS=" " \
   GDBM_LIBS=" " \
   OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
@@ -178,12 +179,7 @@ sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 #   superconfigure builds gdbm; we skip for simplicity.
 #   See: https://github.com/metaist/cosmo-python/issues/20
 #
-# _curses/_curses_panel: Link order issue with ncurses symbols.
-#   We build ncurses and symbols exist, but link fails.
-#   superconfigure has working curses - fixable with build tweaks.
-#   See: https://github.com/metaist/cosmo-python/issues/19
-#
-DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
+DISABLE_MODULES="_crypt _uuid _dbm _gdbm"
 for mod in $DISABLE_MODULES; do
   sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
 done
