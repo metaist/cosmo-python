@@ -7,9 +7,12 @@
     "capsys",
     "chdir",
     "codeql",
+    "cosmo",
+    "cosmocc",
     "cosmopolitan",
     "docstrings",
     "doctest",
+    "Gautham",
     "htmlcov",
     "jart",
     "levelname",
@@ -27,6 +30,7 @@
     "pythonversion",
     "setuptools",
     "superconfigure",
+    "Venkatasubramanian",
     "venv"
   ]
 }

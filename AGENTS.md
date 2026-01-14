@@ -13,10 +13,12 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 
 ## Development Commands
 
-- **Setup dependencies**: `ds setup`
-- **Run linter+tests**: `ds dev` (run frequently to make sure nothing breaks)
-- **Run tests**: `ds test` (not raw pytest)
-- **Install package**: handled by `uv sync`, not `pip install -e .`
+- **Quick validation**: `ds dev` (lint + script validation; run before commits)
+- **Build single version**: `ds build 3.12.8`
+- **Build all versions**: `ds build-all`
+- **Run smoke tests**: `ds smoke dist/python-3.12.8-cosmo-x86_64.com`
+- **Run all smoke tests**: `ds smoke-all`
+- **Clean build artifacts**: `ds clean`
 
 ## Shell Commands
 

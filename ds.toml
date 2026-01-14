@@ -1,0 +1,66 @@
+# ds.toml - development scripts for cosmo-python
+# Run with: ds <task> (https://github.com/metaist/ds)
+
+[scripts]
+
+# Build
+build.help = "build a single Python version"
+build.shell = "./scripts/build.sh $@"
+
+build-all.help = "build all Python versions from versions.json"
+build-all.shell = "./scripts/build.sh --all"
+
+clean.help = "remove build artifacts"
+clean.shell = """
+  rm -rf work/;
+  rm -rf dist/;
+  rm -f build*.log;
+"""
+
+# Lint
+lint.help = "check shell scripts and spelling"
+lint.composite = ["shellcheck", "cspell"]
+
+shellcheck.help = "lint shell scripts"
+# Excluded checks:
+#   SC1091: "not following" for dynamic source paths
+#   SC2164: "cd without || exit" - we use set -euo pipefail
+#   SC2086: unquoted variables - intentional for word splitting in ar commands
+#   SC2103: "cd back" style suggestion
+#   SC2129: redirect grouping style suggestion
+shellcheck.shell = "find scripts -name '*.sh' -exec npx --yes shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +"
+
+cspell.help = "check spelling in docs"
+cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.md'"
+
+# Test
+test-scripts.help = "validate build script structure and syntax"
+test-scripts.shell = "./scripts/test-scripts.sh"
+
+smoke.help = "run smoke tests on a binary"
+smoke.shell = "./scripts/04-test/smoke.sh $@"
+
+smoke-all.help = "run smoke tests on all binaries in dist/"
+smoke-all.shell = """
+  failed=0;
+  for bin in dist/python-*-cosmo-*.com; do
+    if [ -f "$bin" ]; then
+      echo "Testing: $bin";
+      ./scripts/04-test/smoke.sh "$bin" || failed=1;
+      echo;
+    fi;
+  done;
+  exit $failed
+"""
+
+# Package
+manifest.help = "generate manifest.json for a release"
+manifest.shell = "./scripts/03-package/manifest.sh $@"
+
+# Development
+dev.help = "quick validation: lint + test-scripts"
+dev.composite = ["lint", "test-scripts"]
+
+# Release
+recent.help = "show commits since last tag"
+recent.shell = "git log --oneline --color $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD"
