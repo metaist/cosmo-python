@@ -38,6 +38,8 @@ curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manife
 
 ## Verification
 
+### Checksums
+
 Each release includes `checksums.txt` with SHA256 hashes:
 
 ```bash
@@ -47,6 +49,14 @@ sha256sum -c checksums.txt --ignore-missing
 ```
 
 The `manifest.json` also includes SHA256 hashes for programmatic verification.
+
+### Build Attestations
+
+Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
+
+```bash
+gh attestation verify python-3.12.8-cosmo.com --repo metaist/cosmo-python
+```
 
 ## Releases
 

@@ -23,7 +23,9 @@ on:
         default: false
 
 permissions:
-  contents: write  # Required to create releases
+  contents: write       # Required to create releases
+  id-token: write       # Required for OIDC attestation
+  attestations: write   # Required to upload attestations
 
 jobs:
   build:
@@ -120,6 +122,11 @@ jobs:
           name: release-${{ needs.build.outputs.release_tag }}
           path: dist
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/python-*.com
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -165,5 +172,9 @@ jobs:
             ### Verification
 
             ```bash
+            # Verify checksum
             sha256sum -c checksums.txt
+
+            # Verify build attestation (requires gh CLI)
+            gh attestation verify python-3.12.8-cosmo.com --repo ${{ github.repository }}
             ```
