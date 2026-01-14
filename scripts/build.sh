@@ -80,6 +80,22 @@ log_info "checking system dependencies..."
 log_info "setting up cosmocc toolchain..."
 "${SCRIPT_DIR}/00-setup/cosmocc.sh"
 
+# Install APE loader for binfmt_misc (allows running APE binaries directly)
+# This must happen AFTER cosmocc is downloaded but BEFORE any builds
+# that might have configure scripts trying to run compiled binaries.
+APE_LOADER="${COSMO_DIR}/bin/ape-x86_64.elf"
+if [ -f "$APE_LOADER" ] && [ -w /usr/bin ] 2>/dev/null; then
+  if [ ! -f /usr/bin/ape ]; then
+    log_info "installing APE loader to /usr/bin/ape..."
+    sudo cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
+  fi
+elif [ -f "$APE_LOADER" ] && command -v sudo >/dev/null 2>&1; then
+  if [ ! -f /usr/bin/ape ]; then
+    log_info "installing APE loader to /usr/bin/ape (via sudo)..."
+    sudo cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
+  fi
+fi
+
 for version in "${VERSIONS[@]}"; do
   log_info "downloading Python ${version} source..."
   "${SCRIPT_DIR}/00-setup/python-source.sh" "${version}"
