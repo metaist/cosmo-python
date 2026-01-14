@@ -85,9 +85,18 @@ cd "${STAGING_DIR}/zip"
 rm -f lib/libpython*.a
 rm -rf lib/pkgconfig
 
+# Add CA certificates for SSL verification
+# These will be accessible at /zip/share/ssl/ inside the binary
+if [ -d "${DEPS_DIR}/share/ssl" ]; then
+  log_info "including CA certificates..."
+  mkdir -p share/ssl
+  cp -r "${DEPS_DIR}/share/ssl/certs" share/ssl/ 2>/dev/null || true
+  cp "${DEPS_DIR}/share/ssl/cert.pem" share/ssl/ 2>/dev/null || true
+fi
+
 # Use zip with -r recursive, -q quiet
 # Could use -0 (store, no compression) for faster startup at cost of size
-zip -r -q "${STDLIB_ZIP}" lib/
+zip -r -q "${STDLIB_ZIP}" lib/ share/
 
 log_info "stdlib ZIP size: $(du -sh "${STDLIB_ZIP}" | cut -f1)"
 

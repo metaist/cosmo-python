@@ -53,7 +53,7 @@ for lib in "${REQUIRED_LIBS[@]}"; do
   fi
 done
 
-log_build "Python ${PYTHON_VERSION} for ${ARCH}"
+log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
 # Apply Cosmopolitan-specific patches
 SCRIPT_DIR="$(dirname "$0")"

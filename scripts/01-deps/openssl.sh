@@ -91,7 +91,7 @@ log_info "configuring..."
   no-autoalginit \
   no-autoerrinit \
   --with-rand-seed=getrandom \
-  --openssldir="${DEPS_DIR}/ssl" \
+  --openssldir="/zip/share/ssl" \
   --prefix="${DEPS_DIR}" \
   CC="${CC}" \
   AR="${AR}" \
@@ -127,6 +127,47 @@ if find . -name ".aarch64" -type d | head -1 | grep -q .; then
   fi
 fi
 
+# Download Mozilla CA certificate bundle for SSL verification
+# This will be bundled into the final Python binary at /zip/share/ssl/certs/
+# We store locally at ${DEPS_DIR}/share/ssl/ to match the /zip/ structure
+CA_BUNDLE_URL="https://curl.se/ca/cacert.pem"
+CA_BUNDLE_DIR="${DEPS_DIR}/share/ssl/certs"
+CA_BUNDLE_FILE="${DEPS_DIR}/share/ssl/cert.pem"
+
+if [ ! -f "${CA_BUNDLE_FILE}" ]; then
+  log_info "downloading Mozilla CA certificate bundle..."
+  mkdir -p "${CA_BUNDLE_DIR}"
+  curl -fsSL "${CA_BUNDLE_URL}" -o "${CA_BUNDLE_FILE}"
+  
+  # Also create individual cert files for compatibility
+  # Some tools expect a directory of individual certs
+  log_info "extracting individual certificates..."
+  cd "${CA_BUNDLE_DIR}"
+  awk '
+    /-----BEGIN CERTIFICATE-----/ { cert = "" }
+    { cert = cert $0 "\n" }
+    /-----END CERTIFICATE-----/ {
+      # Extract subject CN for filename
+      cmd = "echo \"" cert "\" | openssl x509 -noout -subject 2>/dev/null | sed \"s/.*CN = //\" | sed \"s/[^a-zA-Z0-9_.-]/_/g\""
+      cmd | getline name
+      close(cmd)
+      if (name == "") name = "cert_" NR
+      print cert > name ".pem"
+    }
+  ' "${CA_BUNDLE_FILE}" 2>/dev/null || true
+  
+  # Create hash symlinks (c_rehash equivalent)
+  for cert in *.pem; do
+    if [ -f "$cert" ]; then
+      hash=$(openssl x509 -hash -noout -in "$cert" 2>/dev/null) || continue
+      ln -sf "$cert" "${hash}.0" 2>/dev/null || true
+    fi
+  done
+  
+  log_ok "CA certificates installed"
+fi
+
 log_ok "openssl ${OPENSSL_VERSION} installed"
 log_info "  libraries: ${DEPS_DIR}/lib/libssl.a, ${DEPS_DIR}/lib/libcrypto.a"
 log_info "  headers:   ${DEPS_DIR}/include/openssl/"
+log_info "  ca-certs:  ${CA_BUNDLE_DIR}/"
