@@ -94,7 +94,13 @@ fi
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
-# Disable modules that need headers cosmocc doesn't have
+# Disable modules that need headers/libraries not available or working in cosmocc
+# - _tkinter: requires Tk/Tcl GUI toolkit (not portable)
+# - _dbm: requires ndbm/gdbm library
+# - _gdbm: requires GNU dbm library  
+# - nis: deprecated, requires NIS/YP (network service)
+# - _curses/_curses_panel: ncurses build incomplete, missing symbols
+#   see: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
 cat > "${SRC_DIR}/Modules/Setup.local" << 'SETUP'
 *disabled*
 _tkinter
@@ -148,7 +154,11 @@ sed -i 's/^#readline /readline /' Modules/Setup.stdlib
 sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' Modules/Setup.stdlib
 sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 
-# Remove modules that need unavailable headers
+# Remove modules that need unavailable headers/libraries
+# - _crypt: deprecated in 3.11, removed in 3.13 (PEP 594)
+# - _uuid: requires libuuid; Python fallback works fine
+# - _dbm/_gdbm: require database libraries not available
+# - _curses/_curses_panel: ncurses symbols missing in our build
 DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
 for mod in $DISABLE_MODULES; do
   sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
