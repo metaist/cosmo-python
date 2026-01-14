@@ -21,11 +21,39 @@ This project provides clean, versioned Python builds as standalone releases.
 
 ## Releases
 
+We use **date-based releases** (e.g., `20260114-153042`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change. The format is `YYYYMMDD-HHMMSS` to support multiple releases per day if needed.
+
 Each release includes:
 
 ```
-python-3.x.y-cosmo.zip
+python-3.10.16-cosmo-x86_64.com
+python-3.11.11-cosmo-x86_64.com
+python-3.12.8-cosmo-x86_64.com
+python-3.13.1-cosmo-x86_64.com
+manifest.json
 checksums.txt
+```
+
+The `manifest.json` provides metadata for programmatic access:
+
+```json
+{
+  "release": "20260114-153042",
+  "cosmocc": "4.0.2",
+  "versions": {
+    "3.12.8": {
+      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114/python-3.12.8-cosmo-x86_64.com",
+      "sha256": "..."
+    }
+  },
+  "latest": {
+    "3.10": "3.10.16",
+    "3.11": "3.11.11",
+    "3.12": "3.12.8",
+    "3.13": "3.13.1"
+  },
+  "default": "3.12"
+}
 ```
 
 ## Usage
@@ -33,18 +61,25 @@ checksums.txt
 Download the appropriate release for your Python version:
 
 ```bash
-# Download
-curl -LO https://github.com/metaist/cosmo-python/releases/download/v3.x.y/python-3.x.y-cosmo.zip
+# Download latest release
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo-x86_64.com
 
-# Verify checksum
-sha256sum -c checksums.txt
+# Or fetch manifest to find available versions
+curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
 
-# Extract
-unzip python-3.x.y-cosmo.zip
-
-# Run
-./python.com --version
+# Make executable and run
+chmod +x python-3.12.8-cosmo-x86_64.com
+./python-3.12.8-cosmo-x86_64.com --version
 ```
+
+## When We Release
+
+A new release is triggered when:
+
+- **Upstream Python patch** - New Python bugfix release (e.g., 3.12.8 → 3.12.9)
+- **Cosmopolitan update** - New cosmocc version with fixes or improvements
+- **Build patches** - Changes to our patches or build configuration
+- **Security issues** - CVEs in Python or dependencies
 
 ## Upstream Sources
 
