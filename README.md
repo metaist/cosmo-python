@@ -87,6 +87,40 @@ A new release is triggered when:
 - **Build patches** - Changes to our patches or build configuration
 - **Security issues** - CVEs in Python or dependencies
 
+## Verification
+
+### Download Verification
+
+Each release includes `checksums.txt` with SHA256 hashes:
+
+```bash
+# Download checksums and binary
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo-x86_64.com
+
+# Verify
+sha256sum -c checksums.txt --ignore-missing
+```
+
+The `manifest.json` also includes SHA256 hashes for programmatic verification.
+
+### Build Verification
+
+All upstream dependencies are verified during the build:
+
+- **SHA256 checksums** for all downloads (stored in `versions.json`)
+- **Official sources** only (no mirrors except GNU FTP)
+
+### Trust Assumptions
+
+| Component | Trust Model |
+|-----------|-------------|
+| **Python source** | SHA256 verified; sigstore attestations available (verification planned) |
+| **cosmocc** | SHA256 verified; no upstream attestations currently available |
+| **Other deps** | SHA256 verified against known-good hashes |
+
+Note: cosmocc (Cosmopolitan toolchain) does not currently provide attestations. We pin to a specific version and verify its SHA256 hash, but cannot cryptographically verify its provenance.
+
 ## Upstream Sources
 
 All external dependencies are fetched from official sources:
