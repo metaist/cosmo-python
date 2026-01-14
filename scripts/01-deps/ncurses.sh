@@ -139,6 +139,9 @@ ln -sf libformw.a libform.a 2>/dev/null || true
 ln -sf libmenuw.a libmenu.a 2>/dev/null || true
 ln -sf libpanelw.a libpanel.a 2>/dev/null || true
 ln -sf libtinfow.a libtinfo.a 2>/dev/null || true
+# Python 3.10's configure uses old-style readline detection that looks for -ltermcap
+# libtinfo provides termcap compatibility (see #24)
+ln -sf libtinfo.a libtermcap.a 2>/dev/null || true
 
 cd "${DEPS_DIR}/include"
 rm -rf ncurses 2>/dev/null || true
