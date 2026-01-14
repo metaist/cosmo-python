@@ -6,7 +6,6 @@
 Standalone versioned [Cosmopolitan] Python builds.
 
 [issues]: https://github.com/metaist/cosmo-python/issues
-
 [cosmopolitan]: https://github.com/jart/cosmopolitan
 
 ## Why?
@@ -19,9 +18,39 @@ Existing Cosmopolitan Python builds (from [superconfigure]) are bundled with oth
 
 This project provides clean, versioned Python builds as standalone releases.
 
+[superconfigure]: https://github.com/ahgamut/superconfigure
+
+## Usage
+
+Download and run:
+
+```bash
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
+chmod +x python-3.12.8-cosmo.com
+./python-3.12.8-cosmo.com --version
+```
+
+Or use the manifest to find available versions:
+
+```bash
+curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
+```
+
+## Verification
+
+Each release includes `checksums.txt` with SHA256 hashes:
+
+```bash
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
+sha256sum -c checksums.txt --ignore-missing
+```
+
+The `manifest.json` also includes SHA256 hashes for programmatic verification.
+
 ## Releases
 
-We use **date-based releases** (e.g., `20260114-153042`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change. The format is `YYYYMMDD-HHMMSS` to support multiple releases per day if needed.
+We use **date-based releases** (e.g., `20260114-153042`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change.
 
 Each release includes:
 
@@ -34,7 +63,9 @@ manifest.json
 checksums.txt
 ```
 
-The `manifest.json` provides metadata for programmatic access. It acts as a spanning registry, tracking all available versions across releases:
+### Manifest Format
+
+The `manifest.json` acts as a spanning registry, tracking all versions across releases:
 
 ```json
 {
@@ -52,57 +83,46 @@ The `manifest.json` provides metadata for programmatic access. It acts as a span
       "release": "20260115-120000"
     }
   },
-  "latest": {
-    "3.12": "3.12.9",
-    "3.13": "3.13.1"
-  },
+  "latest": { "3.12": "3.12.9", "3.13": "3.13.1" },
   "default": "3.12"
 }
 ```
 
-Each version entry includes a `release` field indicating which release contains that binary. This allows consumers to fetch specific versions while the manifest only needs to be fetched from the latest release.
-
-## Usage
-
-Download the appropriate release for your Python version:
-
-```bash
-# Download latest release
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
-
-# Or fetch manifest to find available versions
-curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
-
-# Make executable and run
-chmod +x python-3.12.8-cosmo.com
-./python-3.12.8-cosmo.com --version
-```
-
-## When We Release
+### When We Release
 
 A new release is triggered when:
 
-- **Upstream Python patch** - New Python bugfix release (e.g., 3.12.8 → 3.12.9)
-- **Cosmopolitan update** - New cosmocc version with fixes or improvements
+- **Upstream Python patch** - New bugfix release (e.g., 3.12.8 → 3.12.9)
+- **Cosmopolitan update** - New cosmocc version with fixes
 - **Build patches** - Changes to our patches or build configuration
 - **Security issues** - CVEs in Python or dependencies
 
-## Verification
+---
 
-### Download Verification
+## Building
 
-Each release includes `checksums.txt` with SHA256 hashes:
+### Quick Start
 
 ```bash
-# Download checksums and binary
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
-
-# Verify
-sha256sum -c checksums.txt --ignore-missing
+./scripts/build.sh 3.12.8      # build specific version
+./scripts/build.sh --all       # build all versions
 ```
 
-The `manifest.json` also includes SHA256 hashes for programmatic verification.
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WORK_DIR` | `./work` | Build working directory (sources, objects) |
+| `DIST_DIR` | `./dist` | Output directory for built binaries |
+| `COSMO_DIR` | `/tmp/cosmo` | Cosmopolitan toolchain installation path |
+| `DEPS_DIR` | `$WORK_DIR/deps` | Compiled dependencies (openssl, libffi, etc.) |
+| `SKIP_SIGSTORE` | _(unset)_ | Set to `1` to skip Python sigstore verification |
+
+Example:
+
+```bash
+WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.12.8
+```
 
 ### Build Verification
 
@@ -110,12 +130,12 @@ All upstream dependencies are verified during the build:
 
 - **SHA256 checksums** for all downloads (stored in `versions.json`)
 - **Official sources** only (no mirrors except GNU FTP)
-- **Sigstore verification** for Python source (optional, requires `sigstore` CLI)
+- **Sigstore verification** for Python source (if `uvx` available)
 
 #### Python Sigstore Verification
 
 Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.
-If [uv](https://docs.astral.sh/uv/) is installed, our build script automatically verifies signatures via `uvx sigstore`:
+If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:
 
 ```bash
 # Install uv (if not already installed)
@@ -125,14 +145,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ./scripts/build.sh 3.12.8
 ```
 
-You can also verify manually:
+Manual verification:
 
 ```bash
-# Download Python source and sigstore bundle
 curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
 curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz.sigstore
 
-# Verify with uvx
 uvx sigstore verify identity \
   --bundle Python-3.12.8.tgz.sigstore \
   --cert-identity "thomas@python.org" \
@@ -144,26 +162,24 @@ uvx sigstore verify identity \
 
 | Component | Trust Model |
 |-----------|-------------|
-| **Python source** | SHA256 verified + Sigstore attestation (if CLI available) |
-| **cosmocc** | SHA256 verified; no upstream attestations currently available |
+| **Python source** | SHA256 verified + Sigstore attestation (if available) |
+| **cosmocc** | SHA256 verified; no upstream attestations available |
 | **Other deps** | SHA256 verified against known-good hashes |
 
-Note: cosmocc (Cosmopolitan toolchain) does not currently provide attestations. We pin to a specific version and verify its SHA256 hash, but cannot cryptographically verify its provenance.
+Note: cosmocc does not currently provide attestations. We pin to a specific version and verify its SHA256 hash.
 
-## Upstream Sources
+### Upstream Sources
 
-All external dependencies are fetched from official sources:
-
-| Component | Version | Source | Why |
-|-----------|---------|--------|-----|
-| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | Official Cosmopolitan compiler toolchain |
-| **Python** | 3.10-3.13 | [python.org][python-src] | Official release tarballs with pre-generated `configure` and sigstore attestations |
-| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | Official releases |
-| **libffi** | 3.4.2 | [GitHub Releases][libffi-src] | Official releases |
-| **xz** | 5.4.5 | [GitHub Releases][xz-src] | Official releases (liblzma for LZMA compression) |
-| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | Official bzip2 releases |
-| **ncurses** | 6.4 | [GNU FTP][ncurses-src] | Official GNU releases |
-| **readline** | 8.2 | [GNU FTP][readline-src] | Official GNU releases |
+| Component | Version | Source |
+|-----------|---------|--------|
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] |
+| **Python** | 3.10-3.13 | [python.org][python-src] |
+| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] |
+| **libffi** | 3.4.2 | [GitHub Releases][libffi-src] |
+| **xz** | 5.4.5 | [GitHub Releases][xz-src] |
+| **bz2** | 1.0.8 | [sourceware.org][bz2-src] |
+| **ncurses** | 6.4 | [GNU FTP][ncurses-src] |
+| **readline** | 8.2 | [GNU FTP][readline-src] |
 
 [cosmocc-src]: https://github.com/jart/cosmopolitan/releases
 [python-src]: https://www.python.org/ftp/python/
@@ -174,21 +190,21 @@ All external dependencies are fetched from official sources:
 [ncurses-src]: https://ftp.gnu.org/gnu/ncurses/
 [readline-src]: https://ftp.gnu.org/gnu/readline/
 
+---
+
 ## Acknowledgments
 
 This project builds upon the excellent work of:
 
-- **[Justine Tunney]** ([@jart]) - Creator of [Cosmopolitan libc], which makes it possible to build truly portable executables that run on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD.
+- **[Justine Tunney]** ([@jart]) - Creator of [Cosmopolitan libc], which makes truly portable executables that run on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD.
 
-- **[Gautham Venkatasubramanian]** ([@ahgamut]) - Maintainer of [superconfigure], which provides the build infrastructure for compiling Python and other software with Cosmopolitan libc.
+- **[Gautham Venkatasubramanian]** ([@ahgamut]) - Maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
 
 [justine tunney]: https://justine.lol/
 [@jart]: https://github.com/jart
 [cosmopolitan libc]: https://github.com/jart/cosmopolitan
-
 [gautham venkatasubramanian]: https://ahgamut.github.io/
 [@ahgamut]: https://github.com/ahgamut
-[superconfigure]: https://github.com/ahgamut/superconfigure
 
 ## License
 
