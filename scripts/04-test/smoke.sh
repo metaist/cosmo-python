@@ -263,6 +263,27 @@ else
 fi
 
 #
+# .args file support (LoadZipArgs)
+#
+echo ""
+echo ".args file support..."
+
+# Create a test binary with .args embedded
+ARGS_TEST_BINARY="/tmp/test-args-$$.com"
+cp "$PYTHON" "$ARGS_TEST_BINARY"
+echo '-c
+print("ARGS_TEST_SUCCESS")' > /tmp/.args
+(cd /tmp && zip -q "$ARGS_TEST_BINARY" .args)
+
+if "$ARGS_TEST_BINARY" 2>/dev/null | grep -q "ARGS_TEST_SUCCESS"; then
+  pass ".args file execution"
+else
+  fail ".args file execution"
+fi
+
+rm -f "$ARGS_TEST_BINARY" /tmp/.args /tmp/.args-$$
+
+#
 # Summary
 #
 echo ""

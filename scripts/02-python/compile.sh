@@ -57,8 +57,8 @@ done
 log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
 # Apply Cosmopolitan-specific patches
-SCRIPT_DIR="$(dirname "$0")"
-PATCHES_DIR="${SCRIPT_DIR}/../../patches"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PATCHES_DIR="${SCRIPT_DIR}/patches"
 
 if [ -d "${PATCHES_DIR}" ]; then
   for patch in "${PATCHES_DIR}"/*.patch; do
