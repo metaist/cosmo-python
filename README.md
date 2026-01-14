@@ -34,27 +34,33 @@ manifest.json
 checksums.txt
 ```
 
-The `manifest.json` provides metadata for programmatic access:
+The `manifest.json` provides metadata for programmatic access. It acts as a spanning registry, tracking all available versions across releases:
 
 ```json
 {
-  "release": "20260114-153042",
+  "release": "20260115-120000",
   "cosmocc": "4.0.2",
   "versions": {
     "3.12.8": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114/python-3.12.8-cosmo-x86_64.com",
-      "sha256": "..."
+      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114-153042/python-3.12.8-cosmo-x86_64.com",
+      "sha256": "...",
+      "release": "20260114-153042"
+    },
+    "3.12.9": {
+      "url": "https://github.com/metaist/cosmo-python/releases/download/20260115-120000/python-3.12.9-cosmo-x86_64.com",
+      "sha256": "...",
+      "release": "20260115-120000"
     }
   },
   "latest": {
-    "3.10": "3.10.16",
-    "3.11": "3.11.11",
-    "3.12": "3.12.8",
+    "3.12": "3.12.9",
     "3.13": "3.13.1"
   },
   "default": "3.12"
 }
 ```
+
+Each version entry includes a `release` field indicating which release contains that binary. This allows consumers to fetch specific versions while the manifest only needs to be fetched from the latest release.
 
 ## Usage
 

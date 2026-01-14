@@ -1,22 +1,166 @@
 # Release Workflow
-# TODO: implement release automation
-name: release
+#
+# Builds all Python versions and creates a GitHub release with:
+# - Compiled Python binaries for each version
+# - manifest.json spanning all available versions
+# - checksums.txt
+#
+# Triggered manually via workflow_dispatch
+#
+name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (default: YYYYMMDD-HHMMSS)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (build but do not publish)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write  # Required to create releases
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.tag.outputs.release_tag }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      # TODO: implement release steps
-      # - download build artifacts
-      # - generate checksums
-      # - create GitHub release
+      - name: Generate release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG=$(date -u +"%Y%m%d-%H%M%S")
+          fi
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG"
 
-      - name: placeholder
-        run: echo "Release workflow not yet implemented"
+      - name: Register APE with binfmt_misc
+        run: |
+          sudo mkdir -p /usr/bin
+          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
+
+      - name: Build all Python versions
+        run: ./scripts/build.sh --all
+
+      - name: Copy APE loader
+        run: |
+          if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
+            sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
+          fi
+
+      - name: Run smoke tests
+        run: |
+          for bin in dist/python-*-cosmo-*.com; do
+            if [ -f "$bin" ]; then
+              echo "Testing: $bin"
+              ./scripts/04-test/smoke.sh "$bin"
+            fi
+          done
+
+      - name: Fetch previous manifest
+        id: prev_manifest
+        run: |
+          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/latest/download/manifest.json"
+          if curl -fsSL "$MANIFEST_URL" -o /tmp/prev-manifest.json 2>/dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Previous manifest found"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No previous manifest (first release?)"
+          fi
+
+      - name: Generate manifest
+        run: |
+          RELEASE_TAG="${{ steps.tag.outputs.release_tag }}"
+          if [ "${{ steps.prev_manifest.outputs.found }}" = "true" ]; then
+            ./scripts/03-package/manifest.sh "$RELEASE_TAG" --merge /tmp/prev-manifest.json
+          else
+            ./scripts/03-package/manifest.sh "$RELEASE_TAG"
+          fi
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum python-*.com > checksums.txt
+          cat checksums.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.tag.outputs.release_tag }}
+          path: |
+            dist/python-*.com
+            dist/manifest.json
+            dist/checksums.txt
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.dry_run }}
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-${{ needs.build.outputs.release_tag }}
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.release_tag }}
+          name: ${{ needs.build.outputs.release_tag }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/python-*.com
+            dist/manifest.json
+            dist/checksums.txt
+          body: |
+            ## Cosmopolitan Python Release ${{ needs.build.outputs.release_tag }}
+
+            ### Downloads
+
+            | Python Version | Download |
+            |----------------|----------|
+            | 3.10.x | `python-3.10.16-cosmo-x86_64.com` |
+            | 3.11.x | `python-3.11.11-cosmo-x86_64.com` |
+            | 3.12.x | `python-3.12.8-cosmo-x86_64.com` |
+            | 3.13.x | `python-3.13.1-cosmo-x86_64.com` |
+
+            ### Usage
+
+            ```bash
+            # Download
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.release_tag }}/python-3.12.8-cosmo-x86_64.com
+
+            # Make executable and run
+            chmod +x python-3.12.8-cosmo-x86_64.com
+            ./python-3.12.8-cosmo-x86_64.com --version
+            ```
+
+            ### Programmatic Access
+
+            Fetch `manifest.json` to discover all available versions:
+
+            ```bash
+            curl -sL https://github.com/${{ github.repository }}/releases/latest/download/manifest.json | jq .
+            ```
+
+            ### Verification
+
+            ```bash
+            sha256sum -c checksums.txt
+            ```
