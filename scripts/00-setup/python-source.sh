@@ -54,7 +54,9 @@ SIGSTORE_BUNDLE="${TARBALL}.sigstore"
 download_and_verify "${PYTHON_URL}" "${TARBALL}" "${PYTHON_SHA256}" "Python ${PYTHON_VERSION}"
 
 # Sigstore verification (optional but recommended)
-if command -v uvx >/dev/null 2>&1; then
+if [ "${SKIP_SIGSTORE:-}" = "1" ]; then
+  log_warn "SKIP_SIGSTORE=1 set - skipping sigstore verification"
+elif command -v uvx >/dev/null 2>&1; then
   log_info "verifying sigstore signature..."
   
   # Download sigstore bundle
@@ -66,12 +68,15 @@ if command -v uvx >/dev/null 2>&1; then
         "${TARBALL}" >/dev/null 2>&1; then
       log_ok "sigstore signature verified (signed by ${PYTHON_RELEASE_IDENTITY})"
     else
-      log_warn "sigstore verification failed - continuing with SHA256 verification only"
-      log_warn "this may indicate a supply chain issue or changed release process"
+      log_error "sigstore verification FAILED"
+      log_error "this may indicate a compromised download or supply chain attack"
+      log_error "if you trust the SHA256 checksum, set SKIP_SIGSTORE=1 to bypass"
+      rm -f "${SIGSTORE_BUNDLE}"
+      exit 1
     fi
     rm -f "${SIGSTORE_BUNDLE}"
   else
-    log_warn "sigstore bundle not available for Python ${PYTHON_VERSION}"
+    log_info "sigstore bundle not available for Python ${PYTHON_VERSION} - skipping"
   fi
 else
   log_info "uvx not found - skipping sigstore verification"
