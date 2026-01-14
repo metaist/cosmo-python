@@ -1,5 +1,10 @@
 #!/bin/bash
 # Download and extract Python source code
+#
+# Verifies source integrity via:
+# 1. SHA256 checksum (always, from versions.json)
+# 2. Sigstore signature (optional, if sigstore CLI is available)
+#
 source "$(dirname "$0")/../common.sh"
 
 PYTHON_VERSION="${1:-}"
@@ -23,7 +28,13 @@ if [ "$PYTHON_SHA256" = "null" ] || [ -z "$PYTHON_SHA256" ]; then
 fi
 
 PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"
+SIGSTORE_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz.sigstore"
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
+
+# Python release manager identity for sigstore verification
+# See: https://www.python.org/dev/peps/pep-0101/
+PYTHON_RELEASE_IDENTITY="thomas@python.org"
+PYTHON_RELEASE_ISSUER="https://accounts.google.com"
 
 # Check if already downloaded and extracted
 if [ -f "${SRC_DIR}/configure" ]; then
@@ -37,9 +48,35 @@ mkdir -p "${WORK_DIR}"
 cd "${WORK_DIR}"
 
 TARBALL="Python-${PYTHON_VERSION}.tgz"
+SIGSTORE_BUNDLE="${TARBALL}.sigstore"
 
 # Download and verify checksum
 download_and_verify "${PYTHON_URL}" "${TARBALL}" "${PYTHON_SHA256}" "Python ${PYTHON_VERSION}"
+
+# Sigstore verification (optional but recommended)
+if command -v uvx >/dev/null 2>&1; then
+  log_info "verifying sigstore signature..."
+  
+  # Download sigstore bundle
+  if curl -fsSL "${SIGSTORE_URL}" -o "${SIGSTORE_BUNDLE}" 2>/dev/null; then
+    if uvx sigstore verify identity \
+        --bundle "${SIGSTORE_BUNDLE}" \
+        --cert-identity "${PYTHON_RELEASE_IDENTITY}" \
+        --cert-oidc-issuer "${PYTHON_RELEASE_ISSUER}" \
+        "${TARBALL}" >/dev/null 2>&1; then
+      log_ok "sigstore signature verified (signed by ${PYTHON_RELEASE_IDENTITY})"
+    else
+      log_warn "sigstore verification failed - continuing with SHA256 verification only"
+      log_warn "this may indicate a supply chain issue or changed release process"
+    fi
+    rm -f "${SIGSTORE_BUNDLE}"
+  else
+    log_warn "sigstore bundle not available for Python ${PYTHON_VERSION}"
+  fi
+else
+  log_info "uvx not found - skipping sigstore verification"
+  log_info "install uv from: https://docs.astral.sh/uv/"
+fi
 
 log_info "extracting..."
 tar xzf "${TARBALL}"

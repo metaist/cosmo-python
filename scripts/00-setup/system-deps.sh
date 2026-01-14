@@ -7,7 +7,7 @@ log_info "checking system dependencies..."
 # Check if required tools are available
 MISSING=()
 
-for cmd in wget curl unzip tar patch make gcc; do
+for cmd in wget curl unzip tar patch make gcc jq; do
   if ! command -v "$cmd" &> /dev/null; then
     MISSING+=("$cmd")
   fi
@@ -15,6 +15,15 @@ done
 
 if [ ${#MISSING[@]} -eq 0 ]; then
   log_skip "all system dependencies already installed"
+fi
+
+# Check for optional but recommended tools
+if ! command -v uvx &> /dev/null; then
+  log_info "uvx not found (optional, for Python sigstore verification)"
+  log_info "install uv from: https://docs.astral.sh/uv/"
+fi
+
+if [ ${#MISSING[@]} -eq 0 ]; then
   exit 0
 fi
 
@@ -34,11 +43,11 @@ fi
 # Detect package manager and install
 if command -v apt-get &> /dev/null; then
   $SUDO apt-get update
-  $SUDO apt-get install -y build-essential pkg-config wget curl unzip
+  $SUDO apt-get install -y build-essential pkg-config wget curl unzip jq
 elif command -v dnf &> /dev/null; then
-  $SUDO dnf install -y gcc gcc-c++ make pkg-config wget curl unzip patch
+  $SUDO dnf install -y gcc gcc-c++ make pkg-config wget curl unzip patch jq
 elif command -v yum &> /dev/null; then
-  $SUDO yum install -y gcc gcc-c++ make pkgconfig wget curl unzip patch
+  $SUDO yum install -y gcc gcc-c++ make pkgconfig wget curl unzip patch jq
 else
   log_error "unsupported package manager; install manually: ${MISSING[*]}"
   exit 1

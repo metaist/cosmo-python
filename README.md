@@ -110,12 +110,41 @@ All upstream dependencies are verified during the build:
 
 - **SHA256 checksums** for all downloads (stored in `versions.json`)
 - **Official sources** only (no mirrors except GNU FTP)
+- **Sigstore verification** for Python source (optional, requires `sigstore` CLI)
+
+#### Python Sigstore Verification
+
+Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.
+If [uv](https://docs.astral.sh/uv/) is installed, our build script automatically verifies signatures via `uvx sigstore`:
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Build will now verify sigstore signatures
+./scripts/build.sh 3.12.8
+```
+
+You can also verify manually:
+
+```bash
+# Download Python source and sigstore bundle
+curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
+curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz.sigstore
+
+# Verify with uvx
+uvx sigstore verify identity \
+  --bundle Python-3.12.8.tgz.sigstore \
+  --cert-identity "thomas@python.org" \
+  --cert-oidc-issuer "https://accounts.google.com" \
+  Python-3.12.8.tgz
+```
 
 ### Trust Assumptions
 
 | Component | Trust Model |
 |-----------|-------------|
-| **Python source** | SHA256 verified; sigstore attestations available (verification planned) |
+| **Python source** | SHA256 verified + Sigstore attestation (if CLI available) |
 | **cosmocc** | SHA256 verified; no upstream attestations currently available |
 | **Other deps** | SHA256 verified against known-good hashes |
 

@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Register APE with binfmt_misc
         run: |
           # This allows running Cosmopolitan binaries directly
