@@ -26,11 +26,10 @@ log_info "extracting..."
 unzip -q -o cosmocc.zip
 rm cosmocc.zip
 
-# Record version for idempotency
-echo "${COSMOCC_VERSION}" > "${COSMO_DIR}/.cosmocc-version"
-
 # Verify installation
 if "${COSMO_DIR}/bin/cosmocc" --version > /dev/null 2>&1; then
+  # Record version for idempotency (only after successful verification)
+  echo "${COSMOCC_VERSION}" > "${COSMO_DIR}/.cosmocc-version"
   log_ok "cosmocc ${COSMOCC_VERSION} installed at ${COSMO_DIR}"
 else
   log_error "cosmocc installation failed"
