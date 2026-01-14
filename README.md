@@ -158,41 +158,35 @@ uvx sigstore verify identity \
   Python-3.12.8.tgz
 ```
 
-### Trust Assumptions
+### Upstream Sources & Trust
 
-| Component | Trust Model |
-|-----------|-------------|
-| **Python source** | SHA256 verified + Sigstore attestation (if available) |
-| **cosmocc** | SHA256 verified; no upstream attestations available |
-| **Other deps** | SHA256 verified against known-good hashes |
+All dependencies are SHA256 verified against known-good hashes in `versions.json`.
 
-Note: cosmocc does not currently provide attestations. We pin to a specific version and verify its SHA256 hash.
+| Component | Version | Source | Trust Model |
+|-----------|---------|--------|-------------|
+| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 verified |
+| **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 verified |
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |
+| **gdbm** | 1.23 | [GNU FTP][gdbm-src] | SHA256 verified |
+| **libffi** | 3.4.2 | [GitHub Releases][libffi-src] | SHA256 verified |
+| **ncurses** | 6.4 | [GNU FTP][ncurses-src] | SHA256 verified |
+| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 verified |
+| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |
+| **readline** | 8.2 | [GNU FTP][readline-src] | SHA256 verified |
+| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 verified |
+| **xz** | 5.4.5 | [GitHub Releases][xz-src] | SHA256 verified |
 
-### Upstream Sources
-
-| Component | Version | Source |
-|-----------|---------|--------|
-| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] |
-| **Python** | 3.10-3.13 | [python.org][python-src] |
-| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] |
-| **CA certs** | 2025-12-02 | [curl.se][cacert-src] |
-| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] |
-| **libffi** | 3.4.2 | [GitHub Releases][libffi-src] |
-| **xz** | 5.4.5 | [GitHub Releases][xz-src] |
-| **bz2** | 1.0.8 | [sourceware.org][bz2-src] |
-| **ncurses** | 6.4 | [GNU FTP][ncurses-src] |
-| **readline** | 8.2 | [GNU FTP][readline-src] |
-
-[cosmocc-src]: https://github.com/jart/cosmopolitan/releases
-[python-src]: https://www.python.org/ftp/python/
-[openssl-src]: https://github.com/openssl/openssl/releases
-[cacert-src]: https://curl.se/docs/caextract.html
-[sqlite-src]: https://www.sqlite.org/download.html
-[libffi-src]: https://github.com/libffi/libffi/releases
-[xz-src]: https://github.com/tukaani-project/xz/releases
 [bz2-src]: https://sourceware.org/pub/bzip2/
+[cacert-src]: https://curl.se/docs/caextract.html
+[cosmocc-src]: https://github.com/jart/cosmopolitan/releases
+[gdbm-src]: https://ftp.gnu.org/gnu/gdbm/
+[libffi-src]: https://github.com/libffi/libffi/releases
 [ncurses-src]: https://ftp.gnu.org/gnu/ncurses/
+[openssl-src]: https://github.com/openssl/openssl/releases
+[python-src]: https://www.python.org/ftp/python/
 [readline-src]: https://ftp.gnu.org/gnu/readline/
+[sqlite-src]: https://www.sqlite.org/download.html
+[xz-src]: https://github.com/tukaani-project/xz/releases
 
 ---
 
