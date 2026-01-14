@@ -31,9 +31,19 @@ PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_
 SIGSTORE_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz.sigstore"
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 
-# Python release manager identity for sigstore verification
+# Python release manager identities for sigstore verification
+# Different versions are signed by different release managers
 # See: https://www.python.org/dev/peps/pep-0101/
-PYTHON_RELEASE_IDENTITY="thomas@python.org"
+get_release_manager() {
+  local version="$1"
+  local minor="${version%.*}"
+  case "$minor" in
+    3.10|3.11) echo "pablogsal@python.org" ;;
+    3.12|3.13) echo "thomas@python.org" ;;
+    *) echo "thomas@python.org" ;;  # Default fallback
+  esac
+}
+PYTHON_RELEASE_IDENTITY="$(get_release_manager "$PYTHON_VERSION")"
 PYTHON_RELEASE_ISSUER="https://accounts.google.com"
 
 # Check if already downloaded and extracted
