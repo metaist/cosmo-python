@@ -1,0 +1,30 @@
+{
+  "comment": "Supported Python versions for cosmo-python builds",
+  "versions": {
+    "3.10": {
+      "latest": "3.10.16",
+      "status": "security",
+      "eol": "2026-10",
+      "notes": "Security fixes only, source-only releases"
+    },
+    "3.11": {
+      "latest": "3.11.11",
+      "status": "security",
+      "eol": "2027-10",
+      "notes": "Security fixes only, source-only releases"
+    },
+    "3.12": {
+      "latest": "3.12.8",
+      "status": "security",
+      "eol": "2028-10",
+      "notes": "Security fixes only, source-only releases"
+    },
+    "3.13": {
+      "latest": "3.13.1",
+      "status": "bugfix",
+      "eol": "2029-10",
+      "notes": "Active maintenance, includes experimental JIT and free-threading"
+    }
+  },
+  "default": "3.12"
+}

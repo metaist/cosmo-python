@@ -45,6 +45,8 @@ export CXX="${COSMO_DIR}/bin/cosmoc++"
 export AR="${COSMO_DIR}/bin/cosmoar"
 export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include"
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
+# Add library dependencies that modules need (for all Python versions)
+export LIBS="-lreadline -ltinfo -lffi"
 
 # Verify cosmocc exists
 if [ ! -x "${CC}" ]; then
@@ -103,12 +105,24 @@ echo "Configuring..."
 echo "Patching Setup.stdlib for static module building..."
 sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
 
+# Enable modules that configure might not have detected
+# These are built with our custom deps (libffi, readline, ncurses, openssl)
+echo "Enabling modules built with our dependencies..."
+
+# Enable readline (uncomment if commented)
+sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' Modules/Setup.stdlib
+sed -i 's/^#readline /readline /' Modules/Setup.stdlib
+
+# Enable _ctypes (uncomment if commented)
+sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' Modules/Setup.stdlib
+sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
+
 # Remove modules that need unavailable headers from Setup.stdlib
 echo "Removing unavailable modules from Setup.stdlib..."
 
 # List of modules to remove (need headers cosmocc doesn't have)
 # Note: _ssl, _hashlib, readline, and _ctypes are now enabled via our deps
-DISABLE_MODULES="_crypt _uuid _dbm _gdbm"
+DISABLE_MODULES="_crypt _uuid _dbm _gdbm _curses _curses_panel"
 
 for mod in $DISABLE_MODULES; do
   # Comment out the module line in Setup.stdlib
