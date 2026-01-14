@@ -3,7 +3,7 @@
 source "$(dirname "$0")/../common.sh"
 
 COSMOCC_VERSION="${COSMOCC_VERSION:-4.0.2}"
-COSMOCC_URL="https://cosmo.zip/pub/cosmocc/cosmocc-${COSMOCC_VERSION}.zip"
+COSMOCC_URL="https://github.com/jart/cosmopolitan/releases/download/${COSMOCC_VERSION}/cosmocc-${COSMOCC_VERSION}.zip"
 
 # Check if already installed
 if [ -x "${COSMO_DIR}/bin/cosmocc" ]; then
