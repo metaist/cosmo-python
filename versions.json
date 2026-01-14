@@ -114,5 +114,14 @@
     },
     "default": "3.51.2",
     "url_template": "https://www.sqlite.org/2026/sqlite-autoconf-{autoconf_version}.tar.gz"
+  },
+  "gdbm": {
+    "versions": {
+      "1.23": {
+        "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd"
+      }
+    },
+    "default": "1.23",
+    "url_template": "https://ftp.gnu.org/gnu/gdbm/gdbm-{version}.tar.gz"
   }
 }

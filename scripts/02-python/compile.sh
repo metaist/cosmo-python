@@ -46,6 +46,7 @@ REQUIRED_LIBS=(
   "${DEPS_DIR}/lib/libbz2.a"
   "${DEPS_DIR}/lib/liblzma.a"
   "${DEPS_DIR}/lib/libsqlite3.a"
+  "${DEPS_DIR}/lib/libgdbm.a"
 )
 
 for lib in "${REQUIRED_LIBS[@]}"; do
@@ -105,7 +106,6 @@ cat > "${SRC_DIR}/Modules/Setup.local" << 'SETUP'
 *disabled*
 _tkinter
 _dbm
-_gdbm
 nis
 SETUP
 
@@ -134,8 +134,8 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   CURSES_LIBS="-L${DEPS_DIR}/lib -lncursesw -ltinfow" \
   PANEL_CFLAGS="-I${DEPS_DIR}/include/ncurses" \
   PANEL_LIBS="-L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfow" \
-  GDBM_CFLAGS=" " \
-  GDBM_LIBS=" " \
+  GDBM_CFLAGS="-I${DEPS_DIR}/include" \
+  GDBM_LIBS="-L${DEPS_DIR}/lib -lgdbm" \
   OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
   OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto" \
   LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
@@ -173,15 +173,11 @@ sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 #   - Only downside: potential race under heavy multi-threaded uuid1()
 #   - superconfigure also skips libuuid
 #
-# _dbm/_gdbm: Require ndbm/gdbm database libraries.
-#   Python's dbm.dumb (pure Python) works as fallback:
-#   - shelve module works (main use case for dbm)
-#   - O(n) vs O(1) lookup, but sufficient for most uses
-#   - For serious database needs, use sqlite3 (which we support)
-#   superconfigure builds gdbm; we skip for simplicity.
-#   See: https://github.com/metaist/cosmo-python/issues/20
+# _dbm: Requires ndbm library (part of glibc, not worth extracting).
+#   gdbm's --enable-libgdbm-compat provides ndbm API compatibility,
+#   but Python's _dbm module specifically wants ndbm.h which we don't have.
 #
-DISABLE_MODULES="_crypt _uuid _dbm _gdbm"
+DISABLE_MODULES="_crypt _uuid _dbm"
 for mod in $DISABLE_MODULES; do
   sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
 done

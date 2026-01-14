@@ -138,6 +138,24 @@ conn.close()
 "
 
 #
+# gdbm (our deps)
+#
+echo ""
+echo "GDBM module..."
+
+run_test "import dbm.gnu" "import dbm.gnu"
+run_test "gdbm operations" "
+import dbm.gnu as gdbm
+import tempfile, os
+with tempfile.TemporaryDirectory() as tmpdir:
+    path = os.path.join(tmpdir, 'test.db')
+    with gdbm.open(path, 'c') as db:
+        db['key'] = 'value'
+    with gdbm.open(path, 'r') as db:
+        assert db['key'] == b'value'
+"
+
+#
 # SSL/crypto (our deps)
 #
 echo ""
