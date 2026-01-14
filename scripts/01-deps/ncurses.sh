@@ -65,6 +65,12 @@ make distclean 2>/dev/null || true
 #   --disable-termcap   Don't use termcap compatibility
 #
 log_info "configuring..."
+
+# ncurses 6.6 configure has stricter compiler checks
+# Pre-set these to avoid "C compiler cannot create executables" errors
+export cf_cv_posix_c_source=no
+export ac_cv_prog_cc_cross=yes
+
 ./configure \
   --host=x86_64-linux \
   --without-libtool \

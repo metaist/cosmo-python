@@ -25,6 +25,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false  # We only use uvx for sigstore, no deps to cache
 
       - name: Register APE with binfmt_misc
         run: |
