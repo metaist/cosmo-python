@@ -228,3 +228,158 @@ download_and_verify() {
   timed curl -fsSL "$url" -o "$output"
   verify_checksum "$output" "$expected_sha256" "$desc"
 }
+
+#------------------------------------------------------------------------------
+# Dependency script helpers
+#------------------------------------------------------------------------------
+
+# Parse arguments for dependency scripts
+# Usage: parse_dep_args "$@"
+# Sets: DEP_VERSION (version to build), DEP_CLEAN (true if --clean passed)
+#
+# Examples:
+#   parse_dep_args                -> DEP_VERSION=(default), DEP_CLEAN=false
+#   parse_dep_args 6.6            -> DEP_VERSION=6.6, DEP_CLEAN=false
+#   parse_dep_args --clean        -> DEP_VERSION=(default), DEP_CLEAN=true
+#   parse_dep_args 6.6 --clean    -> DEP_VERSION=6.6, DEP_CLEAN=true
+#
+DEP_VERSION=""
+DEP_CLEAN=false
+
+parse_dep_args() {
+  local dep_name="$1"
+  shift
+  
+  DEP_VERSION=""
+  # shellcheck disable=SC2034  # DEP_CLEAN is used by callers after sourcing
+  DEP_CLEAN=false
+  
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --clean)
+        # shellcheck disable=SC2034
+        DEP_CLEAN=true
+        ;;
+      --help|-h)
+        echo "Usage: $0 [VERSION] [--clean]"
+        echo ""
+        echo "Build ${dep_name} dependency for Cosmopolitan Python."
+        echo ""
+        echo "Arguments:"
+        echo "  VERSION    Version to build (default: from versions.json)"
+        echo "  --clean    Remove existing build artifacts before building"
+        echo ""
+        echo "Examples:"
+        echo "  $0                  # Build default version"
+        echo "  $0 6.6              # Build specific version"
+        echo "  $0 --clean          # Clean and rebuild default"
+        echo "  $0 6.6 --clean      # Clean and rebuild specific version"
+        exit 0
+        ;;
+      *)
+        if [ -z "$DEP_VERSION" ]; then
+          DEP_VERSION="$1"
+        else
+          log_error "unexpected argument: $1"
+          exit 1
+        fi
+        ;;
+    esac
+    shift
+  done
+  
+  # Default to versions.json if no version specified
+  if [ -z "$DEP_VERSION" ]; then
+    DEP_VERSION=$(get_dep_version "$dep_name")
+  fi
+}
+
+# Clean dependency build artifacts
+# Usage: clean_dep "ncurses" "6.4" "/path/to/lib.a" [additional_paths...]
+clean_dep() {
+  local dep_name="$1"
+  local version="$2"
+  shift 2
+  
+  log_info "cleaning ${dep_name} ${version} build artifacts..."
+  
+  # Remove source directory
+  local src_dir="${WORK_DIR}/${dep_name}-${version}"
+  if [ -d "$src_dir" ]; then
+    log_info "  removing $src_dir"
+    rm -rf "$src_dir"
+  fi
+  
+  # Remove any additional paths passed as arguments
+  for path in "$@"; do
+    if [ -e "$path" ]; then
+      log_info "  removing $path"
+      rm -rf "$path"
+    fi
+  done
+}
+
+# Save config.log on configure failure
+# Usage: run_configure ./configure [args...]
+# On failure, outputs config.log and exits
+run_configure() {
+  log_info "configuring..."
+  if ! "$@" > /tmp/configure-output.log 2>&1; then
+    log_error "configure failed!"
+    log_error "--- configure output ---"
+    cat /tmp/configure-output.log >&2
+    if [ -f config.log ]; then
+      log_error "--- config.log (last 100 lines) ---"
+      tail -100 config.log >&2
+    fi
+    exit 1
+  fi
+}
+
+# Print environment diagnostics (useful for debugging CI)
+# Usage: print_diagnostics
+print_diagnostics() {
+  log_info "=== Environment Diagnostics ==="
+  log_info "uname: $(uname -a)"
+  log_info "pwd: $(pwd)"
+  log_info "user: $(whoami)"
+  
+  # Check binfmt_misc
+  if [ -d /proc/sys/fs/binfmt_misc ]; then
+    if [ -f /proc/sys/fs/binfmt_misc/APE ]; then
+      log_info "binfmt_misc APE: registered"
+    else
+      log_warn "binfmt_misc APE: NOT registered"
+    fi
+  else
+    log_warn "binfmt_misc: not available"
+  fi
+  
+  # Check APE loader
+  if [ -f /usr/bin/ape ]; then
+    log_info "APE loader: /usr/bin/ape exists"
+  else
+    log_warn "APE loader: /usr/bin/ape NOT found"
+  fi
+  
+  # Check cosmocc
+  if [ -x "${COSMO_DIR}/bin/cosmocc" ]; then
+    log_info "cosmocc: ${COSMO_DIR}/bin/cosmocc"
+    # Quick sanity check
+    if echo 'int main(){return 0;}' | "${COSMO_DIR}/bin/cosmocc" -x c - -o /tmp/cc_test 2>/dev/null; then
+      log_info "cosmocc: compiler works"
+      if /tmp/cc_test 2>/dev/null; then
+        log_info "cosmocc: can run compiled binaries"
+      else
+        log_warn "cosmocc: cannot run compiled binaries (APE loader issue?)"
+      fi
+      rm -f /tmp/cc_test /tmp/cc_test.aarch64.elf /tmp/cc_test.com.dbg
+    else
+      log_warn "cosmocc: compiler test failed"
+    fi
+  else
+    log_warn "cosmocc: not found at ${COSMO_DIR}/bin/cosmocc"
+  fi
+  
+  log_info "=== End Diagnostics ==="
+}

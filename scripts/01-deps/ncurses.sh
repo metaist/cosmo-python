@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build ncurses with cosmocc for use with Python readline
 #
+# Usage: ./ncurses.sh [VERSION] [--clean]
+#
 # Based on ahgamut/superconfigure's approach.
 # Ncurses provides terminal handling for readline's line editing.
 #
@@ -9,20 +11,43 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-NCURSES_VERSION="${NCURSES_VERSION:-$(get_dep_version ncurses)}"
-NCURSES_SHA256="$(get_dep_sha256 ncurses)"
+# Parse arguments
+parse_dep_args "ncurses" "$@"
+
+NCURSES_VERSION="$DEP_VERSION"
+NCURSES_SHA256="$(get_pkg_sha256 ncurses "$NCURSES_VERSION")"
 NCURSES_URL="https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
 NCURSES_DIR="${WORK_DIR}/ncurses-${NCURSES_VERSION}"
 
+# Validate version exists
+if [ "$NCURSES_SHA256" = "null" ] || [ -z "$NCURSES_SHA256" ]; then
+  log_error "ncurses ${NCURSES_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "ncurses" "$NCURSES_VERSION" \
+    "${DEPS_DIR}/lib/libncurses.a" \
+    "${DEPS_DIR}/lib/libncursesw.a" \
+    "${DEPS_DIR}/lib/.aarch64/libncurses.a" \
+    "${DEPS_DIR}/lib/.aarch64/libncursesw.a" \
+    "${DEPS_DIR}/include/ncurses" \
+    "${DEPS_DIR}/include/ncursesw" \
+    "${DEPS_DIR}/include/curses.h" \
+    "${DEPS_DIR}/include/ncurses.h" \
+    "${DEPS_DIR}/include/panel.h" \
+    "${DEPS_DIR}/include/term.h"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/libncurses.a" "ncurses ${NCURSES_VERSION}"
 
 log_build "ncurses ${NCURSES_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
@@ -64,9 +89,7 @@ make distclean 2>/dev/null || true
 #   --with-fallbacks    Include common terminal definitions in binary
 #   --disable-termcap   Don't use termcap compatibility
 #
-log_info "configuring..."
-
-./configure \
+run_configure ./configure \
   --host=x86_64-linux \
   --without-libtool \
   --without-shared \

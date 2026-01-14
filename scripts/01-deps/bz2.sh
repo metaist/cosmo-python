@@ -1,25 +1,43 @@
 #!/bin/bash
 # Build bzip2 with cosmocc for use with Python
 #
+# Usage: ./bz2.sh [VERSION] [--clean]
+#
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/libbz2.a, ${DEPS_DIR}/include/bzlib.h
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-BZ2_VERSION="${BZ2_VERSION:-$(get_dep_version bz2)}"
-BZ2_SHA256="$(get_dep_sha256 bz2)"
+# Parse arguments
+parse_dep_args "bz2" "$@"
+
+BZ2_VERSION="$DEP_VERSION"
+BZ2_SHA256="$(get_pkg_sha256 bz2 "$BZ2_VERSION")"
 BZ2_URL="https://sourceware.org/pub/bzip2/bzip2-${BZ2_VERSION}.tar.gz"
 BZ2_DIR="${WORK_DIR}/bzip2-${BZ2_VERSION}"
 
+# Validate version exists
+if [ "$BZ2_SHA256" = "null" ] || [ -z "$BZ2_SHA256" ]; then
+  log_error "bz2 ${BZ2_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "bzip2" "$BZ2_VERSION" \
+    "${DEPS_DIR}/lib/libbz2.a" \
+    "${DEPS_DIR}/lib/.aarch64/libbz2.a" \
+    "${DEPS_DIR}/include/bzlib.h"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/libbz2.a" "bzip2 ${BZ2_VERSION}"
 
 log_build "bzip2 ${BZ2_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 

@@ -1,21 +1,42 @@
 #!/bin/bash
 # Build GNU dbm (gdbm) with cosmocc
 #
+# Usage: ./gdbm.sh [VERSION] [--clean]
+#
 # gdbm provides a hash-based key-value store used by Python's dbm.gnu module.
 # We build with --enable-libgdbm-compat for ndbm compatibility.
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version info from versions.json
-GDBM_VERSION="${GDBM_VERSION:-$(get_dep_version gdbm)}"
-GDBM_SHA256="$(get_dep_sha256 gdbm)"
+# Parse arguments
+parse_dep_args "gdbm" "$@"
+
+GDBM_VERSION="$DEP_VERSION"
+GDBM_SHA256="$(get_pkg_sha256 gdbm "$GDBM_VERSION")"
 GDBM_URL="https://ftp.gnu.org/gnu/gdbm/gdbm-${GDBM_VERSION}.tar.gz"
 GDBM_DIR="${WORK_DIR}/gdbm-${GDBM_VERSION}"
+
+# Validate version exists
+if [ "$GDBM_SHA256" = "null" ] || [ -z "$GDBM_SHA256" ]; then
+  log_error "gdbm ${GDBM_VERSION} not found in versions.json"
+  exit 1
+fi
+
+ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "gdbm" "$GDBM_VERSION" \
+    "${DEPS_DIR}/lib/libgdbm.a" \
+    "${DEPS_DIR}/lib/libgdbm_compat.a" \
+    "${DEPS_DIR}/lib/.aarch64/libgdbm.a" \
+    "${DEPS_DIR}/lib/.aarch64/libgdbm_compat.a" \
+    "${DEPS_DIR}/include/gdbm.h"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/libgdbm.a" "gdbm ${GDBM_VERSION}"
 
-ensure_dirs
 log_build "gdbm ${GDBM_VERSION}"
 
 # Setup cosmocc
@@ -44,8 +65,7 @@ cd "${GDBM_DIR}"
 # - disable-memory-mapped-io: more portable
 # - enable-libgdbm-compat: provides ndbm compatibility
 # - without-readline: we don't need the gdbm CLI tool
-log_info "configuring..."
-./configure \
+run_configure ./configure \
   --prefix="${DEPS_DIR}" \
   --disable-memory-mapped-io \
   --enable-libgdbm-compat \
@@ -82,7 +102,6 @@ make install
 
 # Handle aarch64 if objects exist
 # Use architecture-specific ar, not cosmoar (which expects paired files)
-AARCH64_AR="${COSMO_DIR}/bin/aarch64-linux-cosmo-ar"
 if [ -d "${GDBM_DIR}/src/.aarch64" ]; then
   log_info "finalizing aarch64 libraries..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"

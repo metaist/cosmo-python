@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build readline with cosmocc for use with Python
 #
+# Usage: ./readline.sh [VERSION] [--clean]
+#
 # Based on ahgamut/superconfigure's approach.
 # Readline provides line editing for Python's interactive REPL.
 #
@@ -9,13 +11,30 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-READLINE_VERSION="${READLINE_VERSION:-$(get_dep_version readline)}"
-READLINE_SHA256="$(get_dep_sha256 readline)"
+# Parse arguments
+parse_dep_args "readline" "$@"
+
+READLINE_VERSION="$DEP_VERSION"
+READLINE_SHA256="$(get_pkg_sha256 readline "$READLINE_VERSION")"
 READLINE_URL="https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
 READLINE_DIR="${WORK_DIR}/readline-${READLINE_VERSION}"
 
+# Validate version exists
+if [ "$READLINE_SHA256" = "null" ] || [ -z "$READLINE_SHA256" ]; then
+  log_error "readline ${READLINE_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "readline" "$READLINE_VERSION" \
+    "${DEPS_DIR}/lib/libreadline.a" \
+    "${DEPS_DIR}/lib/libhistory.a" \
+    "${DEPS_DIR}/lib/.aarch64/libreadline.a" \
+    "${DEPS_DIR}/include/readline"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/libreadline.a" "readline ${READLINE_VERSION}"
@@ -29,7 +48,7 @@ fi
 
 log_build "readline ${READLINE_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
@@ -59,8 +78,7 @@ make distclean 2>/dev/null || true
 #   --disable-shared    Static only (required for Cosmopolitan)
 #   --with-curses       Use ncurses for terminal handling
 #
-log_info "configuring..."
-./configure \
+run_configure ./configure \
   --host=x86_64-linux \
   --disable-shared \
   --enable-static \

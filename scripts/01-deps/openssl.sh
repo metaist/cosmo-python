@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build OpenSSL with cosmocc for use with Python
 #
+# Usage: ./openssl.sh [VERSION] [--clean]
+#
 # Based on ahgamut/superconfigure's proven approach.
 #
 # Key decisions:
@@ -14,15 +16,35 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-OPENSSL_VERSION="${OPENSSL_VERSION:-$(get_dep_version openssl)}"
-OPENSSL_SHA256="$(get_dep_sha256 openssl)"
+# Parse arguments
+parse_dep_args "openssl" "$@"
+
+OPENSSL_VERSION="$DEP_VERSION"
+OPENSSL_SHA256="$(get_pkg_sha256 openssl "$OPENSSL_VERSION")"
 # OpenSSL uses underscore format for tags: OpenSSL_1_1_1u
 OPENSSL_TAG="OpenSSL_${OPENSSL_VERSION//./_}"
 OPENSSL_URL="https://github.com/openssl/openssl/archive/refs/tags/${OPENSSL_TAG}.tar.gz"
 OPENSSL_DIR="${WORK_DIR}/openssl-${OPENSSL_TAG}"
 
+# Validate version exists
+if [ "$OPENSSL_SHA256" = "null" ] || [ -z "$OPENSSL_SHA256" ]; then
+  log_error "openssl ${OPENSSL_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "openssl-${OPENSSL_TAG}" "" \
+    "${DEPS_DIR}/lib/libssl.a" \
+    "${DEPS_DIR}/lib/libcrypto.a" \
+    "${DEPS_DIR}/lib/.aarch64/libssl.a" \
+    "${DEPS_DIR}/lib/.aarch64/libcrypto.a" \
+    "${DEPS_DIR}/include/openssl"
+  # Also clean the source dir with the tag name
+  rm -rf "${OPENSSL_DIR}"
+fi
 
 # Idempotency: skip if already built
 skip_if_all_exist "openssl ${OPENSSL_VERSION}" \
@@ -31,7 +53,7 @@ skip_if_all_exist "openssl ${OPENSSL_VERSION}" \
 
 log_build "openssl ${OPENSSL_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
@@ -130,7 +152,7 @@ fi
 # This will be bundled into the final Python binary at /zip/share/ssl/certs/
 # We store locally at ${DEPS_DIR}/share/ssl/ to match the /zip/ structure
 CACERT_VERSION="${CACERT_VERSION:-$(get_dep_version cacert)}"
-CACERT_SHA256="$(get_dep_sha256 cacert)"
+CACERT_SHA256="$(get_pkg_sha256 cacert "$CACERT_VERSION")"
 CA_BUNDLE_URL="https://curl.se/ca/cacert-${CACERT_VERSION}.pem"
 CA_BUNDLE_DIR="${DEPS_DIR}/share/ssl/certs"
 CA_BUNDLE_FILE="${DEPS_DIR}/share/ssl/cert.pem"

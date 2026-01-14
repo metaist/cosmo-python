@@ -1,25 +1,44 @@
 #!/bin/bash
 # Build xz/liblzma with cosmocc for use with Python
 #
+# Usage: ./xz.sh [VERSION] [--clean]
+#
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/liblzma.a, ${DEPS_DIR}/include/lzma.h
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-XZ_VERSION="${XZ_VERSION:-$(get_dep_version xz)}"
-XZ_SHA256="$(get_dep_sha256 xz)"
+# Parse arguments
+parse_dep_args "xz" "$@"
+
+XZ_VERSION="$DEP_VERSION"
+XZ_SHA256="$(get_pkg_sha256 xz "$XZ_VERSION")"
 XZ_URL="https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.gz"
 XZ_DIR="${WORK_DIR}/xz-${XZ_VERSION}"
 
+# Validate version exists
+if [ "$XZ_SHA256" = "null" ] || [ -z "$XZ_SHA256" ]; then
+  log_error "xz ${XZ_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "xz" "$XZ_VERSION" \
+    "${DEPS_DIR}/lib/liblzma.a" \
+    "${DEPS_DIR}/lib/.aarch64/liblzma.a" \
+    "${DEPS_DIR}/include/lzma.h" \
+    "${DEPS_DIR}/include/lzma"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/liblzma.a" "xz/liblzma ${XZ_VERSION}"
 
 log_build "xz/liblzma ${XZ_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
@@ -45,8 +64,7 @@ make clean 2>/dev/null || true
 make distclean 2>/dev/null || true
 
 # Configure for static library only
-log_info "configuring..."
-./configure \
+run_configure ./configure \
   --host=x86_64-linux \
   --disable-shared \
   --enable-static \

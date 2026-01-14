@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build SQLite with cosmocc for use with Python's _sqlite3 module
 #
+# Usage: ./sqlite.sh [VERSION] [--clean]
+#
 # SQLite is the most widely deployed database engine and is used by
 # many Python applications and frameworks.
 #
@@ -9,16 +11,32 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version info from versions.json
-# SQLite uses a special version format: 3.51.2 -> 3510200
-SQLITE_VERSION="${SQLITE_VERSION:-$(get_dep_version sqlite)}"
-SQLITE_SHA256="$(get_dep_sha256 sqlite)"
+# Parse arguments
+parse_dep_args "sqlite" "$@"
+
+SQLITE_VERSION="$DEP_VERSION"
+SQLITE_SHA256="$(get_pkg_sha256 sqlite "$SQLITE_VERSION")"
 # Get the autoconf version number (3510200 for 3.51.2)
-SQLITE_AUTOCONF="$(jq -r ".sqlite.versions[\"${SQLITE_VERSION}\"].autoconf_version" "${VERSIONS_FILE}")"
+SQLITE_AUTOCONF="$(get_pkg_version_field sqlite "$SQLITE_VERSION" autoconf_version)"
 SQLITE_URL="https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_AUTOCONF}.tar.gz"
 SQLITE_DIR="${WORK_DIR}/sqlite-autoconf-${SQLITE_AUTOCONF}"
 
+# Validate version exists
+if [ "$SQLITE_SHA256" = "null" ] || [ -z "$SQLITE_SHA256" ]; then
+  log_error "sqlite ${SQLITE_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "sqlite-autoconf-${SQLITE_AUTOCONF}" "" \
+    "${DEPS_DIR}/lib/libsqlite3.a" \
+    "${DEPS_DIR}/lib/.aarch64/libsqlite3.a" \
+    "${DEPS_DIR}/include/sqlite3.h" \
+    "${DEPS_DIR}/include/sqlite3ext.h"
+fi
 
 # Idempotency: skip if already built
 skip_if_all_exist "sqlite ${SQLITE_VERSION}" \
@@ -27,7 +45,7 @@ skip_if_all_exist "sqlite ${SQLITE_VERSION}" \
 
 log_build "sqlite ${SQLITE_VERSION}"
 
-# Setup cosmocc (with ccache if available)
+# Setup cosmocc
 setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
@@ -57,8 +75,7 @@ make clean 2>/dev/null || true
 #   --disable-load-extension - No dlopen for loading extensions at runtime
 #   CFLAGS includes recommended options from SQLite docs
 #
-log_info "configuring..."
-./configure \
+run_configure ./configure \
   --host=x86_64-linux \
   --disable-shared \
   --disable-load-extension \

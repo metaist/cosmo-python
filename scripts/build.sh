@@ -74,6 +74,11 @@ echo "========================================"
 echo "  Phase 0: Setup"
 echo "========================================"
 
+# Print diagnostics if VERBOSE is set or if running in CI
+if [ "${VERBOSE:-}" = "1" ] || [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  print_diagnostics
+fi
+
 log_info "checking system dependencies..."
 "${SCRIPT_DIR}/00-setup/system-deps.sh"
 

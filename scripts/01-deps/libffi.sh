@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build libffi with Cosmopolitan for Python's ctypes module
 #
+# Usage: ./libffi.sh [VERSION] [--clean]
+#
 # This script builds C libraries with assembly code for Cosmopolitan.
 # Key challenges:
 #   1. The cosmocc wrapper rejects assembly files (.S) directly
@@ -18,13 +20,32 @@
 #
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
-LIBFFI_VERSION="${LIBFFI_VERSION:-$(get_dep_version libffi)}"
-LIBFFI_SHA256="$(get_dep_sha256 libffi)"
+# Parse arguments
+parse_dep_args "libffi" "$@"
+
+LIBFFI_VERSION="$DEP_VERSION"
+LIBFFI_SHA256="$(get_pkg_sha256 libffi "$LIBFFI_VERSION")"
 LIBFFI_URL="https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz"
 LIBFFI_SRC="${WORK_DIR}/libffi-${LIBFFI_VERSION}"
 
+# Validate version exists
+if [ "$LIBFFI_SHA256" = "null" ] || [ -z "$LIBFFI_SHA256" ]; then
+  log_error "libffi ${LIBFFI_VERSION} not found in versions.json"
+  exit 1
+fi
+
 ensure_dirs
+
+# Handle --clean
+if [ "$DEP_CLEAN" = true ]; then
+  clean_dep "libffi" "$LIBFFI_VERSION" \
+    "${DEPS_DIR}/lib/libffi.a" \
+    "${DEPS_DIR}/lib/.aarch64/libffi.a" \
+    "${DEPS_DIR}/include/ffi.h" \
+    "${DEPS_DIR}/include/ffitarget.h" \
+    "${WORK_DIR}/libffi-build-x86_64" \
+    "${WORK_DIR}/libffi-build-aarch64"
+fi
 
 # Idempotency: skip if already built
 skip_if_exists "${DEPS_DIR}/lib/libffi.a" "libffi ${LIBFFI_VERSION}"
@@ -124,7 +145,7 @@ build_arch() {
 
   cd "${BUILD_DIR}"
 
-  "${LIBFFI_SRC}/configure" \
+  run_configure "${LIBFFI_SRC}/configure" \
     --build=x86_64-pc-linux-gnu \
     --host="${HOST}" \
     --prefix="${INSTALL_DIR}" \

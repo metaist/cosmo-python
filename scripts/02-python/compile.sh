@@ -147,15 +147,25 @@ else
 fi
 
 # For cosmopolitan, we need all modules built statically into the binary
-# Patch Setup.stdlib to use *static* instead of *shared*
+#
+# Python 3.11+ has Modules/Setup.stdlib; Python 3.10 uses Modules/Setup directly
 log_info "patching for static module building..."
-sed -i 's/^\*shared\*/*static*/' Modules/Setup.stdlib
+
+if [ -f Modules/Setup.stdlib ]; then
+  # Python 3.11+: Patch Setup.stdlib to use *static* instead of *shared*
+  SETUP_FILE="Modules/Setup.stdlib"
+else
+  # Python 3.10: Use Modules/Setup directly
+  SETUP_FILE="Modules/Setup"
+fi
+
+sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
 
 # Enable modules that configure might not have detected
-sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' Modules/Setup.stdlib
-sed -i 's/^#readline /readline /' Modules/Setup.stdlib
-sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' Modules/Setup.stdlib
-sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
+sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
+sed -i 's/^#readline /readline /' "$SETUP_FILE"
+sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
+sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
 
 # Remove modules that need unavailable headers/libraries
 #
@@ -179,10 +189,13 @@ sed -i 's/^#_ctypes /_ctypes /' Modules/Setup.stdlib
 #
 DISABLE_MODULES="_crypt _uuid _dbm"
 for mod in $DISABLE_MODULES; do
-  sed -i "s/^${mod} /#${mod} /" Modules/Setup.stdlib
+  sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
 done
 
-cp Modules/Setup.stdlib Modules/Setup.local
+# For 3.11+, copy to Setup.local; for 3.10, it's already the right file
+if [ -f Modules/Setup.stdlib ]; then
+  cp Modules/Setup.stdlib Modules/Setup.local
+fi
 
 # Regenerate Makefile
 log_info "regenerating Makefile..."
