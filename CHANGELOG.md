@@ -23,11 +23,13 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#49] check-updates reads Python versions from `versions.json` instead of hardcoding
 - [#49] check-updates uses endoflife.date API for status/eol
 - [#49] check-updates uses `ds cog` for README regeneration
+- [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
 
 **Added**
 
 - [#46] Python 3.14.2 support
 - [#47] `python.disabled` mapping in `versions.json` for yank feature
+- [#13] OpenSSL 3.x support with Cosmopolitan compatibility
 - [#48] GPG signature verification for upstream deps (xz, gdbm, ncurses, readline, bz2, openssl)
 - [#48] `keys.asc` with GPG public keys for upstream maintainers
 - [#48] per-version signing metadata (`sigstore`, `gpg`) in `versions.json`

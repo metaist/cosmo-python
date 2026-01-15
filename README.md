@@ -270,7 +270,7 @@ for name, key, source in deps:
 | **gdbm** | 1.26 | [GNU FTP][gdbm-src] | SHA256 | GPG |
 | **libffi** | 3.5.2 | [GitHub Releases][libffi-src] | SHA256 | — |
 | **ncurses** | 6.6 | [GNU FTP][ncurses-src] | SHA256 | GPG |
-| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 | GPG |
+| **OpenSSL** | 3.5.4 | [GitHub Releases][openssl-src] | SHA256 | GPG |
 | **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 | GPG |
 | **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 | — |
 | **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 | GPG |

@@ -132,11 +132,17 @@
       "1.1.1u": {
         "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
         "notes": "EOL but matches superconfigure; stable with Cosmopolitan",
-        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF"
+        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
+        "url": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1u.tar.gz"
+      },
+      "3.5.4": {
+        "sha256": "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99",
+        "notes": "First OpenSSL 3.x version compatible with Cosmopolitan",
+        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz"
       }
     },
-    "default": "1.1.1u",
-    "url_template": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_{version_underscores}.tar.gz"
+    "default": "3.5.4"
   },
   "readline": {
     "versions": {
