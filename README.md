@@ -50,46 +50,6 @@ Or use the manifest to find available versions:
 curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
 ```
 
-## Verification
-
-### Checksums
-
-<!--[[[cog
-cog.outl("Each release includes `checksums.txt` with SHA256 hashes:")
-cog.outl("")
-cog.outl("```bash")
-cog.outl("curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt")
-cog.outl(f"curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-{default_version}-cosmo.com")
-cog.outl("sha256sum -c checksums.txt --ignore-missing")
-cog.outl("```")
-]]]-->
-Each release includes `checksums.txt` with SHA256 hashes:
-
-```bash
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
-sha256sum -c checksums.txt --ignore-missing
-```
-<!--[[[end]]]-->
-
-The `manifest.json` also includes SHA256 hashes for programmatic verification.
-
-### Build Attestations
-
-<!--[[[cog
-cog.outl("Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:")
-cog.outl("")
-cog.outl("```bash")
-cog.outl(f"gh attestation verify python-{default_version}-cosmo.com --repo metaist/cosmo-python")
-cog.outl("```")
-]]]-->
-Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
-
-```bash
-gh attestation verify python-3.12.12-cosmo.com --repo metaist/cosmo-python
-```
-<!--[[[end]]]-->
-
 ## Releases
 
 We use **date-based releases** (e.g., `YYYYMMDD-HHMMSS`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change.
@@ -130,6 +90,46 @@ Releases are created through a semi-automated pipeline:
 [pr-build.yaml]: .github/workflows/pr-build.yaml
 [release.yaml]: .github/workflows/release.yaml
 
+### Verifying Downloads
+
+#### Checksums
+
+<!--[[[cog
+cog.outl("Each release includes `checksums.txt` with SHA256 hashes:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl("curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt")
+cog.outl(f"curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-{default_version}-cosmo.com")
+cog.outl("sha256sum -c checksums.txt --ignore-missing")
+cog.outl("```")
+]]]-->
+Each release includes `checksums.txt` with SHA256 hashes:
+
+```bash
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
+sha256sum -c checksums.txt --ignore-missing
+```
+<!--[[[end]]]-->
+
+The `manifest.json` also includes SHA256 hashes for programmatic verification.
+
+#### Build Attestations
+
+<!--[[[cog
+cog.outl("Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"gh attestation verify python-{default_version}-cosmo.com --repo metaist/cosmo-python")
+cog.outl("```")
+]]]-->
+Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
+
+```bash
+gh attestation verify python-3.12.12-cosmo.com --repo metaist/cosmo-python
+```
+<!--[[[end]]]-->
+
 ### Manifest Format
 
 The `manifest.json` acts as a spanning registry, tracking all versions across releases:
@@ -149,6 +149,8 @@ The `manifest.json` acts as a spanning registry, tracking all versions across re
   "default": "3.12"
 }
 ```
+
+For details on how binaries are built and source verification, see [Building](#building).
 
 ---
 
@@ -192,9 +194,9 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.12.12
 ```
 <!--[[[end]]]-->
 
-### Build Verification
+### Source Verification
 
-All upstream dependencies are verified during the build:
+All upstream sources are verified during the build:
 
 - **SHA256 checksums** for all downloads (stored in `versions.json`)
 - **Official sources** only (no mirrors except GNU FTP)
