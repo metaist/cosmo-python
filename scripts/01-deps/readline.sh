@@ -62,7 +62,7 @@ fi
 if [ ! -d "${READLINE_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="readline-${READLINE_VERSION}.tar.gz"
-  download_and_verify "${READLINE_URL}" "${TARBALL}" "${READLINE_SHA256}" "readline ${READLINE_VERSION}"
+  download_verify_gpg "readline" "${READLINE_VERSION}" "${READLINE_URL}" "${TARBALL}" "readline ${READLINE_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

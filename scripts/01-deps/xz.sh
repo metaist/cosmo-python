@@ -52,7 +52,8 @@ fi
 if [ ! -d "${XZ_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="xz-${XZ_VERSION}.tar.gz"
-  download_and_verify "${XZ_URL}" "${TARBALL}" "${XZ_SHA256}" "xz ${XZ_VERSION}"
+  # xz provides GPG signatures
+  download_verify_gpg "xz" "${XZ_VERSION}" "${XZ_URL}" "${TARBALL}" "xz ${XZ_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

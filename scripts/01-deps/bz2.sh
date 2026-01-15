@@ -51,7 +51,7 @@ fi
 if [ ! -d "${BZ2_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="bzip2-${BZ2_VERSION}.tar.gz"
-  download_and_verify "${BZ2_URL}" "${TARBALL}" "${BZ2_SHA256}" "bzip2 ${BZ2_VERSION}"
+  download_verify_gpg "bz2" "${BZ2_VERSION}" "${BZ2_URL}" "${TARBALL}" "bzip2 ${BZ2_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

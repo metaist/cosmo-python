@@ -4,27 +4,47 @@
       "3.10.19": {
         "eol": "2026-10",
         "status": "security",
-        "sha256": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec"
+        "sha256": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec",
+        "sigstore": {
+          "identity": "pablogsal@python.org",
+          "issuer": "https://accounts.google.com"
+        }
       },
       "3.11.14": {
         "eol": "2027-10",
         "status": "security",
-        "sha256": "563d2a1b2a5ba5d5409b5ecd05a0e1bf9b028cf3e6a6f0c87a5dc8dc3f2d9182"
+        "sha256": "563d2a1b2a5ba5d5409b5ecd05a0e1bf9b028cf3e6a6f0c87a5dc8dc3f2d9182",
+        "sigstore": {
+          "identity": "pablogsal@python.org",
+          "issuer": "https://accounts.google.com"
+        }
       },
       "3.12.12": {
         "eol": "2028-10",
         "status": "security",
-        "sha256": "487c908ddf4097a1b9ba859f25fe46d22ccaabfb335880faac305ac62bffb79b"
+        "sha256": "487c908ddf4097a1b9ba859f25fe46d22ccaabfb335880faac305ac62bffb79b",
+        "sigstore": {
+          "identity": "thomas@python.org",
+          "issuer": "https://accounts.google.com"
+        }
       },
       "3.13.11": {
         "eol": "2029-10",
         "status": "bugfix",
-        "sha256": "03cfedbe06ce21bc44ce09245e091a77f2fee9ec9be5c52069048a181300b202"
+        "sha256": "03cfedbe06ce21bc44ce09245e091a77f2fee9ec9be5c52069048a181300b202",
+        "sigstore": {
+          "identity": "thomas@python.org",
+          "issuer": "https://accounts.google.com"
+        }
       },
       "3.14.2": {
         "eol": "2030-10",
         "status": "bugfix",
-        "sha256": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d"
+        "sha256": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d",
+        "sigstore": {
+          "identity": "hugo@python.org",
+          "issuer": "https://github.com/login/oauth"
+        }
       }
     },
     "latest": {
@@ -50,7 +70,8 @@
   "bz2": {
     "versions": {
       "1.0.8": {
-        "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+        "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
+        "gpg": "12768A96795990107A0D2FDFFC57E3CCACD99A78"
       }
     },
     "default": "1.0.8",
@@ -69,10 +90,12 @@
   "gdbm": {
     "versions": {
       "1.23": {
-        "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd"
+        "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd",
+        "gpg": "4BE4E62655488EB92ABB468F79FFD94BFCE230B1"
       },
       "1.26": {
-        "sha256": "6a24504a14de4a744103dcb936be976df6fbe88ccff26065e54c1c47946f4a5e"
+        "sha256": "6a24504a14de4a744103dcb936be976df6fbe88ccff26065e54c1c47946f4a5e",
+        "gpg": "4BE4E62655488EB92ABB468F79FFD94BFCE230B1"
       }
     },
     "default": "1.26",
@@ -93,10 +116,12 @@
   "ncurses": {
     "versions": {
       "6.4": {
-        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
+        "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159",
+        "gpg": "19882D92DDA4C400C22C0D56CC2AF4472167BE03"
       },
       "6.6": {
-        "sha256": "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11"
+        "sha256": "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11",
+        "gpg": "19882D92DDA4C400C22C0D56CC2AF4472167BE03"
       }
     },
     "default": "6.6",
@@ -106,7 +131,8 @@
     "versions": {
       "1.1.1u": {
         "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
-        "notes": "EOL but matches superconfigure; stable with Cosmopolitan"
+        "notes": "EOL but matches superconfigure; stable with Cosmopolitan",
+        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF"
       }
     },
     "default": "1.1.1u",
@@ -115,10 +141,12 @@
   "readline": {
     "versions": {
       "8.2": {
-        "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
+        "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35",
+        "gpg": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB"
       },
       "8.3": {
-        "sha256": "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc"
+        "sha256": "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc",
+        "gpg": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB"
       }
     },
     "default": "8.3",
@@ -137,10 +165,12 @@
   "xz": {
     "versions": {
       "5.4.5": {
-        "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6"
+        "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6",
+        "gpg": "3690C240CE51B4670D30AD1C38EE757D69184620"
       },
       "5.8.2": {
-        "sha256": "ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1"
+        "sha256": "ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1",
+        "gpg": "3690C240CE51B4670D30AD1C38EE757D69184620"
       }
     },
     "default": "5.8.2",

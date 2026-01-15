@@ -63,7 +63,7 @@ fi
 if [ ! -d "${LIBFFI_SRC}" ]; then
   cd "${WORK_DIR}"
   TARBALL="libffi-${LIBFFI_VERSION}.tar.gz"
-  download_and_verify "${LIBFFI_URL}" "${TARBALL}" "${LIBFFI_SHA256}" "libffi ${LIBFFI_VERSION}"
+  download_verify_gpg "libffi" "${LIBFFI_VERSION}" "${LIBFFI_URL}" "${TARBALL}" "libffi ${LIBFFI_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

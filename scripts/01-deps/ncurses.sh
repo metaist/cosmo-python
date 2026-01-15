@@ -61,7 +61,7 @@ fi
 if [ ! -d "${NCURSES_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="ncurses-${NCURSES_VERSION}.tar.gz"
-  download_and_verify "${NCURSES_URL}" "${TARBALL}" "${NCURSES_SHA256}" "ncurses ${NCURSES_VERSION}"
+  download_verify_gpg "ncurses" "${NCURSES_VERSION}" "${NCURSES_URL}" "${TARBALL}" "ncurses ${NCURSES_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

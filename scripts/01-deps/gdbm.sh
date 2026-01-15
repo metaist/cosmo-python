@@ -53,7 +53,7 @@ fi
 if [ ! -d "${GDBM_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="gdbm-${GDBM_VERSION}.tar.gz"
-  download_and_verify "${GDBM_URL}" "${TARBALL}" "${GDBM_SHA256}" "gdbm ${GDBM_VERSION}"
+  download_verify_gpg "gdbm" "${GDBM_VERSION}" "${GDBM_URL}" "${TARBALL}" "gdbm ${GDBM_VERSION}"
   tar xf "${TARBALL}"
   rm -f "${TARBALL}"
 fi

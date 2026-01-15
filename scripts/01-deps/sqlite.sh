@@ -59,7 +59,7 @@ fi
 if [ ! -d "${SQLITE_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="sqlite-autoconf-${SQLITE_AUTOCONF}.tar.gz"
-  download_and_verify "${SQLITE_URL}" "${TARBALL}" "${SQLITE_SHA256}" "sqlite ${SQLITE_VERSION}"
+  download_verify_gpg "sqlite" "${SQLITE_VERSION}" "${SQLITE_URL}" "${TARBALL}" "sqlite ${SQLITE_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

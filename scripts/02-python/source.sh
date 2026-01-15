@@ -34,32 +34,23 @@ PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_
 SIGSTORE_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz.sigstore"
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 
-# Python release manager identities for sigstore verification
-# Different versions are signed by different release managers
-# See: https://www.python.org/dev/peps/pep-0101/
-# Python release manager identities for sigstore verification
-# Different versions are signed by different release managers with different OIDC issuers
-# See: https://www.python.org/dev/peps/pep-0101/
-get_release_identity() {
+# Get sigstore verification info from versions.json
+# Returns identity and issuer, or empty if not configured
+get_sigstore_info() {
   local version="$1"
-  local minor="${version%.*}"
-  case "$minor" in
-    3.10|3.11) echo "pablogsal@python.org" ;;
-    3.12|3.13) echo "thomas@python.org" ;;
-    3.14) echo "hugo@python.org" ;;
-    *) echo "thomas@python.org" ;;  # Default fallback
-  esac
+  local identity issuer
+  identity=$(jq -r ".python.versions.\"${version}\".sigstore.identity // empty" "$VERSIONS_FILE")
+  issuer=$(jq -r ".python.versions.\"${version}\".sigstore.issuer // empty" "$VERSIONS_FILE")
+  if [ -n "$identity" ] && [ -n "$issuer" ]; then
+    echo "$identity $issuer"
+  fi
 }
-get_release_issuer() {
-  local version="$1"
-  local minor="${version%.*}"
-  case "$minor" in
-    3.14) echo "https://github.com/login/oauth" ;;
-    *) echo "https://accounts.google.com" ;;
-  esac
-}
-PYTHON_RELEASE_IDENTITY="$(get_release_identity "$PYTHON_VERSION")"
-PYTHON_RELEASE_ISSUER="$(get_release_issuer "$PYTHON_VERSION")"
+
+SIGSTORE_INFO="$(get_sigstore_info "$PYTHON_VERSION")"
+if [ -n "$SIGSTORE_INFO" ]; then
+  PYTHON_RELEASE_IDENTITY="${SIGSTORE_INFO% *}"
+  PYTHON_RELEASE_ISSUER="${SIGSTORE_INFO#* }"
+fi
 
 # Check if already downloaded and extracted
 if [ -f "${SRC_DIR}/configure" ]; then
@@ -78,10 +69,15 @@ SIGSTORE_BUNDLE="${TARBALL}.sigstore"
 # Download and verify checksum
 download_and_verify "${PYTHON_URL}" "${TARBALL}" "${PYTHON_SHA256}" "Python ${PYTHON_VERSION}"
 
-# Sigstore verification (optional but recommended)
+# Sigstore verification (if configured in versions.json)
 if [ "${SKIP_SIGSTORE:-}" = "1" ]; then
   log_warn "SKIP_SIGSTORE=1 set - skipping sigstore verification"
-elif command -v uvx >/dev/null 2>&1; then
+elif [ -z "$SIGSTORE_INFO" ]; then
+  log_info "no sigstore verification configured for Python ${PYTHON_VERSION}"
+elif ! command -v uvx >/dev/null 2>&1; then
+  log_info "uvx not found - skipping sigstore verification"
+  log_info "install uv from: https://docs.astral.sh/uv/"
+else
   log_info "verifying sigstore signature..."
   
   # Download sigstore bundle
@@ -101,11 +97,9 @@ elif command -v uvx >/dev/null 2>&1; then
     fi
     rm -f "${SIGSTORE_BUNDLE}"
   else
-    log_info "sigstore bundle not available for Python ${PYTHON_VERSION} - skipping"
+    log_warn "sigstore bundle not available for Python ${PYTHON_VERSION}"
+    log_warn "expected identity: ${PYTHON_RELEASE_IDENTITY}"
   fi
-else
-  log_info "uvx not found - skipping sigstore verification"
-  log_info "install uv from: https://docs.astral.sh/uv/"
 fi
 
 log_info "extracting..."

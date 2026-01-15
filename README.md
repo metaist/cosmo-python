@@ -171,19 +171,10 @@ All upstream sources are verified during the build:
 #### Python Sigstore Verification
 
 <!--[[[cog
-# Get release manager for default version
-minor = default_version.rsplit(".", 1)[0]
-if minor in ("3.10", "3.11"):
-    release_manager = "pablogsal@python.org"
-elif minor == "3.14":
-    release_manager = "hugo@python.org"
-else:
-    release_manager = "thomas@python.org"
-
-if minor == "3.14":
-    oidc_issuer = "https://github.com/login/oauth"
-else:
-    oidc_issuer = "https://accounts.google.com"
+# Get sigstore info from versions.json
+sigstore_info = versions["python"]["versions"][default_version].get("sigstore", {})
+release_manager = sigstore_info.get("identity", "unknown")
+oidc_issuer = sigstore_info.get("issuer", "unknown")
 
 cog.outl("Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.")
 cog.outl("If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:")
@@ -236,36 +227,53 @@ uvx sigstore verify identity \
 
 ### Upstream Sources & Trust
 
-All dependencies are SHA256 verified against known-good hashes in [`versions.json`][versions-json].
+All upstream sources are SHA256 verified against known-good hashes in [`versions.json`][versions-json]. Sources that provide signatures (GPG or Sigstore) are also cryptographically verified.
 
 <!--[[[cog
-cog.outl("| Component | Version | Source | Trust Model |")
-cog.outl("|-----------|---------|--------|-------------|")
-cog.outl("| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |")
-cog.outl(f"| **cosmocc** | {versions['cosmocc']['default']} | [GitHub Releases][cosmocc-src] | SHA256 |")
-cog.outl(f"| **bz2** | {versions['bz2']['default']} | [sourceware.org][bz2-src] | SHA256 |")
-cog.outl(f"| **CA certs** | {versions['cacert']['default']} | [curl.se][cacert-src] | SHA256 |")
-cog.outl(f"| **gdbm** | {versions['gdbm']['default']} | [GNU FTP][gdbm-src] | SHA256 |")
-cog.outl(f"| **libffi** | {versions['libffi']['default']} | [GitHub Releases][libffi-src] | SHA256 |")
-cog.outl(f"| **ncurses** | {versions['ncurses']['default']} | [GNU FTP][ncurses-src] | SHA256 |")
-cog.outl(f"| **OpenSSL** | {versions['openssl']['default']} | [GitHub Releases][openssl-src] | SHA256 |")
-cog.outl(f"| **readline** | {versions['readline']['default']} | [GNU FTP][readline-src] | SHA256 |")
-cog.outl(f"| **SQLite** | {versions['sqlite']['default']} | [sqlite.org][sqlite-src] | SHA256 |")
-cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | SHA256 |")
+# Helper to get signature type for a dep
+def get_sig_type(dep, ver):
+    v = versions[dep]["versions"][ver]
+    if "sigstore" in v:
+        return "Sigstore"
+    elif "gpg" in v:
+        return "GPG"
+    return "—"
+
+cog.outl("| Component | Version | Source | Hash | Signature |")
+cog.outl("|-----------|---------|--------|------|-----------|")
+cog.outl("| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 | Sigstore |")
+
+deps = [
+    ("bz2", "bz2", "[sourceware.org][bz2-src]"),
+    ("CA certs", "cacert", "[curl.se][cacert-src]"),
+    ("cosmocc", "cosmocc", "[GitHub Releases][cosmocc-src]"),
+    ("gdbm", "gdbm", "[GNU FTP][gdbm-src]"),
+    ("libffi", "libffi", "[GitHub Releases][libffi-src]"),
+    ("ncurses", "ncurses", "[GNU FTP][ncurses-src]"),
+    ("OpenSSL", "openssl", "[GitHub Releases][openssl-src]"),
+    ("readline", "readline", "[GNU FTP][readline-src]"),
+    ("SQLite", "sqlite", "[sqlite.org][sqlite-src]"),
+    ("xz", "xz", "[GitHub Releases][xz-src]"),
+]
+
+for name, key, source in deps:
+    ver = versions[key]["default"]
+    sig = get_sig_type(key, ver)
+    cog.outl(f"| **{name}** | {ver} | {source} | SHA256 | {sig} |")
 ]]]-->
-| Component | Version | Source | Trust Model |
-|-----------|---------|--------|-------------|
-| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |
-| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 |
-| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 |
-| **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 |
-| **gdbm** | 1.26 | [GNU FTP][gdbm-src] | SHA256 |
-| **libffi** | 3.5.2 | [GitHub Releases][libffi-src] | SHA256 |
-| **ncurses** | 6.6 | [GNU FTP][ncurses-src] | SHA256 |
-| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 |
-| **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 |
-| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 |
-| **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 |
+| Component | Version | Source | Hash | Signature |
+|-----------|---------|--------|------|-----------|
+| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 | Sigstore |
+| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 | GPG |
+| **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 | — |
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 | — |
+| **gdbm** | 1.26 | [GNU FTP][gdbm-src] | SHA256 | GPG |
+| **libffi** | 3.5.2 | [GitHub Releases][libffi-src] | SHA256 | — |
+| **ncurses** | 6.6 | [GNU FTP][ncurses-src] | SHA256 | GPG |
+| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 | GPG |
+| **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 | GPG |
+| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 | — |
+| **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 | GPG |
 <!--[[[end]]]-->
 
 > ⚠️ **Note:** We use OpenSSL 1.1.x due to [Cosmopolitan compatibility issues with OpenSSL 3.0.x][openssl-issue].

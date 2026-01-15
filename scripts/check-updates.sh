@@ -194,6 +194,15 @@ update_versions_json() {
         version_obj=$(echo "$version_obj" | jq ". + $extra")
     fi
 
+    # Copy GPG fingerprint from previous default version if it exists
+    local current_default gpg_fp
+    current_default=$(jq -r ".${dep}.default" "$VERSIONS_FILE")
+    gpg_fp=$(jq -r ".${dep}.versions.\"${current_default}\".gpg // empty" "$VERSIONS_FILE")
+    if [[ -n "$gpg_fp" ]]; then
+        version_obj=$(echo "$version_obj" | jq --arg gpg "$gpg_fp" '. + {gpg: $gpg}')
+        log_info "  GPG fingerprint: $gpg_fp (copied from $current_default)"
+    fi
+
     # Update versions.json
     jq --arg dep "$dep" \
        --arg ver "$version" \
@@ -371,7 +380,7 @@ check_python_versions() {
 
 update_python_version() {
     local minor="$1" new_version="$2"
-    local url sha256 status eol
+    local url sha256 status eol sigstore_identity sigstore_issuer
 
     log_info "Updating Python $new_version..."
 
@@ -389,22 +398,43 @@ update_python_version() {
     eol=$(get_python_eol "$minor")
     log_info "  Status: $status, EOL: $eol"
 
+    # Copy sigstore info from previous version in this minor series
+    local current_version
+    current_version=$(get_python_latest "$minor")
+    sigstore_identity=$(jq -r ".python.versions.\"$current_version\".sigstore.identity // empty" "$VERSIONS_FILE")
+    sigstore_issuer=$(jq -r ".python.versions.\"$current_version\".sigstore.issuer // empty" "$VERSIONS_FILE")
+    if [[ -n "$sigstore_identity" ]]; then
+        log_info "  Sigstore: $sigstore_identity (copied from $current_version)"
+    fi
+
     if [[ "$DRY_RUN" == "--dry-run" ]]; then
         log_info "  (dry-run) Would update versions.json"
         return 0
     fi
 
-    # Build version object with sorted keys: eol, status, sha256
+    # Build version object
     local tmp_file
     tmp_file=$(mktemp)
 
-    jq --arg ver "$new_version" \
-       --arg minor "$minor" \
-       --arg sha "$sha256" \
-       --arg status "$status" \
-       --arg eol "$eol" \
-       '.python.versions[$ver] = {eol: $eol, status: $status, sha256: $sha} | .python.latest[$minor] = $ver' \
-       "$VERSIONS_FILE" > "$tmp_file"
+    if [[ -n "$sigstore_identity" ]] && [[ -n "$sigstore_issuer" ]]; then
+        jq --arg ver "$new_version" \
+           --arg minor "$minor" \
+           --arg sha "$sha256" \
+           --arg status "$status" \
+           --arg eol "$eol" \
+           --arg sig_id "$sigstore_identity" \
+           --arg sig_iss "$sigstore_issuer" \
+           '.python.versions[$ver] = {eol: $eol, status: $status, sha256: $sha, sigstore: {identity: $sig_id, issuer: $sig_iss}} | .python.latest[$minor] = $ver' \
+           "$VERSIONS_FILE" > "$tmp_file"
+    else
+        jq --arg ver "$new_version" \
+           --arg minor "$minor" \
+           --arg sha "$sha256" \
+           --arg status "$status" \
+           --arg eol "$eol" \
+           '.python.versions[$ver] = {eol: $eol, status: $status, sha256: $sha} | .python.latest[$minor] = $ver' \
+           "$VERSIONS_FILE" > "$tmp_file"
+    fi
 
     mv "$tmp_file" "$VERSIONS_FILE"
 

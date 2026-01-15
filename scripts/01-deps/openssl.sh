@@ -67,7 +67,7 @@ fi
 if [ ! -d "${OPENSSL_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="openssl-${OPENSSL_TAG}.tar.gz"
-  download_and_verify "${OPENSSL_URL}" "${TARBALL}" "${OPENSSL_SHA256}" "openssl ${OPENSSL_VERSION}"
+  download_verify_gpg "openssl" "${OPENSSL_VERSION}" "${OPENSSL_URL}" "${TARBALL}" "openssl ${OPENSSL_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

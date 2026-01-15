@@ -379,6 +379,153 @@ run_configure() {
   fi
 }
 
+#------------------------------------------------------------------------------
+# GPG signature verification
+#------------------------------------------------------------------------------
+
+# Path to our keyring (at repo root)
+GPG_KEYRING="${GPG_KEYRING:-${REPO_ROOT}/keys.asc}"
+
+# Get GPG fingerprint for a package version from versions.json
+# Usage: get_gpg_fingerprint "xz" "5.8.2" -> fingerprint or empty
+get_gpg_fingerprint() {
+  local pkg="$1"
+  local version="$2"
+  local fp
+  fp=$(jq -r ".${pkg}.versions.\"${version}\".gpg // empty" "$VERSIONS_FILE")
+  echo "$fp"
+}
+
+# Verify GPG signature of a file
+# Usage: verify_gpg_signature "file" "signature_file" "expected_fingerprint" "description"
+# Returns: 0 if verified, 1 if failed, 2 if no keyring available
+verify_gpg_signature() {
+  local file="$1"
+  local sig="$2"
+  local expected_fp="$3"
+  local desc="${4:-$file}"
+
+  # Check if keyring exists
+  if [ ! -f "$GPG_KEYRING" ]; then
+    log_warn "GPG keyring not found at $GPG_KEYRING"
+    log_warn "skipping GPG verification for $desc"
+    return 2
+  fi
+
+  # Create temporary GNUPGHOME for isolation
+  local gnupghome
+  gnupghome=$(mktemp -d)
+  chmod 700 "$gnupghome"
+  
+  # Import our keyring
+  if ! gpg --homedir "$gnupghome" --batch --quiet --import "$GPG_KEYRING" 2>/dev/null; then
+    log_error "failed to import GPG keyring"
+    rm -rf "$gnupghome"
+    return 1
+  fi
+
+  # Verify signature and capture output
+  local verify_output
+  local result=0
+  if verify_output=$(gpg --homedir "$gnupghome" --batch --status-fd 1 --verify "$sig" "$file" 2>/dev/null); then
+    # Extract the signing key fingerprint from verification output
+    local actual_fp
+    actual_fp=$(echo "$verify_output" | grep "VALIDSIG" | awk '{print $3}')
+    
+    if [ -n "$expected_fp" ] && [ "$actual_fp" != "$expected_fp" ]; then
+      log_error "GPG signature valid but from UNEXPECTED KEY for $desc"
+      log_error "  expected: $expected_fp"
+      log_error "  actual:   $actual_fp"
+      log_error "this may indicate key rotation - verify and update versions.json"
+      result=1
+    else
+      log_info "GPG signature verified for $desc"
+    fi
+  else
+    log_error "GPG signature verification FAILED for $desc"
+    log_error "this may indicate a compromised download"
+    result=1
+  fi
+
+  # Cleanup
+  rm -rf "$gnupghome"
+  return $result
+}
+
+# Download signature file for a given URL
+# Usage: download_signature "base_url" "output_dir" -> signature file path or empty
+# Tries .sig then .asc extensions
+download_signature() {
+  local base_url="$1"
+  local output_dir="$2"
+  local basename
+  basename=$(basename "$base_url")
+  
+  # Try .sig first (GNU, xz)
+  local sig_url="${base_url}.sig"
+  local sig_file="${output_dir}/${basename}.sig"
+  if curl -fsSL "$sig_url" -o "$sig_file" 2>/dev/null; then
+    echo "$sig_file"
+    return 0
+  fi
+  
+  # Try .asc (OpenSSL)
+  sig_url="${base_url}.asc"
+  sig_file="${output_dir}/${basename}.asc"
+  if curl -fsSL "$sig_url" -o "$sig_file" 2>/dev/null; then
+    echo "$sig_file"
+    return 0
+  fi
+  
+  # No signature found
+  return 1
+}
+
+# Download, verify SHA256, and optionally verify GPG signature
+# Usage: download_verify_gpg "pkg" "version" "url" "output_file" "description"
+# Reads expected SHA256 and GPG fingerprint from versions.json
+download_verify_gpg() {
+  local pkg="$1"
+  local version="$2"
+  local url="$3"
+  local output="$4"
+  local desc="${5:-$output}"
+
+  local expected_sha256
+  expected_sha256=$(get_pkg_sha256 "$pkg" "$version")
+  
+  # Download main file
+  download_and_verify "$url" "$output" "$expected_sha256" "$desc"
+
+  # Check if this version has GPG fingerprint in versions.json
+  local expected_fp
+  expected_fp=$(get_gpg_fingerprint "$pkg" "$version")
+  
+  if [ -z "$expected_fp" ]; then
+    log_info "no GPG verification configured for $desc"
+    return 0
+  fi
+
+  # Try to download and verify GPG signature
+  local output_dir
+  output_dir=$(dirname "$output")
+  local sig_file
+  if sig_file=$(download_signature "$url" "$output_dir"); then
+    verify_gpg_signature "$output" "$sig_file" "$expected_fp" "$desc"
+    local gpg_result=$?
+    rm -f "$sig_file"  # Clean up signature file
+    if [ $gpg_result -eq 1 ]; then
+      # GPG verification failed
+      log_error "removing downloaded file due to GPG verification failure"
+      rm -f "$output"
+      exit 1
+    fi
+  else
+    log_warn "GPG signature expected but not found for $desc"
+    log_warn "expected fingerprint: $expected_fp"
+  fi
+}
+
 # Print environment diagnostics (useful for debugging CI)
 # Usage: print_diagnostics
 print_diagnostics() {
