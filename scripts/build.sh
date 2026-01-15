@@ -114,31 +114,40 @@ echo "========================================"
 echo "  Phase 1: Dependencies"
 echo "========================================"
 
-# Order matters: ncurses must be built before readline
-log_info "building ncurses..."
-"${SCRIPT_DIR}/01-deps/ncurses.sh"
-
-log_info "building readline..."
-"${SCRIPT_DIR}/01-deps/readline.sh"
-
-# Remaining deps in alphabetical order
-log_info "building bzip2..."
-"${SCRIPT_DIR}/01-deps/bz2.sh"
-
-log_info "building gdbm..."
-"${SCRIPT_DIR}/01-deps/gdbm.sh"
-
-log_info "building libffi..."
-"${SCRIPT_DIR}/01-deps/libffi.sh"
-
-log_info "building openssl..."
-"${SCRIPT_DIR}/01-deps/openssl.sh"
-
-log_info "building sqlite..."
-"${SCRIPT_DIR}/01-deps/sqlite.sh"
-
-log_info "building xz/liblzma..."
-"${SCRIPT_DIR}/01-deps/xz.sh"
+# Build dependencies in parallel where possible
+# - ncurses must complete before readline (readline depends on ncurses)
+# - all others have no dependencies on each other
+#
+if command -v parallel >/dev/null 2>&1; then
+  log_info "building dependencies in parallel..."
+  
+  # Wave 1: ncurses + all independent deps
+  parallel --line-buffer --halt now,fail=1 ::: \
+    "${SCRIPT_DIR}/01-deps/ncurses.sh" \
+    "${SCRIPT_DIR}/01-deps/bz2.sh" \
+    "${SCRIPT_DIR}/01-deps/gdbm.sh" \
+    "${SCRIPT_DIR}/01-deps/libffi.sh" \
+    "${SCRIPT_DIR}/01-deps/openssl.sh" \
+    "${SCRIPT_DIR}/01-deps/sqlite.sh" \
+    "${SCRIPT_DIR}/01-deps/xz.sh"
+  
+  # Wave 2: readline (needs ncurses)
+  "${SCRIPT_DIR}/01-deps/readline.sh"
+else
+  log_info "building dependencies sequentially (install 'parallel' for faster builds)..."
+  
+  # ncurses must be built before readline
+  "${SCRIPT_DIR}/01-deps/ncurses.sh"
+  "${SCRIPT_DIR}/01-deps/readline.sh"
+  
+  # Remaining deps in alphabetical order
+  "${SCRIPT_DIR}/01-deps/bz2.sh"
+  "${SCRIPT_DIR}/01-deps/gdbm.sh"
+  "${SCRIPT_DIR}/01-deps/libffi.sh"
+  "${SCRIPT_DIR}/01-deps/openssl.sh"
+  "${SCRIPT_DIR}/01-deps/sqlite.sh"
+  "${SCRIPT_DIR}/01-deps/xz.sh"
+fi
 
 #
 # Phase 2: Compile Python

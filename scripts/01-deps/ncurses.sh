@@ -165,6 +165,7 @@ if [ -d "${NCURSES_DIR}/objects/.aarch64" ]; then
   ln -sf libncursesw.a libncurses.a 2>/dev/null || true
   ln -sf libncursesw.a libtinfo.a 2>/dev/null || true
   ln -sf libncursesw.a libtinfow.a 2>/dev/null || true
+  ln -sf libncursesw.a libtermcap.a 2>/dev/null || true  # Python 3.10 compat (#24)
   ln -sf libncursesw.a libpanelw.a 2>/dev/null || true
   ln -sf libncursesw.a libpanel.a 2>/dev/null || true
   ln -sf libncursesw.a libformw.a 2>/dev/null || true
