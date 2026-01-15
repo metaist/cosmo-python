@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.tag.outputs.release_tag }}
+      version_table: ${{ steps.versions.outputs.table }}
 
     steps:
       - name: Checkout repo
@@ -103,6 +104,24 @@ jobs:
           sha256sum python-*.com > checksums.txt
           cat checksums.txt
 
+      - name: Generate version table
+        id: versions
+        run: |
+          # Build markdown table from actual built binaries
+          {
+            echo 'table<<EOF'
+            echo "| Python Version | Download |"
+            echo "|----------------|----------|"
+            for bin in dist/python-*-cosmo.com; do
+              filename=$(basename "$bin")
+              # Extract version (e.g., 3.12.8 from python-3.12.8-cosmo.com)
+              version=$(echo "$filename" | sed 's/python-\(.*\)-cosmo.com/\1/')
+              minor=$(echo "$version" | cut -d. -f1,2)
+              echo "| ${minor}.x | \`${filename}\` |"
+            done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -145,12 +164,7 @@ jobs:
 
             ### Downloads
 
-            | Python Version | Download |
-            |----------------|----------|
-            | 3.10.x | `python-3.10.16-cosmo.com` |
-            | 3.11.x | `python-3.11.11-cosmo.com` |
-            | 3.12.x | `python-3.12.8-cosmo.com` |
-            | 3.13.x | `python-3.13.1-cosmo.com` |
+            ${{ needs.build.outputs.version_table }}
 
             ### Usage
 

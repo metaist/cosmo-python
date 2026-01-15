@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false  # Continue building other versions if one fails
       matrix:
-        python_version: ["3.10.16", "3.11.11", "3.12.8", "3.13.1"]
+        python_minor: ["3.10", "3.11", "3.12", "3.13"]
 
     env:
       WORK_DIR: ${{ github.workspace }}/work
@@ -41,10 +41,9 @@ jobs:
         id: detect
         run: |
           # Get the latest version for this minor series from versions.json
-          MINOR=$(echo "${{ matrix.python_version }}" | cut -d. -f1,2)
-          VERSION=$(jq -r ".python.latest[\"$MINOR\"]" versions.json)
+          VERSION=$(jq -r ".python.latest[\"${{ matrix.python_minor }}\"]" versions.json)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building Python $VERSION (minor: $MINOR)"
+          echo "Building Python $VERSION (minor: ${{ matrix.python_minor }})"
 
       - name: Register APE with binfmt_misc
         run: |
@@ -75,7 +74,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: python-${{ steps.detect.outputs.version }}-cosmo
+          name: python-${{ matrix.python_minor }}-cosmo
           path: dist/python-*-cosmo.com
           if-no-files-found: error
 
