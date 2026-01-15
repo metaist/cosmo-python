@@ -1,24 +1,29 @@
 # cosmo-python
 
-> **Note:** This project is under development and has not yet published any releases.
-> See the [issues] for progress.
+[![CI](https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml/badge.svg)](https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml)
+[![Release](https://github.com/metaist/cosmo-python/actions/workflows/release.yaml/badge.svg)](https://github.com/metaist/cosmo-python/releases/latest)
 
 Standalone versioned [Cosmopolitan] Python builds.
 
-[issues]: https://github.com/metaist/cosmo-python/issues
 [cosmopolitan]: https://github.com/jart/cosmopolitan
 
 ## Why?
 
 Existing Cosmopolitan Python builds (from [superconfigure]) are bundled with other tools in larger archives, making it difficult to:
 
-- Specify a particular Python version
-- Verify build integrity with checksums
-- Track provenance of builds
+- [Specify a particular Python version](#releases)
+- [Verify build integrity with checksums](#verifying-downloads)
+- [Track provenance of builds](#build-attestations)
 
-This project provides clean, versioned Python builds as standalone releases.
+This project provides:
+
+- **Single portable binary** — runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
+- **Automated pipeline** — [weekly update checks][check-updates.yaml], validated builds, [attested releases](#build-attestations)
+- **Transparent builds** — all sources [SHA256 verified](#upstream-sources--trust), Python [Sigstore verified](#python-sigstore-verification)
+- **~45MB self-contained** — no installation, no dependencies, no container
 
 [superconfigure]: https://github.com/ahgamut/superconfigure
+[check-updates.yaml]: .github/workflows/check-updates.yaml
 
 ## Usage
 
@@ -306,6 +311,11 @@ cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | 
 [readline-src]: https://ftp.gnu.org/gnu/readline/
 [sqlite-src]: https://www.sqlite.org/download.html
 [xz-src]: https://github.com/tukaani-project/xz/releases
+
+> **Note:** We currently use OpenSSL 1.1.x due to [Cosmopolitan compatibility issues with OpenSSL 3.0.x][openssl-issue].
+> This version is still receiving security updates. See [#13][openssl-issue] for tracking.
+
+[openssl-issue]: https://github.com/metaist/cosmo-python/issues/13
 
 ---
 

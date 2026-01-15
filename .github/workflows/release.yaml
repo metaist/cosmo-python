@@ -129,7 +129,10 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: dist/python-*.com
+          subject-path: |
+            dist/python-*.com
+            dist/manifest.json
+            dist/checksums.txt
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v6
