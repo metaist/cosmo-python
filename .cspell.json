@@ -61,6 +61,22 @@
     "Szorc",
     "indygreg",
     "urlparse",
-    "startswith"
+    "startswith",
+    "urandom",
+    "ndbm",
+    "pythonapi",
+    "syscalls",
+    "syscall",
+    "QUIC",
+    "sendmmsg",
+    "recvmmsg",
+    "memcpy",
+    "numpy",
+    "cosmofy",
+    "cafile",
+    "tkinter",
+    "hashlib",
+    "hmac",
+    "ensurepip"
   ]
 }

@@ -12,6 +12,8 @@ Standalone versioned [Cosmopolitan][cosmo] Python builds.
 - **Transparent builds**: all sources [verified](#upstream-sources) (SHA256, GPG, Sigstore)
 - **~45MB self-contained**: no installation, no dependencies, no container
 
+See [LIMITATIONS.md](LIMITATIONS.md) for known differences from standard CPython.
+
 ## Usage
 
 <!--[[[cog
