@@ -33,7 +33,7 @@ jobs:
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Determine versions to build
         id: versions
@@ -63,10 +63,10 @@ jobs:
       COSMO_DIR: /tmp/cosmo
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -89,12 +89,12 @@ jobs:
           ./scripts/04-test/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: dist/python-${{ matrix.version }}-cosmo.com
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-${{ matrix.version }}-cosmo
           path: |

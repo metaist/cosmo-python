@@ -52,7 +52,7 @@ jobs:
     if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Generate release tag
         id: tag
@@ -67,7 +67,7 @@ jobs:
 
       - name: Download artifacts from build workflow
         if: ${{ inputs.from_run_id != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           run-id: ${{ inputs.from_run_id }}
           path: artifacts
@@ -75,7 +75,7 @@ jobs:
 
       - name: Download artifacts from this workflow
         if: ${{ inputs.from_run_id == '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
@@ -131,7 +131,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-${{ steps.tag.outputs.release_tag }}
           path: |
