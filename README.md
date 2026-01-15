@@ -9,20 +9,12 @@ Standalone versioned [Cosmopolitan] Python builds.
 
 ## Why?
 
-Existing Cosmopolitan Python builds (from [superconfigure]) are bundled with other tools in larger archives, making it difficult to:
-
-- [Specify a particular Python version](#releases)
-- [Verify build integrity with checksums](#verifying-downloads)
-- [Track provenance of builds](#build-attestations)
-
-This project provides:
-
 - **Single portable binary** — runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
+- **Multiple Python versions** — 3.10 through 3.14 available
 - **Automated pipeline** — [weekly update checks][check-updates.yaml], validated builds, [attested releases](#build-attestations)
 - **Transparent builds** — all sources [SHA256 verified](#upstream-sources--trust), Python [Sigstore verified](#python-sigstore-verification)
 - **~45MB self-contained** — no installation, no dependencies, no container
 
-[superconfigure]: https://github.com/ahgamut/superconfigure
 [check-updates.yaml]: .github/workflows/check-updates.yaml
 
 ## Usage
@@ -43,9 +35,9 @@ cog.outl("```")
 Download and run:
 
 ```bash
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
-chmod +x python-3.12.12-cosmo.com
-./python-3.12.12-cosmo.com --version
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.13.11-cosmo.com
+chmod +x python-3.13.11-cosmo.com
+./python-3.13.11-cosmo.com --version
 ```
 <!--[[[end]]]-->
 
@@ -57,35 +49,7 @@ curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manife
 
 ## Releases
 
-We use **date-based releases** (e.g., `YYYYMMDD-HHMMSS`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change.
-
-<!--[[[cog
-cog.outl("Each release includes:")
-cog.outl("")
-cog.outl("```")
-for minor in sorted(versions["python"]["latest"].keys()):
-    ver = versions["python"]["latest"][minor]
-    cog.outl(f"python-{ver}-cosmo.com")
-cog.outl("manifest.json")
-cog.outl("checksums.txt")
-cog.outl("```")
-]]]-->
-Each release includes:
-
-```
-python-3.10.19-cosmo.com
-python-3.11.14-cosmo.com
-python-3.12.12-cosmo.com
-python-3.13.11-cosmo.com
-python-3.14.2-cosmo.com
-manifest.json
-checksums.txt
-```
-<!--[[[end]]]-->
-
-### How Releases Work
-
-Releases are created through a semi-automated pipeline:
+We use date-based releases (e.g., `YYYYMMDD-HHMMSS`) that are created through a semi-automated pipeline:
 
 1. **[check-updates.yaml]** runs weekly to detect new Python/dependency versions and creates a PR
 2. **[pr-build.yaml]** validates the PR by building all Python versions
@@ -95,6 +59,17 @@ Releases are created through a semi-automated pipeline:
 [check-updates.yaml]: .github/workflows/check-updates.yaml
 [pr-build.yaml]: .github/workflows/pr-build.yaml
 [release.yaml]: .github/workflows/release.yaml
+
+Each release includes:
+
+```
+python-3.x.y-cosmo.com
+
+...
+
+manifest.json
+checksums.txt
+```
 
 ### Verifying Downloads
 
@@ -113,7 +88,7 @@ Each release includes `checksums.txt` with SHA256 hashes:
 
 ```bash
 curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.13.11-cosmo.com
 sha256sum -c checksums.txt --ignore-missing
 ```
 <!--[[[end]]]-->
@@ -132,7 +107,7 @@ cog.outl("```")
 Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
 
 ```bash
-gh attestation verify python-3.12.12-cosmo.com --repo metaist/cosmo-python
+gh attestation verify python-3.13.11-cosmo.com --repo metaist/cosmo-python
 ```
 <!--[[[end]]]-->
 
@@ -152,7 +127,7 @@ The `manifest.json` acts as a spanning registry, tracking all versions across re
     }
   },
   "latest": { "3.12": "3.12.9", "3.13": "3.13.1" },
-  "default": "3.12"
+  "default": "3.13"
 }
 ```
 
@@ -166,13 +141,13 @@ For details on how binaries are built and source verification, see [Building](#b
 
 <!--[[[cog
 cog.outl("```bash")
-cog.outl(f"./scripts/build.sh {default_version}      # build specific version")
-cog.outl("./scripts/build.sh --all       # build all versions")
+cog.outl(f"./scripts/build.sh {default_version}  # build specific version")
+cog.outl("./scripts/build.sh --all  # build all versions")
 cog.outl("```")
 ]]]-->
 ```bash
-./scripts/build.sh 3.12.12      # build specific version
-./scripts/build.sh --all       # build all versions
+./scripts/build.sh 3.13.11  # build specific version
+./scripts/build.sh --all  # build all versions
 ```
 <!--[[[end]]]-->
 
@@ -196,7 +171,7 @@ cog.outl("```")
 Example:
 
 ```bash
-WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.12.12
+WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 ```
 <!--[[[end]]]-->
 
@@ -215,8 +190,15 @@ All upstream sources are verified during the build:
 minor = default_version.rsplit(".", 1)[0]
 if minor in ("3.10", "3.11"):
     release_manager = "pablogsal@python.org"
+elif minor == "3.14":
+    release_manager = "hugo@python.org"
 else:
     release_manager = "thomas@python.org"
+
+if minor == "3.14":
+    oidc_issuer = "https://github.com/login/oauth"
+else:
+    oidc_issuer = "https://accounts.google.com"
 
 cog.outl("Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.")
 cog.outl("If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:")
@@ -238,7 +220,7 @@ cog.outl("")
 cog.outl("uvx sigstore verify identity \\")
 cog.outl(f"  --bundle Python-{default_version}.tgz.sigstore \\")
 cog.outl(f'  --cert-identity "{release_manager}" \\')
-cog.outl('  --cert-oidc-issuer "https://accounts.google.com" \\')
+cog.outl(f'  --cert-oidc-issuer "{oidc_issuer}" \\')
 cog.outl(f"  Python-{default_version}.tgz")
 cog.outl("```")
 ]]]-->
@@ -250,20 +232,20 @@ If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Build will now verify sigstore signatures
-./scripts/build.sh 3.12.12
+./scripts/build.sh 3.13.11
 ```
 
 Manual verification:
 
 ```bash
-curl -LO https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz
-curl -LO https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz.sigstore
+curl -LO https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz
+curl -LO https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz.sigstore
 
 uvx sigstore verify identity \
-  --bundle Python-3.12.12.tgz.sigstore \
+  --bundle Python-3.13.11.tgz.sigstore \
   --cert-identity "thomas@python.org" \
   --cert-oidc-issuer "https://accounts.google.com" \
-  Python-3.12.12.tgz
+  Python-3.13.11.tgz
 ```
 <!--[[[end]]]-->
 
@@ -274,7 +256,7 @@ All dependencies are SHA256 verified against known-good hashes in `versions.json
 <!--[[[cog
 cog.outl("| Component | Version | Source | Trust Model |")
 cog.outl("|-----------|---------|--------|-------------|")
-cog.outl("| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |")
+cog.outl("| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |")
 cog.outl(f"| **cosmocc** | {versions['cosmocc']['default']} | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |")
 cog.outl(f"| **bz2** | {versions['bz2']['default']} | [sourceware.org][bz2-src] | SHA256 verified |")
 cog.outl(f"| **CA certs** | {versions['cacert']['default']} | [curl.se][cacert-src] | SHA256 verified |")
@@ -288,7 +270,7 @@ cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | 
 ]]]-->
 | Component | Version | Source | Trust Model |
 |-----------|---------|--------|-------------|
-| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |
+| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |
 | **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |
 | **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 verified |
 | **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 verified |
@@ -324,15 +306,22 @@ cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | 
 
 This project builds upon the excellent work of:
 
-- **[Justine Tunney]** ([@jart]) - Creator of [Cosmopolitan libc], which makes truly portable executables that run on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD.
+- **[Justine Tunney]** ([@jart]) — Creator of [Cosmopolitan libc], the C library that makes truly portable executables.
 
-- **[Gautham Venkatasubramanian]** ([@ahgamut]) - Maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
+- **[Gautham Venkatasubramanian]** ([@ahgamut]) — Maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
+
+- **[python-build-standalone]** — Inspiration for standalone Python distribution patterns.
+
+- **[Claude Opus 4.5]** — AI assistant that wrote most of this codebase with steering from [@metaist].
 
 [justine tunney]: https://justine.lol/
 [@jart]: https://github.com/jart
 [cosmopolitan libc]: https://github.com/jart/cosmopolitan
 [gautham venkatasubramanian]: https://ahgamut.github.io/
 [@ahgamut]: https://github.com/ahgamut
+[python-build-standalone]: https://github.com/indygreg/python-build-standalone
+[claude opus 4.5]: https://www.anthropic.com/claude
+[@metaist]: https://github.com/metaist
 
 ## License
 
