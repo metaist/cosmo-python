@@ -276,8 +276,6 @@ for name, key, source in deps:
 | **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 | GPG |
 <!--[[[end]]]-->
 
-> ⚠️ **Note:** We use OpenSSL 1.1.x due to [Cosmopolitan compatibility issues with OpenSSL 3.0.x][openssl-issue].
-
 ---
 
 ## Acknowledgments
@@ -324,7 +322,6 @@ This project builds upon the excellent work of:
 [readline-src]: https://ftp.gnu.org/gnu/readline/
 [sqlite-src]: https://www.sqlite.org/download.html
 [xz-src]: https://github.com/tukaani-project/xz/releases
-[openssl-issue]: https://github.com/metaist/cosmo-python/issues/13
 
 <!-- acknowledgments -->
 [justine tunney]: https://justine.lol/
