@@ -167,14 +167,10 @@ All upstream sources are SHA256 verified against known-good hashes in [`versions
 <!--[[[cog
 from urllib.parse import urlparse
 
-# Map domains to human-readable source names
+# Special display names for sources (default: base domain without subdomain)
 SOURCE_NAMES = {
     "github.com": "GitHub",
     "ftp.gnu.org": "GNU FTP",
-    "www.python.org": "python.org",
-    "www.sqlite.org": "sqlite.org",
-    "sourceware.org": "sourceware.org",
-    "curl.se": "curl.se",
 }
 
 # Display names for packages (default: use key as-is)
@@ -190,7 +186,12 @@ DISPLAY_NAMES = {
 def get_source_name(url):
     """Derive human-readable source name from URL domain."""
     domain = urlparse(url).netloc
-    return SOURCE_NAMES.get(domain, domain)
+    if domain in SOURCE_NAMES:
+        return SOURCE_NAMES[domain]
+    # Strip www/ftp subdomain for cleaner display
+    if domain.startswith(("www.", "ftp.")):
+        domain = domain.split(".", 1)[1]
+    return domain
 
 def get_sig_type(ver_info):
     """Get signature type from version info."""
@@ -200,16 +201,14 @@ def get_sig_type(ver_info):
         return "GPG"
     return "—"
 
-def get_version_display(info):
-    """Get version display string (range if multiple, single if one)."""
-    vers = list(info["versions"].keys())
-    if len(vers) == 1:
-        return vers[0]
-    # For multiple versions, show range using major.minor
-    minors = sorted(set(".".join(v.split(".")[:2]) for v in vers))
-    if minors[0] == minors[-1]:
-        return minors[0]
-    return f"{minors[0]}–{minors[-1]}"
+def get_version_display(key, info):
+    """Get version display string."""
+    # Python is special - users choose versions, so show range
+    if key == "python":
+        minors = sorted(set(".".join(v.split(".")[:2]) for v in info["versions"]))
+        return f"{minors[0]}–{minors[-1]}"
+    # For deps, just show the default version
+    return info["default"]
 
 def get_default_ver_info(info):
     """Get version info for the default version."""
@@ -224,7 +223,7 @@ cog.outl("|------------|---------|--------|-----------|-----------|")
 
 for key, info in versions.items():
     name = DISPLAY_NAMES.get(key, key)
-    ver_display = get_version_display(info)
+    ver_display = get_version_display(key, info)
     ver_info = get_default_ver_info(info)
     url = ver_info["url"]
     sig = get_sig_type(ver_info)
@@ -237,13 +236,13 @@ for key, info in versions.items():
 | **Cosmopolitan** | 4.0.2 | [GitHub](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — |
 | **bzip2** | 1.0.8 | [sourceware.org](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | SHA256 | GPG |
 | **CA certs** | 2025-12-02 | [curl.se](https://curl.se/ca/cacert-2025-12-02.pem) | SHA256 | — |
-| **gdbm** | 1.23–1.26 | [GNU FTP](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG |
-| **libffi** | 3.4–3.5 | [GitHub](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — |
-| **ncurses** | 6.4–6.6 | [GNU FTP](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG |
-| **OpenSSL** | 1.1–3.5 | [GitHub](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG |
-| **readline** | 8.2–8.3 | [GNU FTP](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG |
+| **gdbm** | 1.26 | [GNU FTP](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG |
+| **libffi** | 3.5.2 | [GitHub](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — |
+| **ncurses** | 6.6 | [GNU FTP](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG |
+| **OpenSSL** | 3.5.4 | [GitHub](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG |
+| **readline** | 8.3 | [GNU FTP](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG |
 | **sqlite** | 3.51.2 | [sqlite.org](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | SHA256 | — |
-| **xz/liblzma** | 5.4–5.8 | [GitHub](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG |
+| **xz/liblzma** | 5.8.2 | [GitHub](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG |
 <!--[[[end]]]-->
 
 ---

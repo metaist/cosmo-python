@@ -60,6 +60,7 @@
     "shellcheck",
     "Szorc",
     "indygreg",
-    "urlparse"
+    "urlparse",
+    "startswith"
   ]
 }

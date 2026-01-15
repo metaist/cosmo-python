@@ -13,7 +13,7 @@ parse_dep_args "bz2" "$@"
 
 BZ2_VERSION="$DEP_VERSION"
 BZ2_SHA256="$(get_pkg_sha256 bz2 "$BZ2_VERSION")"
-BZ2_URL="https://sourceware.org/pub/bzip2/bzip2-${BZ2_VERSION}.tar.gz"
+BZ2_URL="$(get_pkg_url bz2 "$BZ2_VERSION")"
 BZ2_DIR="${WORK_DIR}/bzip2-${BZ2_VERSION}"
 
 # Validate version exists

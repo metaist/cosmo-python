@@ -16,7 +16,7 @@ parse_dep_args "ncurses" "$@"
 
 NCURSES_VERSION="$DEP_VERSION"
 NCURSES_SHA256="$(get_pkg_sha256 ncurses "$NCURSES_VERSION")"
-NCURSES_URL="https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
+NCURSES_URL="$(get_pkg_url ncurses "$NCURSES_VERSION")"
 NCURSES_DIR="${WORK_DIR}/ncurses-${NCURSES_VERSION}"
 
 # Validate version exists

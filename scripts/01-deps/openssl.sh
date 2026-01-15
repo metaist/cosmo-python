@@ -34,7 +34,7 @@ parse_dep_args "openssl" "$@"
 
 OPENSSL_VERSION="$DEP_VERSION"
 OPENSSL_SHA256="$(get_pkg_sha256 openssl "$OPENSSL_VERSION")"
-OPENSSL_URL="$(get_pkg_version_field openssl "$OPENSSL_VERSION" url)"
+OPENSSL_URL="$(get_pkg_url openssl "$OPENSSL_VERSION")"
 OPENSSL_MAJOR="${OPENSSL_VERSION%%.*}"
 
 # Directory name depends on tarball structure

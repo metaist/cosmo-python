@@ -202,6 +202,14 @@ get_pkg_sha256() {
   get_pkg_version_field "$pkg" "$version" sha256
 }
 
+# Get URL for a specific version of a package
+# Usage: get_pkg_url gdbm 1.26  -> "https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz"
+get_pkg_url() {
+  local pkg="$1"
+  local version="$2"
+  get_pkg_version_field "$pkg" "$version" url
+}
+
 # Get the default version for a dependency (convenience wrapper)
 # Usage: get_dep_version openssl  -> "1.1.1u"
 get_dep_version() {

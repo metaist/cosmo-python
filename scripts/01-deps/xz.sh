@@ -13,7 +13,7 @@ parse_dep_args "xz" "$@"
 
 XZ_VERSION="$DEP_VERSION"
 XZ_SHA256="$(get_pkg_sha256 xz "$XZ_VERSION")"
-XZ_URL="https://github.com/tukaani-project/xz/releases/download/v${XZ_VERSION}/xz-${XZ_VERSION}.tar.gz"
+XZ_URL="$(get_pkg_url xz "$XZ_VERSION")"
 XZ_DIR="${WORK_DIR}/xz-${XZ_VERSION}"
 
 # Validate version exists

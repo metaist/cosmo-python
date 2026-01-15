@@ -16,7 +16,7 @@ parse_dep_args "readline" "$@"
 
 READLINE_VERSION="$DEP_VERSION"
 READLINE_SHA256="$(get_pkg_sha256 readline "$READLINE_VERSION")"
-READLINE_URL="https://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz"
+READLINE_URL="$(get_pkg_url readline "$READLINE_VERSION")"
 READLINE_DIR="${WORK_DIR}/readline-${READLINE_VERSION}"
 
 # Validate version exists

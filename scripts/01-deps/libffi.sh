@@ -25,7 +25,7 @@ parse_dep_args "libffi" "$@"
 
 LIBFFI_VERSION="$DEP_VERSION"
 LIBFFI_SHA256="$(get_pkg_sha256 libffi "$LIBFFI_VERSION")"
-LIBFFI_URL="https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz"
+LIBFFI_URL="$(get_pkg_url libffi "$LIBFFI_VERSION")"
 LIBFFI_SRC="${WORK_DIR}/libffi-${LIBFFI_VERSION}"
 
 # Validate version exists

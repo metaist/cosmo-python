@@ -2,10 +2,10 @@
 # Download and setup the Cosmopolitan C compiler toolchain
 source "$(dirname "$0")/../common.sh"
 
-# Get version and checksum from versions.json
+# Get version, checksum, and URL from versions.json
 COSMOCC_VERSION="${COSMOCC_VERSION:-$(get_dep_version cosmocc)}"
 COSMOCC_SHA256="$(get_dep_sha256 cosmocc)"
-COSMOCC_URL="https://github.com/jart/cosmopolitan/releases/download/${COSMOCC_VERSION}/cosmocc-${COSMOCC_VERSION}.zip"
+COSMOCC_URL="$(get_pkg_url cosmocc "$COSMOCC_VERSION")"
 
 # Check if already installed with correct version
 if [ -x "${COSMO_DIR}/bin/cosmocc" ]; then

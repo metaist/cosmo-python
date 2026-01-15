@@ -18,7 +18,7 @@ SQLITE_VERSION="$DEP_VERSION"
 SQLITE_SHA256="$(get_pkg_sha256 sqlite "$SQLITE_VERSION")"
 # Get the autoconf version number (3510200 for 3.51.2)
 SQLITE_AUTOCONF="$(get_pkg_version_field sqlite "$SQLITE_VERSION" autoconf_version)"
-SQLITE_URL="https://www.sqlite.org/2026/sqlite-autoconf-${SQLITE_AUTOCONF}.tar.gz"
+SQLITE_URL="$(get_pkg_url sqlite "$SQLITE_VERSION")"
 SQLITE_DIR="${WORK_DIR}/sqlite-autoconf-${SQLITE_AUTOCONF}"
 
 # Validate version exists

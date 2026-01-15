@@ -13,7 +13,7 @@ parse_dep_args "gdbm" "$@"
 
 GDBM_VERSION="$DEP_VERSION"
 GDBM_SHA256="$(get_pkg_sha256 gdbm "$GDBM_VERSION")"
-GDBM_URL="https://ftp.gnu.org/gnu/gdbm/gdbm-${GDBM_VERSION}.tar.gz"
+GDBM_URL="$(get_pkg_url gdbm "$GDBM_VERSION")"
 GDBM_DIR="${WORK_DIR}/gdbm-${GDBM_VERSION}"
 
 # Validate version exists
