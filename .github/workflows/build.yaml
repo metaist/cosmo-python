@@ -1,66 +1,103 @@
 # Cosmopolitan Python Build Workflow
+#
+# Builds Python versions using a matrix for parallel execution.
+# Each version is attested for supply chain security.
+#
+# Usage:
+#   - Single version: python_version = "3.12.8"
+#   - All versions: python_version = "all" (reads from versions.json)
+#
 name: build
 
 on:
   workflow_dispatch:
     inputs:
       python_version:
-        description: "Python version to build (e.g., 3.12.8), or 'all' for all versions"
+        description: "Python version(s) to build: '3.12.8', '3.12.8, 3.13.1', or 'all'"
         required: true
         default: "3.12.8"
         type: string
+
+permissions:
+  contents: read
+  id-token: write       # Required for OIDC attestation
+  attestations: write   # Required to upload attestations
 
 env:
   COSMOCC_VERSION: "4.0.2"
 
 jobs:
-  build:
+  # First job: determine which versions to build
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine versions to build
+        id: versions
+        run: |
+          INPUT="${{ inputs.python_version }}"
+          if [ "$INPUT" = "all" ]; then
+            # Get all versions from versions.json
+            VERSIONS=$(jq -c '[.python.versions | keys[]]' versions.json)
+          else
+            # Split by comma or space into JSON array
+            VERSIONS=$(echo "$INPUT" | tr ',' ' ' | xargs -n1 | jq -R . | jq -sc .)
+          fi
+          echo "matrix={\"version\":${VERSIONS}}" >> "$GITHUB_OUTPUT"
+          echo "Building versions: $VERSIONS"
+
+  # Second job: build each version in parallel
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Don't cancel other versions if one fails
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+
     env:
       WORK_DIR: ${{ github.workspace }}/work
       DIST_DIR: ${{ github.workspace }}/dist
       COSMO_DIR: /tmp/cosmo
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: false  # We only use uvx for sigstore, no deps to cache
+          enable-cache: false
 
       - name: Register APE with binfmt_misc
         run: |
-          # This allows running Cosmopolitan binaries directly
           sudo mkdir -p /usr/bin
           sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
 
-      - name: Build Python
-        run: |
-          if [ "${{ inputs.python_version }}" = "all" ]; then
-            ./scripts/build.sh --all
-          else
-            ./scripts/build.sh "${{ inputs.python_version }}"
-          fi
+      - name: Build Python ${{ matrix.version }}
+        run: ./scripts/build.sh "${{ matrix.version }}"
 
-      - name: Copy APE loader for binfmt
+      - name: Copy APE loader
         run: |
-          # Copy APE loader after cosmocc is downloaded
           if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
             sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
           fi
 
-      - name: Test binary
+      - name: Run smoke tests
         run: |
-          for bin in dist/python-*-cosmo.com; do
-            if [ -f "$bin" ]; then
-              echo "Testing: $bin"
-              "$bin" --version || echo "Test skipped (may need APE loader)"
-            fi
-          done
+          ./scripts/04-test/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
 
-      - name: Upload artifacts
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/python-${{ matrix.version }}-cosmo.com
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cosmo-python-${{ inputs.python_version }}
-          path: dist/
-          if-no-files-found: warn
+          name: python-${{ matrix.version }}-cosmo
+          path: |
+            dist/python-${{ matrix.version }}-cosmo.com
+            dist/python-${{ matrix.version }}-cosmo.com.sha256
+          if-no-files-found: error

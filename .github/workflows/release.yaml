@@ -1,47 +1,58 @@
 # Release Workflow
 #
-# Builds all Python versions and creates a GitHub release with:
-# - Compiled Python binaries for each version
-# - manifest.json spanning all available versions
-# - checksums.txt
+# Creates a GitHub release from pre-built artifacts.
+# Artifacts must be built first using the build workflow.
 #
-# Triggered manually via workflow_dispatch
+# Options:
+#   - from_run_id: Download artifacts from a specific build workflow run
+#   - rebuild: Build fresh instead of downloading (slower, but self-contained)
 #
-name: Release
+name: release
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag (default: YYYYMMDD-HHMMSS)'
+        description: "Release tag (default: YYYYMMDD-HHMMSS)"
+        required: false
+        type: string
+      from_run_id:
+        description: "Build workflow run ID to download artifacts from (leave empty to rebuild)"
         required: false
         type: string
       dry_run:
-        description: 'Dry run (build but do not publish)'
+        description: "Dry run (build but do not publish)"
         required: false
         type: boolean
         default: false
 
 permissions:
-  contents: write       # Required to create releases
-  id-token: write       # Required for OIDC attestation
-  attestations: write   # Required to upload attestations
+  contents: write
+  id-token: write
+  attestations: write
+  actions: read  # Required to download artifacts from other runs
 
 jobs:
+  # Build all versions (if not downloading from existing run)
   build:
+    if: ${{ inputs.from_run_id == '' }}
+    uses: ./.github/workflows/build.yaml
+    with:
+      python_version: "all"
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+  # Collect artifacts and create release
+  release:
     runs-on: ubuntu-latest
-    outputs:
-      release_tag: ${{ steps.tag.outputs.release_tag }}
-      version_table: ${{ steps.versions.outputs.table }}
+    needs: [build]
+    # Run even if build was skipped (when using from_run_id)
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: false  # We only use uvx for sigstore, no deps to cache
+      - uses: actions/checkout@v4
 
       - name: Generate release tag
         id: tag
@@ -54,28 +65,27 @@ jobs:
           echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Release tag: $TAG"
 
-      - name: Register APE with binfmt_misc
-        run: |
-          sudo mkdir -p /usr/bin
-          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
+      - name: Download artifacts from build workflow
+        if: ${{ inputs.from_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.from_run_id }}
+          path: artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build all Python versions
-        run: ./scripts/build.sh --all
+      - name: Download artifacts from this workflow
+        if: ${{ inputs.from_run_id == '' }}
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-      - name: Copy APE loader
+      - name: Collect binaries
         run: |
-          if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
-            sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
-          fi
-
-      - name: Run smoke tests
-        run: |
-          for bin in dist/python-*-cosmo.com; do
-            if [ -f "$bin" ]; then
-              echo "Testing: $bin"
-              ./scripts/04-test/smoke.sh "$bin"
-            fi
-          done
+          mkdir -p dist
+          # Find all .com files in artifact directories
+          find artifacts -name "*.com" -exec cp {} dist/ \;
+          find artifacts -name "*.sha256" -exec cp {} dist/ \;
+          ls -la dist/
 
       - name: Fetch previous manifest
         id: prev_manifest
@@ -107,14 +117,12 @@ jobs:
       - name: Generate version table
         id: versions
         run: |
-          # Build markdown table from actual built binaries
           {
             echo 'table<<EOF'
             echo "| Python Version | Download |"
             echo "|----------------|----------|"
             for bin in dist/python-*-cosmo.com; do
               filename=$(basename "$bin")
-              # Extract version (e.g., 3.12.8 from python-3.12.8-cosmo.com)
               version=$(echo "$filename" | sed 's/python-\(.*\)-cosmo.com/\1/')
               minor=$(echo "$version" | cut -d. -f1,2)
               echo "| ${minor}.x | \`${filename}\` |"
@@ -122,7 +130,7 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Upload artifacts
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ steps.tag.outputs.release_tag }}
@@ -131,28 +139,12 @@ jobs:
             dist/manifest.json
             dist/checksums.txt
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: ${{ !inputs.dry_run }}
-
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: release-${{ needs.build.outputs.release_tag }}
-          path: dist
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: dist/python-*.com
-
       - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build.outputs.release_tag }}
-          name: ${{ needs.build.outputs.release_tag }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: ${{ steps.tag.outputs.release_tag }}
           draft: false
           prerelease: false
           files: |
@@ -160,17 +152,17 @@ jobs:
             dist/manifest.json
             dist/checksums.txt
           body: |
-            ## Cosmopolitan Python Release ${{ needs.build.outputs.release_tag }}
+            ## Cosmopolitan Python Release ${{ steps.tag.outputs.release_tag }}
 
             ### Downloads
 
-            ${{ needs.build.outputs.version_table }}
+            ${{ steps.versions.outputs.version_table }}
 
             ### Usage
 
             ```bash
             # Download
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ needs.build.outputs.release_tag }}/python-3.12.8-cosmo.com
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.release_tag }}/python-3.12.8-cosmo.com
 
             # Make executable and run
             chmod +x python-3.12.8-cosmo.com
