@@ -9,7 +9,7 @@ Standalone versioned [Cosmopolitan][cosmo] Python builds.
 - **Single portable binary**: runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
 - **Multiple Python versions**: 3.10 through 3.14 available
 - **Automated pipeline**: [weekly update checks][check-updates], validated builds, [attested releases](#build-attestations)
-- **Transparent builds**: all sources [SHA256 verified](#upstream-sources--trust), Python [Sigstore verified](#python-sigstore-verification)
+- **Transparent builds**: all sources [verified](#upstream-sources) (SHA256, GPG, Sigstore)
 - **~45MB self-contained**: no installation, no dependencies, no container
 
 ## Usage
@@ -160,74 +160,9 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 ```
 <!--[[[end]]]-->
 
-### Source Verification
+### Upstream Sources
 
-All upstream sources are verified during the build:
-
-- **SHA256 checksums** for all downloads (stored in [`versions.json`][versions-json])
-- **Official sources** only (no mirrors except GNU FTP)
-- **Sigstore verification** for Python source (if `uvx` available)
-
-#### Python Sigstore Verification
-
-<!--[[[cog
-# Get sigstore info from versions.json
-sigstore_info = versions["python"]["versions"][default_version].get("sigstore", {})
-release_manager = sigstore_info.get("identity", "unknown")
-oidc_issuer = sigstore_info.get("issuer", "unknown")
-
-cog.outl("Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.")
-cog.outl("If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:")
-cog.outl("")
-cog.outl("```bash")
-cog.outl("# Install uv (if not already installed)")
-cog.outl("curl -LsSf https://astral.sh/uv/install.sh | sh")
-cog.outl("")
-cog.outl("# Build will now verify sigstore signatures")
-cog.outl(f"./scripts/build.sh {default_version}")
-cog.outl("```")
-cog.outl("")
-cog.outl("Manual verification:")
-cog.outl("")
-cog.outl("```bash")
-cog.outl(f"curl -LO https://www.python.org/ftp/python/{default_version}/Python-{default_version}.tgz")
-cog.outl(f"curl -LO https://www.python.org/ftp/python/{default_version}/Python-{default_version}.tgz.sigstore")
-cog.outl("")
-cog.outl("uvx sigstore verify identity \\")
-cog.outl(f"  --bundle Python-{default_version}.tgz.sigstore \\")
-cog.outl(f'  --cert-identity "{release_manager}" \\')
-cog.outl(f'  --cert-oidc-issuer "{oidc_issuer}" \\')
-cog.outl(f"  Python-{default_version}.tgz")
-cog.outl("```")
-]]]-->
-Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.
-If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:
-
-```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Build will now verify sigstore signatures
-./scripts/build.sh 3.13.11
-```
-
-Manual verification:
-
-```bash
-curl -LO https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz
-curl -LO https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz.sigstore
-
-uvx sigstore verify identity \
-  --bundle Python-3.13.11.tgz.sigstore \
-  --cert-identity "thomas@python.org" \
-  --cert-oidc-issuer "https://accounts.google.com" \
-  Python-3.13.11.tgz
-```
-<!--[[[end]]]-->
-
-### Upstream Sources & Trust
-
-All upstream sources are SHA256 verified against known-good hashes in [`versions.json`][versions-json]. Sources that provide signatures (GPG or Sigstore) are also cryptographically verified.
+All upstream sources are SHA256 verified against known-good hashes in [`versions.json`][versions-json]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
 
 <!--[[[cog
 # Helper to get signature type for a dep
@@ -322,6 +257,7 @@ This project builds upon the excellent work of:
 [readline-src]: https://ftp.gnu.org/gnu/readline/
 [sqlite-src]: https://www.sqlite.org/download.html
 [xz-src]: https://github.com/tukaani-project/xz/releases
+[sigstore]: https://sigstore.dev/
 
 <!-- acknowledgments -->
 [justine tunney]: https://justine.lol/
