@@ -9,7 +9,6 @@ on:
   pull_request:
     paths:
       - 'versions.json'
-      - 'README.md'
       - 'scripts/**'
 
 jobs:
