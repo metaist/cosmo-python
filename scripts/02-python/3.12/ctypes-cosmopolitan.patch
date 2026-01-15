@@ -1,0 +1,21 @@
+diff --git a/Lib/ctypes/__init__.py b/Lib/ctypes/__init__.py
+--- a/Lib/ctypes/__init__.py
++++ b/Lib/ctypes/__init__.py
+@@ -467,9 +467,16 @@ pydll = LibraryLoader(PyDLL)
+ if _os.name == "nt":
+     pythonapi = PyDLL("python dll", None, _sys.dllhandle)
+ elif _sys.platform == "cygwin":
+     pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])
+ else:
+-    pythonapi = PyDLL(None)
++    # Cosmopolitan libc doesn't support dlopen() for getting a handle
++    # to the current process. Set pythonapi to None in this case.
++    # Most ctypes functionality still works without pythonapi.
++    try:
++        pythonapi = PyDLL(None)
++    except OSError:
++        # Running under Cosmopolitan or similar environment
++        pythonapi = None
+
+
+ if _os.name == "nt":

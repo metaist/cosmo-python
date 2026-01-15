@@ -175,17 +175,34 @@ if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   SETUP_FILE="${BUILD_DIR}/Modules/Setup.stdlib"
   sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
 
-  # Enable modules that configure might not have detected
+  # Enable modules that configure might not have detected, and append library flags.
+  # Setup.stdlib relies on makefile variables for flags, but those aren't set when
+  # configure doesn't detect the library. We append -l flags directly.
+  
+  # readline
   sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
   sed -i 's/^#readline /readline /' "$SETUP_FILE"
+  sed -i "s|^\(readline .*\)$|\1 -L${DEPS_DIR}/lib -lreadline -ltinfo|" "$SETUP_FILE"
+  
+  # ctypes
   sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
   sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
+  sed -i "s|^\(_ctypes .*\)$|\1 -L${DEPS_DIR}/lib -lffi|" "$SETUP_FILE"
+  
+  # curses
   sed -i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
   sed -i 's/^#_curses /_curses /' "$SETUP_FILE"
+  sed -i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
+  
+  # curses panel
   sed -i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
   sed -i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
+  sed -i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
+  
+  # sqlite3 (our sqlite is built without shared cache support)
   sed -i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
   sed -i 's/^#_sqlite3 /_sqlite3 /' "$SETUP_FILE"
+  sed -i "s|^\(_sqlite3 .*\)$|\1 -DSQLITE_OMIT_SHARED_CACHE -L${DEPS_DIR}/lib -lsqlite3|" "$SETUP_FILE"
 
   # Remove modules that need unavailable headers/libraries
   #
