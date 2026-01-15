@@ -221,7 +221,7 @@ This project builds upon the excellent work of:
 
 - **[Gautham Venkatasubramanian]** ([@ahgamut]) - Creator and maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
 
-- **[python-build-standalone]** - Inspiration for standalone Python distribution patterns.
+- **[Gregory Szorc]** ([@indygreg]) - Creator of [python-build-standalone], now maintained by [Astral]. Inspiration for standalone Python distribution patterns.
 
 - **[Claude Opus 4.5]** - AI assistant that wrote most of this codebase with steering from [@metaist].
 
@@ -265,6 +265,9 @@ This project builds upon the excellent work of:
 [gautham venkatasubramanian]: https://ahgamut.github.io/
 [@ahgamut]: https://github.com/ahgamut
 [superconfigure]: https://github.com/ahgamut/superconfigure
-[python-build-standalone]: https://github.com/indygreg/python-build-standalone
+[gregory szorc]: https://gregoryszorc.com/
+[@indygreg]: https://github.com/indygreg
+[python-build-standalone]: https://github.com/astral-sh/python-build-standalone
+[astral]: https://astral.sh/
 [claude opus 4.5]: https://www.anthropic.com/claude
 [@metaist]: https://github.com/metaist

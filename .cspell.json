@@ -57,6 +57,8 @@
     "ltermcap",
     "ctypes",
     "binfmt",
-    "shellcheck"
+    "shellcheck",
+    "Szorc",
+    "indygreg"
   ]
 }
