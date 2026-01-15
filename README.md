@@ -77,6 +77,7 @@ python-3.10.19-cosmo.com
 python-3.11.14-cosmo.com
 python-3.12.12-cosmo.com
 python-3.13.11-cosmo.com
+python-3.14.2-cosmo.com
 manifest.json
 checksums.txt
 ```

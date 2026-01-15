@@ -262,6 +262,15 @@ fi
 log_info "regenerating Makefile..."
 make Makefile
 
+# Python 3.14+: Fix HACL HMAC duplicate object file issue
+# When building statically, LIBHACL_HMAC_OBJS includes all hash objects which
+# causes "multiple definition" linker errors since those objects are also
+# included by each individual hash module. Fix by removing the duplicates.
+if grep -q "^LIBHACL_HMAC_LIB_SHARED=\$(LIBHACL_HMAC_OBJS)" Makefile 2>/dev/null; then
+  log_info "patching Makefile for HACL static linking..."
+  sed -i 's|^LIBHACL_HMAC_LIB_SHARED=.*|LIBHACL_HMAC_LIB_SHARED=Modules/_hacl/Hacl_HMAC.o Modules/_hacl/Hacl_Streaming_HMAC.o|' Makefile
+fi
+
 log_info "compiling (this may take several minutes)..."
 # For Python 3.10, we need to add _math.o to the library manually
 # since it's normally handled by setup.py for shared builds

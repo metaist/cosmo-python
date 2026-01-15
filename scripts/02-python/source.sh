@@ -37,17 +37,29 @@ SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 # Python release manager identities for sigstore verification
 # Different versions are signed by different release managers
 # See: https://www.python.org/dev/peps/pep-0101/
-get_release_manager() {
+# Python release manager identities for sigstore verification
+# Different versions are signed by different release managers with different OIDC issuers
+# See: https://www.python.org/dev/peps/pep-0101/
+get_release_identity() {
   local version="$1"
   local minor="${version%.*}"
   case "$minor" in
     3.10|3.11) echo "pablogsal@python.org" ;;
     3.12|3.13) echo "thomas@python.org" ;;
+    3.14) echo "hugo@python.org" ;;
     *) echo "thomas@python.org" ;;  # Default fallback
   esac
 }
-PYTHON_RELEASE_IDENTITY="$(get_release_manager "$PYTHON_VERSION")"
-PYTHON_RELEASE_ISSUER="https://accounts.google.com"
+get_release_issuer() {
+  local version="$1"
+  local minor="${version%.*}"
+  case "$minor" in
+    3.14) echo "https://github.com/login/oauth" ;;
+    *) echo "https://accounts.google.com" ;;
+  esac
+}
+PYTHON_RELEASE_IDENTITY="$(get_release_identity "$PYTHON_VERSION")"
+PYTHON_RELEASE_ISSUER="$(get_release_issuer "$PYTHON_VERSION")"
 
 # Check if already downloaded and extracted
 if [ -f "${SRC_DIR}/configure" ]; then
