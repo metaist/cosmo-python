@@ -218,8 +218,16 @@ def get_default_ver_info(info):
         default = info["latest"][default]
     return info["versions"][default]
 
-cog.outl("| Dependency | Version | Source | Integrity | Signature |")
-cog.outl("|------------|---------|--------|-----------|-----------|")
+def get_license_link(ver_info):
+    """Get license as markdown link."""
+    license_name = ver_info.get("license", "—")
+    license_url = ver_info.get("license_url", "")
+    if license_url:
+        return f"[{license_name}]({license_url})"
+    return license_name
+
+cog.outl("| Dependency | Version | Source | Integrity | Signature | License |")
+cog.outl("|------------|---------|--------|-----------|-----------|---------|")
 
 for key, info in versions.items():
     name = DISPLAY_NAMES.get(key, key)
@@ -228,21 +236,22 @@ for key, info in versions.items():
     url = ver_info["url"]
     sig = get_sig_type(ver_info)
     source = get_source_name(url)
-    cog.outl(f"| **{name}** | {ver_display} | [{source}]({url}) | SHA256 | {sig} |")
+    license_link = get_license_link(ver_info)
+    cog.outl(f"| **{name}** | {ver_display} | [{source}]({url}) | SHA256 | {sig} | {license_link} |")
 ]]]-->
-| Dependency | Version | Source | Integrity | Signature |
-|------------|---------|--------|-----------|-----------|
-| **Python** | 3.10–3.14 | [python.org](https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz) | SHA256 | Sigstore |
-| **Cosmopolitan** | 4.0.2 | [GitHub](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — |
-| **bzip2** | 1.0.8 | [sourceware.org](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | SHA256 | GPG |
-| **CA certs** | 2025-12-02 | [curl.se](https://curl.se/ca/cacert-2025-12-02.pem) | SHA256 | — |
-| **gdbm** | 1.26 | [GNU FTP](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG |
-| **libffi** | 3.5.2 | [GitHub](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — |
-| **ncurses** | 6.6 | [GNU FTP](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG |
-| **OpenSSL** | 3.5.4 | [GitHub](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG |
-| **readline** | 8.3 | [GNU FTP](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG |
-| **sqlite** | 3.51.2 | [sqlite.org](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | SHA256 | — |
-| **xz/liblzma** | 5.8.2 | [GitHub](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG |
+| Dependency | Version | Source | Integrity | Signature | License |
+|------------|---------|--------|-----------|-----------|---------|
+| **Python** | 3.10–3.14 | [python.org](https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz) | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
+| **Cosmopolitan** | 4.0.2 | [GitHub](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
+| **bzip2** | 1.0.8 | [sourceware.org](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
+| **CA certs** | 2025-12-02 | [curl.se](https://curl.se/ca/cacert-2025-12-02.pem) | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
+| **gdbm** | 1.26 | [GNU FTP](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG | [GPL-3.0](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
+| **libffi** | 3.5.2 | [GitHub](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
+| **ncurses** | 6.6 | [GNU FTP](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
+| **OpenSSL** | 3.5.4 | [GitHub](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
+| **readline** | 8.3 | [GNU FTP](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG | [GPL-3.0](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
+| **sqlite** | 3.51.2 | [sqlite.org](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | SHA256 | — | [Public-Domain](https://www.sqlite.org/copyright.html) |
+| **xz/liblzma** | 5.8.2 | [GitHub](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG | [Public-Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
 <!--[[[end]]]-->
 
 ---
@@ -262,6 +271,8 @@ This project builds upon the excellent work of:
 ## License
 
 [MIT License](LICENSE.md)
+
+Upstream dependency licenses are shown in the [Upstream Sources](#upstream-sources) table.
 
 <!-- badges -->
 [ci-badge]: https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml/badge.svg

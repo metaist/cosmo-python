@@ -33,6 +33,8 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#48] GPG signature verification for upstream deps (xz, gdbm, ncurses, readline, bz2, openssl)
 - [#48] `keys.asc` with GPG public keys for upstream maintainers
 - [#48] per-version signing metadata (`sigstore`, `gpg`) in `versions.json`
+- [#51] license tracking (`license`, `license_url`) in `versions.json`
+- [#51] License column in README upstream sources table
 
 ---
 

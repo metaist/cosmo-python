@@ -24,6 +24,22 @@ HAS_UPDATES=false
 # Cache for endoflife.date API
 ENDOFLIFE_CACHE=""
 
+# License information for dependencies
+# Format: "SPDX-identifier|URL"
+declare -A LICENSE_INFO=(
+    ["python"]="PSF-2.0|https://docs.python.org/3/license.html"
+    ["cosmocc"]="ISC|https://github.com/jart/cosmopolitan/blob/master/LICENSE"
+    ["bz2"]="bzip2-1.0.6|https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE"
+    ["cacert"]="MPL-2.0|https://www.mozilla.org/en-US/MPL/2.0/"
+    ["gdbm"]="GPL-3.0|https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING"
+    ["libffi"]="MIT|https://github.com/libffi/libffi/blob/master/LICENSE"
+    ["ncurses"]="X11|https://invisible-island.net/ncurses/ncurses-license.html"
+    ["openssl"]="Apache-2.0|https://github.com/openssl/openssl/blob/master/LICENSE.txt"
+    ["readline"]="GPL-3.0|https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING"
+    ["sqlite"]="Public-Domain|https://www.sqlite.org/copyright.html"
+    ["xz"]="Public-Domain|https://github.com/tukaani-project/xz/blob/master/COPYING"
+)
+
 #------------------------------------------------------------------------------
 # Version fetching functions
 #------------------------------------------------------------------------------
@@ -201,6 +217,18 @@ update_versions_json() {
     if [[ -n "$gpg_fp" ]]; then
         version_obj=$(echo "$version_obj" | jq --arg gpg "$gpg_fp" '. + {gpg: $gpg}')
         log_info "  GPG fingerprint: $gpg_fp (copied from $current_default)"
+    fi
+
+    # Add license info if available
+    if [[ -n "${LICENSE_INFO[$dep]:-}" ]]; then
+        local license license_url
+        license="${LICENSE_INFO[$dep]%%|*}"
+        license_url="${LICENSE_INFO[$dep]#*|}"
+        version_obj=$(echo "$version_obj" | jq \
+            --arg lic "$license" \
+            --arg url "$license_url" \
+            '. + {license: $lic, license_url: $url}')
+        log_info "  License: $license"
     fi
 
     # Update versions.json
@@ -483,8 +511,59 @@ update_python_metadata() {
 # Main
 #------------------------------------------------------------------------------
 
+# Ensure all versions have license info
+ensure_license_info() {
+    local tmp_file updated=false
+    tmp_file=$(mktemp)
+    cp "$VERSIONS_FILE" "$tmp_file"
+
+    for dep in "${!LICENSE_INFO[@]}"; do
+        local license license_url
+        license="${LICENSE_INFO[$dep]%%|*}"
+        license_url="${LICENSE_INFO[$dep]#*|}"
+
+        # Get all versions for this dep
+        local versions
+        versions=$(jq -r ".${dep}.versions | keys[]" "$VERSIONS_FILE" 2>/dev/null) || continue
+
+        for ver in $versions; do
+            # Check if license info is missing
+            local has_license
+            has_license=$(jq -r ".${dep}.versions.\"${ver}\".license // empty" "$tmp_file")
+            if [[ -z "$has_license" ]]; then
+                log_info "Adding license info to $dep $ver"
+                jq --arg dep "$dep" \
+                   --arg ver "$ver" \
+                   --arg lic "$license" \
+                   --arg url "$license_url" \
+                   '.[$dep].versions[$ver].license = $lic | .[$dep].versions[$ver].license_url = $url' \
+                   "$tmp_file" > "${tmp_file}.new"
+                mv "${tmp_file}.new" "$tmp_file"
+                updated=true
+            fi
+        done
+    done
+
+    if [[ "$updated" == "true" ]]; then
+        if [[ "$DRY_RUN" == "--dry-run" ]]; then
+            log_info "(dry-run) Would add missing license info"
+            rm -f "$tmp_file"
+        else
+            mv "$tmp_file" "$VERSIONS_FILE"
+            HAS_UPDATES=true
+            log_ok "Added missing license info"
+        fi
+    else
+        rm -f "$tmp_file"
+    fi
+}
+
 main() {
     log_info "Checking for dependency updates..."
+    echo
+
+    # Ensure all versions have license info
+    ensure_license_info
     echo
 
     # Check Python versions
