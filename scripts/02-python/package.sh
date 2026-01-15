@@ -96,7 +96,7 @@ fi
 
 # Use zip with -r recursive, -q quiet
 # Could use -0 (store, no compression) for faster startup at cost of size
-zip -r -q "${STDLIB_ZIP}" lib/ share/
+zip -9 -r -q "${STDLIB_ZIP}" lib/ share/
 
 log_info "stdlib ZIP size: $(du -sh "${STDLIB_ZIP}" | cut -f1)"
 

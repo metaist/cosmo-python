@@ -7,10 +7,9 @@
 # versions and SHA256 hashes, and regenerates README.md with cog.
 #
 # Uses endoflife.date API for Python status/eol information.
-# OpenSSL is fetched but skipped for updates (known Cosmopolitan issues).
 
-# shellcheck source=common.sh
-source "$(dirname "$0")/common.sh"
+# shellcheck source=../common.sh
+source "$(dirname "$0")/../common.sh"
 
 DRY_RUN="${1:-}"
 
@@ -26,19 +25,18 @@ ENDOFLIFE_CACHE=""
 
 # License information for dependencies
 # Format: "SPDX-identifier|URL"
-declare -A LICENSE_INFO=(
-    ["python"]="PSF-2.0|https://docs.python.org/3/license.html"
-    ["cosmocc"]="ISC|https://github.com/jart/cosmopolitan/blob/master/LICENSE"
-    ["bz2"]="bzip2-1.0.6|https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE"
-    ["cacert"]="MPL-2.0|https://www.mozilla.org/en-US/MPL/2.0/"
-    ["gdbm"]="GPL-3.0|https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING"
-    ["libffi"]="MIT|https://github.com/libffi/libffi/blob/master/LICENSE"
-    ["ncurses"]="X11|https://invisible-island.net/ncurses/ncurses-license.html"
-    ["openssl"]="Apache-2.0|https://github.com/openssl/openssl/blob/master/LICENSE.txt"
-    ["readline"]="GPL-3.0|https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING"
-    ["sqlite"]="Public-Domain|https://www.sqlite.org/copyright.html"
-    ["xz"]="Public-Domain|https://github.com/tukaani-project/xz/blob/master/COPYING"
-)
+# Get license info for a dependency from its default version in versions.json
+# Usage: get_dep_license dep -> "SPDX|url" or empty
+get_dep_license() {
+    local dep="$1"
+    local default_ver license license_url
+    default_ver=$(jq -r ".${dep}.default" "$VERSIONS_FILE")
+    license=$(jq -r ".${dep}.versions.\"${default_ver}\".license // empty" "$VERSIONS_FILE")
+    license_url=$(jq -r ".${dep}.versions.\"${default_ver}\".license_url // empty" "$VERSIONS_FILE")
+    if [[ -n "$license" ]]; then
+        echo "${license}|${license_url}"
+    fi
+}
 
 #------------------------------------------------------------------------------
 # Version fetching functions
@@ -220,11 +218,12 @@ update_versions_json() {
         log_info "  GPG fingerprint: $gpg_fp (copied from $current_default)"
     fi
 
-    # Add license info if available
-    if [[ -n "${LICENSE_INFO[$dep]:-}" ]]; then
-        local license license_url
-        license="${LICENSE_INFO[$dep]%%|*}"
-        license_url="${LICENSE_INFO[$dep]#*|}"
+    # Copy license info from current default version
+    local license_info license license_url
+    license_info=$(get_dep_license "$dep")
+    if [[ -n "$license_info" ]]; then
+        license="${license_info%%|*}"
+        license_url="${license_info#*|}"
         version_obj=$(echo "$version_obj" | jq \
             --arg lic "$license" \
             --arg url "$license_url" \
@@ -524,16 +523,23 @@ update_python_metadata() {
 # Main
 #------------------------------------------------------------------------------
 
-# Ensure all versions have license info
+# Ensure all versions have license info (backfill from default version)
 ensure_license_info() {
     local tmp_file updated=false
     tmp_file=$(mktemp)
     cp "$VERSIONS_FILE" "$tmp_file"
 
-    for dep in "${!LICENSE_INFO[@]}"; do
-        local license license_url
-        license="${LICENSE_INFO[$dep]%%|*}"
-        license_url="${LICENSE_INFO[$dep]#*|}"
+    # Get all deps from versions.json
+    local deps
+    deps=$(jq -r 'keys[]' "$VERSIONS_FILE")
+
+    for dep in $deps; do
+        local license_info license license_url
+        license_info=$(get_dep_license "$dep")
+        [[ -z "$license_info" ]] && continue
+
+        license="${license_info%%|*}"
+        license_url="${license_info#*|}"
 
         # Get all versions for this dep
         local versions
