@@ -118,6 +118,12 @@ for version in $(echo "${!NEW_VERSIONS[@]}" | tr ' ' '\n' | sort -V); do
 done
 NEW_VERSIONS_JSON+="}"
 
+# Get disabled versions from versions.json (for yanking)
+DISABLED_JSON=$(jq -c '.python.disabled // {}' "$VERSIONS_FILE")
+if [ "$DISABLED_JSON" != "{}" ]; then
+  log_warn "disabled versions configured: $(echo "$DISABLED_JSON" | jq -r 'keys | join(", ")')"
+fi
+
 # Merge with previous manifest or create new
 if [ -f "$PREV_MANIFEST" ]; then
   log_info "merging with previous manifest..."
@@ -128,12 +134,26 @@ if [ -f "$PREV_MANIFEST" ]; then
     --arg cosmocc "$COSMOCC_VERSION" \
     --arg generated "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
     --argjson new_versions "$NEW_VERSIONS_JSON" \
+    --argjson disabled "$DISABLED_JSON" \
     --slurpfile prev "$PREV_MANIFEST" '
     # Get previous versions, default to empty object
     ($prev[0].versions // {}) as $old_versions |
     
     # Merge: new overrides old
-    ($old_versions + $new_versions) as $all_versions |
+    ($old_versions + $new_versions) as $merged_versions |
+    
+    # Filter out disabled versions
+    # Disabled can be "3.10" (whole minor) or "3.10.5" (specific patch)
+    ($disabled | keys) as $disabled_patterns |
+    ($merged_versions | to_entries | map(
+      select(
+        .key as $ver |
+        ($disabled_patterns | map(
+          . as $pat |
+          ($ver | startswith($pat))
+        ) | any) | not
+      )
+    ) | from_entries) as $all_versions |
     
     # Compute latest for each minor version
     ([$all_versions | to_entries[] | {
@@ -163,9 +183,22 @@ else
     --arg release "$RELEASE_TAG" \
     --arg cosmocc "$COSMOCC_VERSION" \
     --arg generated "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    --argjson versions "$NEW_VERSIONS_JSON" '
+    --argjson versions "$NEW_VERSIONS_JSON" \
+    --argjson disabled "$DISABLED_JSON" '
+    # Filter out disabled versions
+    ($disabled | keys) as $disabled_patterns |
+    ($versions | to_entries | map(
+      select(
+        .key as $ver |
+        ($disabled_patterns | map(
+          . as $pat |
+          ($ver | startswith($pat))
+        ) | any) | not
+      )
+    ) | from_entries) as $all_versions |
+    
     # Compute latest for each minor version
-    ([$versions | to_entries[] | {
+    ([$all_versions | to_entries[] | {
       minor: (.key | split(".") | .[0:2] | join(".")),
       version: .key
     }] | group_by(.minor) | map({
@@ -174,13 +207,13 @@ else
     }) | from_entries) as $latest |
     
     # Find default (highest non-prerelease version)
-    ([$versions | keys[] | select(test("[ab]|rc") | not)] | sort | last // ($versions | keys | sort | last)) as $default |
+    ([$all_versions | keys[] | select(test("[ab]|rc") | not)] | sort | last // ($all_versions | keys | sort | last)) as $default |
     
     {
       release: $release,
       cosmocc: $cosmocc,
       generated: $generated,
-      versions: $versions,
+      versions: $all_versions,
       latest: $latest,
       default: $default
     }
