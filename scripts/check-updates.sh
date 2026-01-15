@@ -4,8 +4,9 @@
 # Usage: ./scripts/check-updates.sh [--dry-run]
 #
 # Checks all upstreams for newer versions, updates versions.json with new
-# versions and SHA256 hashes, and updates the README.md dependency table.
+# versions and SHA256 hashes, and regenerates README.md with cog.
 #
+# Uses endoflife.date API for Python status/eol information.
 # OpenSSL is fetched but skipped for updates (known Cosmopolitan issues).
 
 # shellcheck source=common.sh
@@ -17,7 +18,11 @@ DRY_RUN="${1:-}"
 SKIP_UPDATE=("openssl")
 
 # Track changes
-declare -A UPDATES
+declare -A UPDATES=()
+HAS_UPDATES=false
+
+# Cache for endoflife.date API
+ENDOFLIFE_CACHE=""
 
 #------------------------------------------------------------------------------
 # Version fetching functions
@@ -56,6 +61,57 @@ fetch_python_latest() {
     local url="https://www.python.org/ftp/python/"
 
     curl -sL "$url" | grep -oE "href=\"${minor}\.[0-9]+/\"" | grep -oE "${minor}\.[0-9]+" | sort -V | tail -1
+}
+
+# endoflife.date API: get Python version info
+# Usage: fetch_endoflife_data
+fetch_endoflife_data() {
+    if [[ -z "$ENDOFLIFE_CACHE" ]]; then
+        ENDOFLIFE_CACHE=$(curl -sL "https://endoflife.date/api/python.json")
+    fi
+    echo "$ENDOFLIFE_CACHE"
+}
+
+# Get status for a Python minor version from endoflife.date
+# Usage: get_python_status minor_version
+# Returns: prerelease, bugfix, security, or eol
+get_python_status() {
+    local minor="$1"
+    local data today release_date support_date eol_date
+
+    data=$(fetch_endoflife_data | jq -r ".[] | select(.cycle == \"$minor\")")
+    if [[ -z "$data" ]]; then
+        echo "unknown"
+        return
+    fi
+
+    today=$(date +%Y-%m-%d)
+    release_date=$(echo "$data" | jq -r '.releaseDate')
+    support_date=$(echo "$data" | jq -r '.support')
+    eol_date=$(echo "$data" | jq -r '.eol')
+
+    # Check if not yet released
+    if [[ "$release_date" > "$today" ]]; then
+        echo "prerelease"
+    # Check if still in bugfix support
+    elif [[ "$support_date" > "$today" ]]; then
+        echo "bugfix"
+    # Check if in security-only support
+    elif [[ "$eol_date" > "$today" ]]; then
+        echo "security"
+    else
+        echo "eol"
+    fi
+}
+
+# Get EOL date for a Python minor version
+# Usage: get_python_eol minor_version
+get_python_eol() {
+    local minor="$1"
+    local eol
+    eol=$(fetch_endoflife_data | jq -r ".[] | select(.cycle == \"$minor\") | .eol")
+    # Convert YYYY-MM-DD to YYYY-MM format
+    echo "${eol:0:7}"
 }
 
 # SQLite: get latest version from download page
@@ -110,11 +166,6 @@ fetch_openssl_1_latest() {
     echo "1.1.1u"
 }
 
-# OpenSSL 3.0 series: get latest LTS
-fetch_openssl_3_latest() {
-    gh api "repos/openssl/openssl/releases" --jq '.[].tag_name' 2>/dev/null | grep -E '^openssl-3\.0\.[0-9]+$' | head -1 | sed 's/openssl-//'
-}
-
 #------------------------------------------------------------------------------
 # SHA256 fetching
 #------------------------------------------------------------------------------
@@ -153,31 +204,14 @@ update_versions_json() {
     mv "$tmp_file" "$VERSIONS_FILE"
 }
 
-# Update README.md dependency table
-# Usage: update_readme_version dep version
-update_readme_version() {
-    local dep="$1" version="$2"
-    local readme="$REPO_ROOT/README.md"
-
-    # Map dep names to README table names
-    local table_name
-    case "$dep" in
-        bz2) table_name="bz2" ;;
-        cacert) table_name="CA certs" ;;
-        cosmocc) table_name="cosmocc" ;;
-        gdbm) table_name="gdbm" ;;
-        libffi) table_name="libffi" ;;
-        ncurses) table_name="ncurses" ;;
-        openssl) table_name="OpenSSL" ;;
-        readline) table_name="readline" ;;
-        sqlite) table_name="SQLite" ;;
-        xz) table_name="xz" ;;
-        *) return 0 ;;  # Skip unknown
-    esac
-
-    # Update the version in the table row
-    # Pattern: | **name** | version | ...
-    sed -i -E "s/(\| \*\*${table_name}\*\* \| )[^|]+(\|)/\1${version} \2/" "$readme"
+# Regenerate README.md using cog
+regenerate_readme() {
+    log_info "Regenerating README.md..."
+    if command -v uvx &>/dev/null; then
+        uvx --from ds-run ds cog
+    else
+        log_warn "uvx not found, skipping README regeneration"
+    fi
 }
 
 #------------------------------------------------------------------------------
@@ -296,15 +330,12 @@ update_dependency() {
     log_info "  SHA256: $sha256"
 
     if [[ "$DRY_RUN" == "--dry-run" ]]; then
-        log_info "  (dry-run) Would update versions.json and README.md"
+        log_info "  (dry-run) Would update versions.json"
         return 0
     fi
 
     # Update versions.json
     update_versions_json "$dep" "$new_version" "$sha256" "$extra"
-
-    # Update README.md
-    update_readme_version "$dep" "$new_version"
 
     log_ok "  Updated $dep to $new_version"
 }
@@ -312,16 +343,26 @@ update_dependency() {
 check_python_versions() {
     local updates=()
 
-    for minor in "3.10" "3.11" "3.12" "3.13"; do
-        local current latest
+    # Read minor versions from versions.json instead of hardcoding
+    local minors
+    minors=$(jq -r '.python.latest | keys[]' "$VERSIONS_FILE" | sort -V)
+
+    for minor in $minors; do
+        local current latest status
         current=$(get_python_latest "$minor")
         latest=$(fetch_python_latest "$minor") || continue
+        status=$(get_python_status "$minor")
+
+        if [[ "$status" == "eol" ]]; then
+            log_warn "Python $minor: $current (EOL - consider removing)" >&2
+            continue
+        fi
 
         if [[ "$current" != "$latest" ]]; then
-            log_info "Python $minor: $current -> $latest" >&2
+            log_info "Python $minor: $current -> $latest ($status)" >&2
             updates+=("$minor:$latest")
         else
-            log_info "Python $minor: $current (current)" >&2
+            log_info "Python $minor: $current ($status)" >&2
         fi
     done
 
@@ -330,7 +371,7 @@ check_python_versions() {
 
 update_python_version() {
     local minor="$1" new_version="$2"
-    local url sha256
+    local url sha256 status eol
 
     log_info "Updating Python $new_version..."
 
@@ -343,40 +384,69 @@ update_python_version() {
     }
     log_info "  SHA256: $sha256"
 
+    # Get status and EOL from endoflife.date API
+    status=$(get_python_status "$minor")
+    eol=$(get_python_eol "$minor")
+    log_info "  Status: $status, EOL: $eol"
+
     if [[ "$DRY_RUN" == "--dry-run" ]]; then
         log_info "  (dry-run) Would update versions.json"
         return 0
     fi
 
-    # Get existing metadata for this version series
-    local current_version status eol
-    current_version=$(get_python_latest "$minor")
-    status=$(get_pkg_version_field python "$current_version" status)
-    eol=$(get_pkg_version_field python "$current_version" eol)
-
-    # Default status if not found
-    [[ "$status" == "null" ]] && status="bugfix"
-
-    local extra="{\"status\": \"$status\""
-    if [[ -n "$eol" && "$eol" != "null" ]]; then
-        extra="$extra, \"eol\": \"$eol\""
-    fi
-    extra="$extra}"
-
-    # Update versions.json
+    # Build version object with sorted keys: eol, status, sha256
     local tmp_file
     tmp_file=$(mktemp)
 
     jq --arg ver "$new_version" \
        --arg minor "$minor" \
        --arg sha "$sha256" \
-       --argjson meta "$extra" \
-       '.python.versions[$ver] = ($meta + {sha256: $sha}) | .python.latest[$minor] = $ver' \
+       --arg status "$status" \
+       --arg eol "$eol" \
+       '.python.versions[$ver] = {eol: $eol, status: $status, sha256: $sha} | .python.latest[$minor] = $ver' \
        "$VERSIONS_FILE" > "$tmp_file"
 
     mv "$tmp_file" "$VERSIONS_FILE"
 
     log_ok "  Updated Python $new_version"
+}
+
+# Update status/eol for existing Python versions without changing patch version
+update_python_metadata() {
+    log_info "Checking Python status/eol metadata..."
+
+    local minors
+    minors=$(jq -r '.python.latest | keys[]' "$VERSIONS_FILE" | sort -V)
+
+    for minor in $minors; do
+        local version current_status current_eol new_status new_eol
+
+        version=$(get_python_latest "$minor")
+        current_status=$(jq -r ".python.versions[\"$version\"].status // \"unknown\"" "$VERSIONS_FILE")
+        current_eol=$(jq -r ".python.versions[\"$version\"].eol // \"unknown\"" "$VERSIONS_FILE")
+
+        new_status=$(get_python_status "$minor")
+        new_eol=$(get_python_eol "$minor")
+
+        if [[ "$current_status" != "$new_status" ]] || [[ "$current_eol" != "$new_eol" ]]; then
+            log_info "Python $minor ($version): status $current_status -> $new_status, eol $current_eol -> $new_eol"
+            UPDATES["python-$minor-metadata"]="$new_status (eol: $new_eol)"
+            HAS_UPDATES=true
+
+            if [[ "$DRY_RUN" != "--dry-run" ]]; then
+                local tmp_file
+                tmp_file=$(mktemp)
+
+                jq --arg ver "$version" \
+                   --arg status "$new_status" \
+                   --arg eol "$new_eol" \
+                   '.python.versions[$ver].status = $status | .python.versions[$ver].eol = $eol' \
+                   "$VERSIONS_FILE" > "$tmp_file"
+
+                mv "$tmp_file" "$VERSIONS_FILE"
+            fi
+        fi
+    done
 }
 
 #------------------------------------------------------------------------------
@@ -387,15 +457,13 @@ main() {
     log_info "Checking for dependency updates..."
     echo
 
-    local has_updates=false
-
     # Check Python versions
     log_info "=== Python ==="
     local python_updates
     python_updates=$(check_python_versions)
 
     if [[ -n "$python_updates" ]]; then
-        has_updates=true
+        HAS_UPDATES=true
         for update in $python_updates; do
             local minor="${update%:*}"
             local version="${update#*:}"
@@ -403,6 +471,9 @@ main() {
             UPDATES["python-$minor"]="$version"
         done
     fi
+
+    # Also check/update metadata for existing versions
+    update_python_metadata
     echo
 
     # Check other dependencies
@@ -430,7 +501,7 @@ main() {
             log_warn "$dep: $current (pinned - skipping updates)"
         elif [[ "$current" != "$latest" ]]; then
             log_info "$dep: $current -> $latest"
-            has_updates=true
+            HAS_UPDATES=true
             update_dependency "$dep" "$latest"
             UPDATES["$dep"]="$latest"
         else
@@ -439,9 +510,14 @@ main() {
     done
     echo
 
+    # Regenerate README if there were updates
+    if [[ "$HAS_UPDATES" == "true" ]] && [[ "$DRY_RUN" != "--dry-run" ]]; then
+        regenerate_readme
+    fi
+
     # Summary
     log_info "=== Summary ==="
-    if [[ "$has_updates" == "true" ]]; then
+    if [[ "$HAS_UPDATES" == "true" ]]; then
         log_ok "Updates applied:"
         for key in "${!UPDATES[@]}"; do
             echo "  - $key: ${UPDATES[$key]}"

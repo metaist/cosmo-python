@@ -23,7 +23,7 @@
       },
       "3.14.2": {
         "eol": "2030-10",
-        "status": "prerelease",
+        "status": "bugfix",
         "sha256": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d"
       }
     },
