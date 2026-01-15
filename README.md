@@ -1,21 +1,16 @@
 # cosmo-python
 
-[![CI](https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml/badge.svg)](https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml)
-[![Release](https://github.com/metaist/cosmo-python/actions/workflows/release.yaml/badge.svg)](https://github.com/metaist/cosmo-python/releases/latest)
+[![CI][ci-badge]][ci-link] [![Release][release-badge]][release-link]
 
-Standalone versioned [Cosmopolitan] Python builds.
-
-[cosmopolitan]: https://github.com/jart/cosmopolitan
+Standalone versioned [Cosmopolitan][cosmo] Python builds.
 
 ## Why?
 
-- **Single portable binary** — runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
-- **Multiple Python versions** — 3.10 through 3.14 available
-- **Automated pipeline** — [weekly update checks][check-updates.yaml], validated builds, [attested releases](#build-attestations)
-- **Transparent builds** — all sources [SHA256 verified](#upstream-sources--trust), Python [Sigstore verified](#python-sigstore-verification)
-- **~45MB self-contained** — no installation, no dependencies, no container
-
-[check-updates.yaml]: .github/workflows/check-updates.yaml
+- **Single portable binary**: runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
+- **Multiple Python versions**: 3.10 through 3.14 available
+- **Automated pipeline**: [weekly update checks][check-updates], validated builds, [attested releases](#build-attestations)
+- **Transparent builds**: all sources [SHA256 verified](#upstream-sources--trust), Python [Sigstore verified](#python-sigstore-verification)
+- **~45MB self-contained**: no installation, no dependencies, no container
 
 ## Usage
 
@@ -41,7 +36,7 @@ chmod +x python-3.13.11-cosmo.com
 ```
 <!--[[[end]]]-->
 
-Or use the manifest to find available versions:
+Or use the [manifest][manifest] to find available versions:
 
 ```bash
 curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
@@ -49,31 +44,37 @@ curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manife
 
 ## Releases
 
-We use date-based releases (e.g., `YYYYMMDD-HHMMSS`) that are created through a semi-automated pipeline:
+We use date-based releases (`YYYYMMDD-HHMMSS`) that are created through a semi-automated pipeline:
 
-1. **[check-updates.yaml]** runs weekly to detect new Python/dependency versions and creates a PR
-2. **[pr-build.yaml]** validates the PR by building all Python versions
+1. **[check-updates.yaml][check-updates]** runs weekly to detect new Python/dependency versions and creates a PR
+2. **[pr-build.yaml][pr-build]** validates the PR by building all Python versions
 3. A maintainer reviews and merges the PR
-4. A maintainer triggers **[release.yaml]** to publish the new release
-
-[check-updates.yaml]: .github/workflows/check-updates.yaml
-[pr-build.yaml]: .github/workflows/pr-build.yaml
-[release.yaml]: .github/workflows/release.yaml
+4. A maintainer triggers **[release.yaml][release-workflow]** to publish the new release
 
 Each release includes:
 
 ```
 python-3.x.y-cosmo.com
-
 ...
-
 manifest.json
 checksums.txt
 ```
 
 ### Verifying Downloads
 
-#### Checksums
+<!--[[[cog
+cog.outl("Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"gh attestation verify python-{default_version}-cosmo.com --repo metaist/cosmo-python")
+cog.outl("```")
+]]]-->
+Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
+
+```bash
+gh attestation verify python-3.13.11-cosmo.com --repo metaist/cosmo-python
+```
+<!--[[[end]]]-->
 
 <!--[[[cog
 cog.outl("Each release includes `checksums.txt` with SHA256 hashes:")
@@ -93,27 +94,11 @@ sha256sum -c checksums.txt --ignore-missing
 ```
 <!--[[[end]]]-->
 
-The `manifest.json` also includes SHA256 hashes for programmatic verification.
-
-#### Build Attestations
-
-<!--[[[cog
-cog.outl("Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:")
-cog.outl("")
-cog.outl("```bash")
-cog.outl(f"gh attestation verify python-{default_version}-cosmo.com --repo metaist/cosmo-python")
-cog.outl("```")
-]]]-->
-Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
-
-```bash
-gh attestation verify python-3.13.11-cosmo.com --repo metaist/cosmo-python
-```
-<!--[[[end]]]-->
+The [manifest][manifest] also includes SHA256 hashes for programmatic verification.
 
 ### Manifest Format
 
-The `manifest.json` acts as a spanning registry, tracking all versions across releases:
+The [manifest][manifest] acts as a spanning registry, tracking all versions across releases:
 
 ```json
 {
@@ -179,7 +164,7 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 
 All upstream sources are verified during the build:
 
-- **SHA256 checksums** for all downloads (stored in `versions.json`)
+- **SHA256 checksums** for all downloads (stored in [`versions.json`][versions-json])
 - **Official sources** only (no mirrors except GNU FTP)
 - **Sigstore verification** for Python source (if `uvx` available)
 
@@ -251,38 +236,75 @@ uvx sigstore verify identity \
 
 ### Upstream Sources & Trust
 
-All dependencies are SHA256 verified against known-good hashes in `versions.json`.
+All dependencies are SHA256 verified against known-good hashes in [`versions.json`][versions-json].
 
 <!--[[[cog
 cog.outl("| Component | Version | Source | Trust Model |")
 cog.outl("|-----------|---------|--------|-------------|")
 cog.outl("| **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |")
-cog.outl(f"| **cosmocc** | {versions['cosmocc']['default']} | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |")
-cog.outl(f"| **bz2** | {versions['bz2']['default']} | [sourceware.org][bz2-src] | SHA256 verified |")
-cog.outl(f"| **CA certs** | {versions['cacert']['default']} | [curl.se][cacert-src] | SHA256 verified |")
-cog.outl(f"| **gdbm** | {versions['gdbm']['default']} | [GNU FTP][gdbm-src] | SHA256 verified |")
-cog.outl(f"| **libffi** | {versions['libffi']['default']} | [GitHub Releases][libffi-src] | SHA256 verified |")
-cog.outl(f"| **ncurses** | {versions['ncurses']['default']} | [GNU FTP][ncurses-src] | SHA256 verified |")
-cog.outl(f"| **OpenSSL** | {versions['openssl']['default']} | [GitHub Releases][openssl-src] | SHA256 verified |")
-cog.outl(f"| **readline** | {versions['readline']['default']} | [GNU FTP][readline-src] | SHA256 verified |")
-cog.outl(f"| **SQLite** | {versions['sqlite']['default']} | [sqlite.org][sqlite-src] | SHA256 verified |")
-cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | SHA256 verified |")
+cog.outl(f"| **cosmocc** | {versions['cosmocc']['default']} | [GitHub Releases][cosmocc-src] | SHA256 |")
+cog.outl(f"| **bz2** | {versions['bz2']['default']} | [sourceware.org][bz2-src] | SHA256 |")
+cog.outl(f"| **CA certs** | {versions['cacert']['default']} | [curl.se][cacert-src] | SHA256 |")
+cog.outl(f"| **gdbm** | {versions['gdbm']['default']} | [GNU FTP][gdbm-src] | SHA256 |")
+cog.outl(f"| **libffi** | {versions['libffi']['default']} | [GitHub Releases][libffi-src] | SHA256 |")
+cog.outl(f"| **ncurses** | {versions['ncurses']['default']} | [GNU FTP][ncurses-src] | SHA256 |")
+cog.outl(f"| **OpenSSL** | {versions['openssl']['default']} | [GitHub Releases][openssl-src] | SHA256 |")
+cog.outl(f"| **readline** | {versions['readline']['default']} | [GNU FTP][readline-src] | SHA256 |")
+cog.outl(f"| **SQLite** | {versions['sqlite']['default']} | [sqlite.org][sqlite-src] | SHA256 |")
+cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | SHA256 |")
 ]]]-->
 | Component | Version | Source | Trust Model |
 |-----------|---------|--------|-------------|
 | **Python** | 3.10-3.14 | [python.org][python-src] | SHA256 + Sigstore |
-| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |
-| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 verified |
-| **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 verified |
-| **gdbm** | 1.26 | [GNU FTP][gdbm-src] | SHA256 verified |
-| **libffi** | 3.5.2 | [GitHub Releases][libffi-src] | SHA256 verified |
-| **ncurses** | 6.6 | [GNU FTP][ncurses-src] | SHA256 verified |
-| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 verified |
-| **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 verified |
-| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 verified |
-| **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 verified |
+| **cosmocc** | 4.0.2 | [GitHub Releases][cosmocc-src] | SHA256 |
+| **bz2** | 1.0.8 | [sourceware.org][bz2-src] | SHA256 |
+| **CA certs** | 2025-12-02 | [curl.se][cacert-src] | SHA256 |
+| **gdbm** | 1.26 | [GNU FTP][gdbm-src] | SHA256 |
+| **libffi** | 3.5.2 | [GitHub Releases][libffi-src] | SHA256 |
+| **ncurses** | 6.6 | [GNU FTP][ncurses-src] | SHA256 |
+| **OpenSSL** | 1.1.1u | [GitHub Releases][openssl-src] | SHA256 |
+| **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 |
+| **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 |
+| **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 |
 <!--[[[end]]]-->
 
+> ⚠️ **Note:** We use OpenSSL 1.1.x due to [Cosmopolitan compatibility issues with OpenSSL 3.0.x][openssl-issue].
+
+---
+
+## Acknowledgments
+
+This project builds upon the excellent work of:
+
+- **[Justine Tunney]** ([@jart]) - Creator of [Cosmopolitan libc][cosmo], the C library that makes truly portable executables.
+
+- **[Gautham Venkatasubramanian]** ([@ahgamut]) - Creator and maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
+
+- **[python-build-standalone]** - Inspiration for standalone Python distribution patterns.
+
+- **[Claude Opus 4.5]** - AI assistant that wrote most of this codebase with steering from [@metaist].
+
+## License
+
+[MIT License](LICENSE.md)
+
+<!-- badges -->
+[ci-badge]: https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml/badge.svg
+[ci-link]: https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml
+[release-badge]: https://github.com/metaist/cosmo-python/actions/workflows/release.yaml/badge.svg
+[release-link]: https://github.com/metaist/cosmo-python/releases/latest
+
+<!-- project links -->
+[cosmo]: https://github.com/jart/cosmopolitan
+[manifest]: https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json
+[versions-json]: https://github.com/metaist/cosmo-python/blob/main/versions.json
+
+<!-- workflows -->
+[check-updates]: .github/workflows/check-updates.yaml
+[pr-build]: .github/workflows/pr-build.yaml
+[release-workflow]: .github/workflows/release.yaml
+
+<!-- upstream sources -->
 [bz2-src]: https://sourceware.org/pub/bzip2/
 [cacert-src]: https://curl.se/docs/caextract.html
 [cosmocc-src]: https://github.com/jart/cosmopolitan/releases
@@ -294,35 +316,14 @@ cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | 
 [readline-src]: https://ftp.gnu.org/gnu/readline/
 [sqlite-src]: https://www.sqlite.org/download.html
 [xz-src]: https://github.com/tukaani-project/xz/releases
-
-> **Note:** We currently use OpenSSL 1.1.x due to [Cosmopolitan compatibility issues with OpenSSL 3.0.x][openssl-issue].
-> This version is still receiving security updates. See [#13][openssl-issue] for tracking.
-
 [openssl-issue]: https://github.com/metaist/cosmo-python/issues/13
 
----
-
-## Acknowledgments
-
-This project builds upon the excellent work of:
-
-- **[Justine Tunney]** ([@jart]) — Creator of [Cosmopolitan libc], the C library that makes truly portable executables.
-
-- **[Gautham Venkatasubramanian]** ([@ahgamut]) — Maintainer of [superconfigure], which provides build infrastructure for compiling Python with Cosmopolitan libc.
-
-- **[python-build-standalone]** — Inspiration for standalone Python distribution patterns.
-
-- **[Claude Opus 4.5]** — AI assistant that wrote most of this codebase with steering from [@metaist].
-
+<!-- acknowledgments -->
 [justine tunney]: https://justine.lol/
 [@jart]: https://github.com/jart
-[cosmopolitan libc]: https://github.com/jart/cosmopolitan
 [gautham venkatasubramanian]: https://ahgamut.github.io/
 [@ahgamut]: https://github.com/ahgamut
+[superconfigure]: https://github.com/ahgamut/superconfigure
 [python-build-standalone]: https://github.com/indygreg/python-build-standalone
 [claude opus 4.5]: https://www.anthropic.com/claude
 [@metaist]: https://github.com/metaist
-
-## License
-
-[MIT License](LICENSE.md)
