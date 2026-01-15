@@ -128,7 +128,7 @@ required_scripts=(
   "scripts/01-deps/openssl.sh"
   "scripts/01-deps/readline.sh"
   "scripts/01-deps/xz.sh"
-  "scripts/02-python/source.sh"
+  "scripts/02-python/download.sh"
   "scripts/02-python/compile.sh"
   "scripts/02-python/package.sh"
   "scripts/03-ci/manifest.sh"

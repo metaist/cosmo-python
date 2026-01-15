@@ -11,7 +11,7 @@
 #   - Basic networking (if available)
 #   - JSON/data processing
 #   - Subprocess execution
-#
+
 source "$(dirname "$0")/../common.sh"
 
 PYTHON="${1:-}"
@@ -27,7 +27,6 @@ if [ ! -f "$PYTHON" ]; then
   exit 1
 fi
 
-# Make sure it's executable
 chmod +x "$PYTHON"
 
 PASS=0
@@ -67,11 +66,8 @@ echo ""
 echo "=== Smoke Tests ==="
 echo ""
 echo "Binary: $PYTHON"
-echo ""
 
-#
-# Basic execution
-#
+echo ""
 echo "Basic execution..."
 
 if version=$("$PYTHON" --version 2>&1); then
@@ -86,11 +82,9 @@ else
   fail "sys.executable"
 fi
 
-#
-# Core standard library
-#
 echo ""
 echo "Standard library imports..."
+# Note: multiprocessing spawn/Pool doesn't work in Cosmopolitan (see LIMITATIONS.md)
 
 run_test "import os" "import os; os.getcwd()"
 run_test "import sys" "import sys; sys.version"
@@ -108,22 +102,16 @@ run_test "import subprocess" "import subprocess"
 run_test "import threading" "import threading; threading.current_thread()"
 run_test "import multiprocessing" "import multiprocessing"
 
-#
-# Compression modules (our deps)
-#
 echo ""
-echo "Compression modules..."
+echo "Compression modules (our deps)..."
 
 run_test "import zlib" "import zlib; zlib.compress(b'test')"
 run_test "import gzip" "import gzip; gzip.compress(b'test')"
 run_test "import bz2" "import bz2; bz2.compress(b'test')"
 run_test "import lzma" "import lzma; lzma.compress(b'test')"
 
-#
-# SQLite (our deps)
-#
 echo ""
-echo "SQLite module..."
+echo "SQLite (our deps)..."
 
 run_test "import sqlite3" "import sqlite3; sqlite3.sqlite_version"
 run_test "sqlite3 operations" "
@@ -137,11 +125,8 @@ assert c.fetchone()[0] == 'hello'
 conn.close()
 "
 
-#
-# gdbm (our deps)
-#
 echo ""
-echo "GDBM module..."
+echo "GDBM (our deps)..."
 
 run_test "import dbm.gnu" "import dbm.gnu"
 run_test "gdbm operations" "
@@ -155,31 +140,24 @@ with tempfile.TemporaryDirectory() as tmpdir:
         assert db['key'] == b'value'
 "
 
-#
-# SSL/crypto (our deps)
-#
 echo ""
-echo "SSL/crypto modules..."
+echo "SSL/crypto (our deps)..."
+# HTTPS test detects OpenSSL 3.x runtime issues
+# See: https://github.com/ahgamut/superconfigure/issues/52
 
 run_test "import ssl" "import ssl; ssl.OPENSSL_VERSION"
 run_test "import hashlib" "import hashlib; hashlib.sha256(b'test').hexdigest()"
 run_test "import hmac" "import hmac, hashlib; hmac.new(b'key', b'msg', hashlib.sha256).hexdigest()"
-
-# HTTPS connection test - critical for detecting OpenSSL 3.x runtime issues
-# See: https://github.com/ahgamut/superconfigure/issues/52
 run_test "https connection" "
 import urllib.request
 urllib.request.urlopen('https://www.python.org/', timeout=10)
 " 15
 
-#
-# ctypes/libffi (our deps)
-# Note: pythonapi requires dlopen(NULL) which Cosmopolitan doesn't support.
+echo ""
+echo "ctypes/libffi (our deps)..."
+# pythonapi requires dlopen(NULL) which Cosmopolitan doesn't support.
 # Our ctypes-cosmopolitan.patch sets pythonapi=None as a fallback.
 # Basic ctypes functionality (structs, arrays, c types) still works.
-#
-echo ""
-echo "FFI modules..."
 
 run_test "import ctypes" "import ctypes"
 run_test "ctypes.c_int" "import ctypes; x = ctypes.c_int(42); assert x.value == 42"
@@ -197,26 +175,17 @@ assert list(arr) == [1, 2, 3]
 "
 run_test "ctypes.pythonapi is None" "import ctypes; assert ctypes.pythonapi is None"
 
-#
-# readline (our deps)
-#
 echo ""
-echo "Interactive modules..."
+echo "readline (our deps)..."
 
 run_test "import readline" "import readline"
 
-#
-# curses (TUI support)
-#
 echo ""
-echo "Terminal UI..."
+echo "curses/TUI (our deps)..."
 
 run_test "import curses" "import curses; curses.version"
 run_test "import curses.panel" "import curses.panel"
 
-#
-# File I/O
-#
 echo ""
 echo "File I/O..."
 
@@ -238,9 +207,6 @@ assert p.read_text() == 'hello'
 p.unlink()
 "
 
-#
-# Data processing
-#
 echo ""
 echo "Data processing..."
 
@@ -267,9 +233,6 @@ packed = struct.pack('iif', 1, 2, 3.0)
 assert struct.unpack('iif', packed) == (1, 2, 3.0)
 "
 
-#
-# Subprocess (may not work in all environments)
-#
 echo ""
 echo "Subprocess..."
 
@@ -283,9 +246,6 @@ else
   log_info "  (subprocess may require APE loader)"
 fi
 
-#
-# Networking (may not work in all environments)
-#
 echo ""
 echo "Networking (optional)..."
 
@@ -295,20 +255,15 @@ else
   skip "socket tests"
 fi
 
-# urllib may hang without network, use short timeout
 if run_test "urllib.request" "import urllib.request" 5; then
   : # module loads
 else
   skip "urllib tests"
 fi
 
-#
-# .args file support (LoadZipArgs)
-#
 echo ""
-echo ".args file support..."
+echo ".args file support (LoadZipArgs)..."
 
-# Create a test binary with .args embedded
 ARGS_TEST_BINARY="/tmp/test-args-$$.com"
 cp "$PYTHON" "$ARGS_TEST_BINARY"
 echo '-c
@@ -323,9 +278,6 @@ fi
 
 rm -f "$ARGS_TEST_BINARY" /tmp/.args /tmp/.args-$$
 
-#
-# Summary
-#
 echo ""
 echo "=== Summary ==="
 echo ""

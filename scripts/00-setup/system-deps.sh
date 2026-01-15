@@ -18,9 +18,9 @@ if [ ${#MISSING[@]} -eq 0 ]; then
 fi
 
 # Check for optional but recommended tools
-if ! command -v uvx &> /dev/null; then
-  log_info "uvx not found (optional, for Python sigstore verification)"
-  log_info "install uv from: https://docs.astral.sh/uv/"
+if ! command -v uv &> /dev/null; then
+  log_info "uv not found (optional, for sigstore verification and CI scripts)"
+  log_info "install from: https://docs.astral.sh/uv/"
 fi
 
 if [ ${#MISSING[@]} -eq 0 ]; then

@@ -31,7 +31,7 @@ VERSION="$1"
 
 log_info "building Python ${VERSION}..."
 
-"${SCRIPT_DIR}/source.sh" "${VERSION}"
+"${SCRIPT_DIR}/download.sh" "${VERSION}"
 "${SCRIPT_DIR}/compile.sh" "${VERSION}"
 "${SCRIPT_DIR}/package.sh" "${VERSION}"
 

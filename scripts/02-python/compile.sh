@@ -32,7 +32,7 @@ fi
 # Check source exists
 if [ ! -d "${SRC_DIR}" ]; then
   log_error "Python source not found at ${SRC_DIR}"
-  log_error "run 02-python/source.sh ${PYTHON_VERSION} first"
+  log_error "run 02-python/download.sh ${PYTHON_VERSION} first"
   exit 1
 fi
 
