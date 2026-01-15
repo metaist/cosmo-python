@@ -4,7 +4,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 
 ## GitHub Issues and Comments
 
-- Use prefixes: `add:`, `fix:`, `update:`, `remove:`
+- Use prefixes: `add:`, `fix:`, `update:`, `remove:`, `refactor:`
 - Keep titles lowercase where possible
 - Use backticks for code references in titles
 - Add `aigen` label for AI-generated issues
@@ -16,7 +16,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 - **Quick validation**: `ds dev` (lint + script validation; run before commits)
 - **Build single version**: `ds build 3.12.8`
 - **Build all versions**: `ds build-all`
-- **Run smoke tests**: `ds smoke dist/python-3.12.8-cosmo-x86_64.com`
+- **Run smoke tests**: `ds smoke dist/python-3.12.8-cosmo.com`
 - **Run all smoke tests**: `ds smoke-all`
 - **Clean build artifacts**: `ds clean`
 
@@ -25,6 +25,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 - Use `uv` instead of `pip` (faster, more modern)
 - Use `fd` instead of `find` (simpler syntax, respects `.gitignore`)
 - Use `rg` instead of `grep` (faster, better defaults)
+- For long-running commands (builds), pipe to a file so user can follow: `cmd 2>&1 | tee /tmp/build.log`
 
 ## Code Style
 
@@ -33,6 +34,12 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 - Prefer editing existing files over creating new ones
 - Don't add unnecessary comments or docstrings to unchanged code
 - Try to maintain 100% unit test coverage
+- Don't delete build artifacts (e.g., `work/`) unnecessarily—only delete what needs rebuilding
+
+## Workflow
+
+- Create an issue before implementing non-trivial changes
+- Add comments to existing issues when scope expands
 
 ## Commits and Pushing
 
@@ -43,7 +50,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 
 ## Commit Messages
 
-- Use same prefix convention as issues: `add:`, `fix:`, `update:`
+- Use same prefix convention as issues: `add:`, `fix:`, `update:`, `refactor:`
 - Keep titles lowercase where possible
 - Titles are sentence fragments (no trailing period)
 - Use backticks for code references in titles (e.g., `fix: bug in \`keep_going\` parsing`)
