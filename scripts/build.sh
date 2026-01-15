@@ -15,10 +15,11 @@
 #   ./scripts/build.sh --all
 #
 # Build phases:
-#   00-setup     Download toolchain and Python source
-#   01-deps      Build dependencies (ncurses, readline, openssl, etc.)
-#   02-python    Compile Python
-#   03-package   Create distributable archive
+#   0: Setup      System deps, cosmocc toolchain, APE loader
+#   1: Deps       Build dependencies (ncurses, readline, openssl, etc.)
+#   2: Python     Download, verify, patch, compile Python
+#   3: Package    Create distributable archive
+#   4: Test       Run smoke tests
 #
 set -euo pipefail
 
@@ -101,11 +102,6 @@ elif [ -f "$APE_LOADER" ] && command -v sudo >/dev/null 2>&1; then
   fi
 fi
 
-for version in "${VERSIONS[@]}"; do
-  log_info "downloading Python ${version} source..."
-  "${SCRIPT_DIR}/02-python/source.sh" "${version}"
-done
-
 #
 # Phase 1: Dependencies
 #
@@ -150,12 +146,17 @@ else
 fi
 
 #
-# Phase 2: Compile Python
+# Phase 2: Python (download, verify, patch, compile)
 #
 echo ""
 echo "========================================"
-echo "  Phase 2: Compile Python"
+echo "  Phase 2: Python"
 echo "========================================"
+
+for version in "${VERSIONS[@]}"; do
+  log_info "downloading Python ${version} source..."
+  "${SCRIPT_DIR}/02-python/source.sh" "${version}"
+done
 
 for version in "${VERSIONS[@]}"; do
   log_info "compiling Python ${version}..."
