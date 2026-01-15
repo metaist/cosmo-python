@@ -32,9 +32,37 @@ fi
 # Check source exists
 if [ ! -d "${SRC_DIR}" ]; then
   log_error "Python source not found at ${SRC_DIR}"
-  log_error "run 00-setup/python-source.sh ${PYTHON_VERSION} first"
+  log_error "run 02-python/source.sh ${PYTHON_VERSION} first"
   exit 1
 fi
+
+# Apply patches from 02-python/all/ and 02-python/{version}/
+# Uses -N (--forward) to skip already-applied patches
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
+
+apply_patches() {
+  local patch_dir="$1"
+  local label="${2:-}"
+  
+  [ -d "$patch_dir" ] || return 0
+  
+  for patch in "$patch_dir"/*.patch; do
+    [ -f "$patch" ] || continue
+    local patch_name
+    patch_name=$(basename "$patch")
+    if patch -p1 -N --dry-run < "$patch" >/dev/null 2>&1; then
+      log_info "applying patch: ${patch_name}${label:+ ($label)}..."
+      patch -p1 -N < "$patch"
+    else
+      log_info "patch already applied: ${patch_name}${label:+ ($label)}"
+    fi
+  done
+}
+
+cd "${SRC_DIR}"
+apply_patches "${SCRIPT_DIR}/all"
+apply_patches "${SCRIPT_DIR}/${PYTHON_MAJOR_MINOR}" "${PYTHON_MAJOR_MINOR}"
 
 # Check dependencies
 REQUIRED_LIBS=(
@@ -59,46 +87,7 @@ done
 
 log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
-# Apply Cosmopolitan-specific patches from top-level patches/ directory
-# Patches can be version-specific by naming them with version suffixes:
-#   foo.patch              - applies to all versions
-#   foo-3.10.patch         - applies only to 3.10.x
-#   foo-3.10-3.11.patch    - applies to 3.10.x and 3.11.x
-PATCHES_DIR="${REPO_ROOT}/scripts/patches"
-CONFIG_DIR="${REPO_ROOT}/scripts/config"
-PYTHON_MINOR="${PYTHON_VERSION%.*}"  # e.g., 3.10 from 3.10.16
-
-apply_patch() {
-  local patch="$1"
-  local patch_name
-  patch_name=$(basename "$patch")
-  
-  # Check if patch is version-specific
-  if [[ "$patch_name" =~ -([0-9]+\.[0-9]+)(-([0-9]+\.[0-9]+))?\.patch$ ]]; then
-    local min_ver="${BASH_REMATCH[1]}"
-    local max_ver="${BASH_REMATCH[3]:-$min_ver}"
-    # Skip if current version is outside the range
-    if [[ "$PYTHON_MINOR" < "$min_ver" ]] || [[ "$PYTHON_MINOR" > "$max_ver" ]]; then
-      return 0
-    fi
-  fi
-  
-  if ! grep -q "COSMO_PATCH_APPLIED_${patch_name}" "${SRC_DIR}/.cosmo_patches" 2>/dev/null; then
-    log_info "applying patch: ${patch_name}"
-    cd "${SRC_DIR}"
-    patch -p1 < "$patch" || log_warn "patch may have already been applied"
-    echo "COSMO_PATCH_APPLIED_${patch_name}" >> "${SRC_DIR}/.cosmo_patches"
-    cd - > /dev/null
-  fi
-}
-
-if [ -d "${PATCHES_DIR}" ]; then
-  for patch in "${PATCHES_DIR}"/*.patch; do
-    if [ -f "$patch" ]; then
-      apply_patch "$patch"
-    fi
-  done
-fi
+# Config files (like Setup.local) are in 02-python/{version}/
 
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
@@ -222,9 +211,9 @@ else
   # Python 3.10: Use our custom Setup.local that lists all modules for static build
   # This is necessary because Python 3.10's setup.py builds modules as shared
   # libraries, which cosmocc doesn't support (-shared flag not available)
-  log_info "using custom Setup.local for Python 3.10"
-  SETUP_LOCAL_310="${CONFIG_DIR}/Setup.local.3.10"
-  if [ -f "$SETUP_LOCAL_310" ]; then
+  SETUP_LOCAL="${SCRIPT_DIR}/${PYTHON_MAJOR_MINOR}/Setup.local"
+  if [ -f "$SETUP_LOCAL" ]; then
+    log_info "using custom Setup.local for Python ${PYTHON_MAJOR_MINOR}"
     # Substitute variables in the Setup.local file
     # Write to BUILD_DIR, not SRC_DIR - the Makefile expects it there
     sed -e "s|\$(srcdir)|${SRC_DIR}|g" \
@@ -238,9 +227,11 @@ else
         -e "s|-lffi|-L${DEPS_DIR}/lib -lffi|g" \
         -e "s|-lreadline|-L${DEPS_DIR}/lib -lreadline|g" \
         -e "s|-ltermcap|-L${DEPS_DIR}/lib -ltinfo|g" \
-        "$SETUP_LOCAL_310" > "${BUILD_DIR}/Modules/Setup.local"
+        "$SETUP_LOCAL" > "${BUILD_DIR}/Modules/Setup.local"
   else
-    log_warn "Setup.local.3.10 not found, build may be incomplete"
+    log_error "Setup.local not found for Python ${PYTHON_MAJOR_MINOR}"
+    log_error "expected: ${SETUP_LOCAL}"
+    exit 1
   fi
 fi
 

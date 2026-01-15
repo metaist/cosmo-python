@@ -2,7 +2,7 @@
 # Smoke tests for Cosmopolitan Python builds
 #
 # Usage: ./scripts/04-test/smoke.sh <python_binary>
-#        ./scripts/04-test/smoke.sh dist/python-3.12.8-cosmo-x86_64.com
+#        ./scripts/04-test/smoke.sh dist/python-3.12.8-cosmo.com
 #
 # Tests:
 #   - Basic execution (--version)
@@ -174,15 +174,28 @@ urllib.request.urlopen('https://www.python.org/', timeout=10)
 
 #
 # ctypes/libffi (our deps)
-# Note: ctypes module-level code calls PyDLL(None) which requires dlopen.
-# This fails on Cosmopolitan. The _ctypes C extension is linked, but
-# the Python wrapper isn't compatible. Skip for now.
+# Note: pythonapi requires dlopen(NULL) which Cosmopolitan doesn't support.
+# Our ctypes-cosmopolitan.patch sets pythonapi=None as a fallback.
+# Basic ctypes functionality (structs, arrays, c types) still works.
 #
 echo ""
 echo "FFI modules..."
 
-# ctypes doesn't work due to dlopen limitation
-skip "import ctypes (dlopen not supported)"
+run_test "import ctypes" "import ctypes"
+run_test "ctypes.c_int" "import ctypes; x = ctypes.c_int(42); assert x.value == 42"
+run_test "ctypes.Structure" "
+import ctypes
+class Point(ctypes.Structure):
+    _fields_ = [('x', ctypes.c_int), ('y', ctypes.c_int)]
+p = Point(10, 20)
+assert p.x == 10 and p.y == 20
+"
+run_test "ctypes.Array" "
+import ctypes
+arr = (ctypes.c_int * 3)(1, 2, 3)
+assert list(arr) == [1, 2, 3]
+"
+run_test "ctypes.pythonapi is None" "import ctypes; assert ctypes.pythonapi is None"
 
 #
 # readline (our deps)
