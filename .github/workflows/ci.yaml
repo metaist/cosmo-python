@@ -17,8 +17,5 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Install ds
-        run: pipx install ds-run
-
       - name: Run validation (lint + test-scripts)
-        run: ds dev
+        run: uvx --from ds-run ds dev
