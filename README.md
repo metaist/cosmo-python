@@ -22,13 +22,27 @@ This project provides clean, versioned Python builds as standalone releases.
 
 ## Usage
 
+<!--[[[cog
+import json
+versions = json.load(open("versions.json"))
+default_minor = versions["python"]["default"]
+default_version = versions["python"]["latest"][default_minor]
+cog.outl(f"Download and run:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-{default_version}-cosmo.com")
+cog.outl(f"chmod +x python-{default_version}-cosmo.com")
+cog.outl(f"./python-{default_version}-cosmo.com --version")
+cog.outl("```")
+]]]-->
 Download and run:
 
 ```bash
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
-chmod +x python-3.12.8-cosmo.com
-./python-3.12.8-cosmo.com --version
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
+chmod +x python-3.12.12-cosmo.com
+./python-3.12.12-cosmo.com --version
 ```
+<!--[[[end]]]-->
 
 Or use the manifest to find available versions:
 
@@ -40,38 +54,68 @@ curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manife
 
 ### Checksums
 
+<!--[[[cog
+cog.outl("Each release includes `checksums.txt` with SHA256 hashes:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl("curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt")
+cog.outl(f"curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-{default_version}-cosmo.com")
+cog.outl("sha256sum -c checksums.txt --ignore-missing")
+cog.outl("```")
+]]]-->
 Each release includes `checksums.txt` with SHA256 hashes:
 
 ```bash
 curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.8-cosmo.com
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.12.12-cosmo.com
 sha256sum -c checksums.txt --ignore-missing
 ```
+<!--[[[end]]]-->
 
 The `manifest.json` also includes SHA256 hashes for programmatic verification.
 
 ### Build Attestations
 
+<!--[[[cog
+cog.outl("Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"gh attestation verify python-{default_version}-cosmo.com --repo metaist/cosmo-python")
+cog.outl("```")
+]]]-->
 Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
 
 ```bash
-gh attestation verify python-3.12.8-cosmo.com --repo metaist/cosmo-python
+gh attestation verify python-3.12.12-cosmo.com --repo metaist/cosmo-python
 ```
+<!--[[[end]]]-->
 
 ## Releases
 
-We use **date-based releases** (e.g., `20260114-153042`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change.
+We use **date-based releases** (e.g., `YYYYMMDD-HHMMSS`) rather than Python-version-based tags. This allows rebuilding the same Python version when Cosmopolitan or our patches change.
 
+<!--[[[cog
+cog.outl("Each release includes:")
+cog.outl("")
+cog.outl("```")
+for minor in sorted(versions["python"]["latest"].keys()):
+    ver = versions["python"]["latest"][minor]
+    cog.outl(f"python-{ver}-cosmo.com")
+cog.outl("manifest.json")
+cog.outl("checksums.txt")
+cog.outl("```")
+]]]-->
 Each release includes:
 
 ```
-python-3.10.16-cosmo.com
-python-3.11.11-cosmo.com
-python-3.12.8-cosmo.com
-python-3.13.1-cosmo.com
+python-3.10.19-cosmo.com
+python-3.11.14-cosmo.com
+python-3.12.12-cosmo.com
+python-3.13.11-cosmo.com
 manifest.json
 checksums.txt
 ```
+<!--[[[end]]]-->
 
 ### Manifest Format
 
@@ -79,18 +123,13 @@ The `manifest.json` acts as a spanning registry, tracking all versions across re
 
 ```json
 {
-  "release": "20260115-120000",
-  "cosmocc": "4.0.2",
+  "release": "YYYYMMDD-HHMMSS",
+  "cosmocc": "X.Y.Z",
   "versions": {
     "3.12.8": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/20260114-153042/python-3.12.8-cosmo.com",
+      "url": "https://github.com/metaist/cosmo-python/releases/download/.../python-3.12.8-cosmo.com",
       "sha256": "...",
-      "release": "20260114-153042"
-    },
-    "3.12.9": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/20260115-120000/python-3.12.9-cosmo.com",
-      "sha256": "...",
-      "release": "20260115-120000"
+      "release": "YYYYMMDD-HHMMSS"
     }
   },
   "latest": { "3.12": "3.12.9", "3.13": "3.13.1" },
@@ -113,10 +152,17 @@ A new release is triggered when:
 
 ### Quick Start
 
+<!--[[[cog
+cog.outl("```bash")
+cog.outl(f"./scripts/build.sh {default_version}      # build specific version")
+cog.outl("./scripts/build.sh --all       # build all versions")
+cog.outl("```")
+]]]-->
 ```bash
-./scripts/build.sh 3.12.8      # build specific version
+./scripts/build.sh 3.12.12      # build specific version
 ./scripts/build.sh --all       # build all versions
 ```
+<!--[[[end]]]-->
 
 ### Environment Variables
 
@@ -128,11 +174,19 @@ A new release is triggered when:
 | `DEPS_DIR` | `$WORK_DIR/deps` | Compiled dependencies (openssl, libffi, etc.) |
 | `SKIP_SIGSTORE` | _(unset)_ | Set to `1` to skip Python sigstore verification |
 
+<!--[[[cog
+cog.outl("Example:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh {default_version}")
+cog.outl("```")
+]]]-->
 Example:
 
 ```bash
-WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.12.8
+WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.12.12
 ```
+<!--[[[end]]]-->
 
 ### Build Verification
 
@@ -144,6 +198,38 @@ All upstream dependencies are verified during the build:
 
 #### Python Sigstore Verification
 
+<!--[[[cog
+# Get release manager for default version
+minor = default_version.rsplit(".", 1)[0]
+if minor in ("3.10", "3.11"):
+    release_manager = "pablogsal@python.org"
+else:
+    release_manager = "thomas@python.org"
+
+cog.outl("Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.")
+cog.outl("If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl("# Install uv (if not already installed)")
+cog.outl("curl -LsSf https://astral.sh/uv/install.sh | sh")
+cog.outl("")
+cog.outl("# Build will now verify sigstore signatures")
+cog.outl(f"./scripts/build.sh {default_version}")
+cog.outl("```")
+cog.outl("")
+cog.outl("Manual verification:")
+cog.outl("")
+cog.outl("```bash")
+cog.outl(f"curl -LO https://www.python.org/ftp/python/{default_version}/Python-{default_version}.tgz")
+cog.outl(f"curl -LO https://www.python.org/ftp/python/{default_version}/Python-{default_version}.tgz.sigstore")
+cog.outl("")
+cog.outl("uvx sigstore verify identity \\")
+cog.outl(f"  --bundle Python-{default_version}.tgz.sigstore \\")
+cog.outl(f'  --cert-identity "{release_manager}" \\')
+cog.outl('  --cert-oidc-issuer "https://accounts.google.com" \\')
+cog.outl(f"  Python-{default_version}.tgz")
+cog.outl("```")
+]]]-->
 Python releases are signed using [Sigstore](https://sigstore.dev/) by the release manager.
 If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically verifies signatures:
 
@@ -152,26 +238,42 @@ If [uv](https://docs.astral.sh/uv/) is installed, the build script automatically
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Build will now verify sigstore signatures
-./scripts/build.sh 3.12.8
+./scripts/build.sh 3.12.12
 ```
 
 Manual verification:
 
 ```bash
-curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
-curl -LO https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz.sigstore
+curl -LO https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz
+curl -LO https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz.sigstore
 
 uvx sigstore verify identity \
-  --bundle Python-3.12.8.tgz.sigstore \
+  --bundle Python-3.12.12.tgz.sigstore \
   --cert-identity "thomas@python.org" \
   --cert-oidc-issuer "https://accounts.google.com" \
-  Python-3.12.8.tgz
+  Python-3.12.12.tgz
 ```
+<!--[[[end]]]-->
 
 ### Upstream Sources & Trust
 
 All dependencies are SHA256 verified against known-good hashes in `versions.json`.
 
+<!--[[[cog
+cog.outl("| Component | Version | Source | Trust Model |")
+cog.outl("|-----------|---------|--------|-------------|")
+cog.outl("| **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |")
+cog.outl(f"| **cosmocc** | {versions['cosmocc']['default']} | [GitHub Releases][cosmocc-src] | SHA256 verified (no attestations) |")
+cog.outl(f"| **bz2** | {versions['bz2']['default']} | [sourceware.org][bz2-src] | SHA256 verified |")
+cog.outl(f"| **CA certs** | {versions['cacert']['default']} | [curl.se][cacert-src] | SHA256 verified |")
+cog.outl(f"| **gdbm** | {versions['gdbm']['default']} | [GNU FTP][gdbm-src] | SHA256 verified |")
+cog.outl(f"| **libffi** | {versions['libffi']['default']} | [GitHub Releases][libffi-src] | SHA256 verified |")
+cog.outl(f"| **ncurses** | {versions['ncurses']['default']} | [GNU FTP][ncurses-src] | SHA256 verified |")
+cog.outl(f"| **OpenSSL** | {versions['openssl']['default']} | [GitHub Releases][openssl-src] | SHA256 verified |")
+cog.outl(f"| **readline** | {versions['readline']['default']} | [GNU FTP][readline-src] | SHA256 verified |")
+cog.outl(f"| **SQLite** | {versions['sqlite']['default']} | [sqlite.org][sqlite-src] | SHA256 verified |")
+cog.outl(f"| **xz** | {versions['xz']['default']} | [GitHub Releases][xz-src] | SHA256 verified |")
+]]]-->
 | Component | Version | Source | Trust Model |
 |-----------|---------|--------|-------------|
 | **Python** | 3.10-3.13 | [python.org][python-src] | SHA256 + Sigstore |
@@ -185,6 +287,7 @@ All dependencies are SHA256 verified against known-good hashes in `versions.json
 | **readline** | 8.3 | [GNU FTP][readline-src] | SHA256 verified |
 | **SQLite** | 3.51.2 | [sqlite.org][sqlite-src] | SHA256 verified |
 | **xz** | 5.8.2 | [GitHub Releases][xz-src] | SHA256 verified |
+<!--[[[end]]]-->
 
 [bz2-src]: https://sourceware.org/pub/bzip2/
 [cacert-src]: https://curl.se/docs/caextract.html

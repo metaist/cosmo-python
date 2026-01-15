@@ -61,6 +61,12 @@ manifest.shell = "./scripts/03-package/manifest.sh $@"
 dev.help = "quick validation: lint + test-scripts"
 dev.composite = ["lint", "test-scripts"]
 
+cog.help = "regenerate dynamic content in README.md"
+cog.shell = "uvx --from cogapp cog -r README.md"
+
+cog-check.help = "check if README.md needs regeneration"
+cog-check.shell = "uvx --from cogapp cog --check README.md"
+
 # Release
 recent.help = "show commits since last tag"
 recent.shell = "git log --oneline --color $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD"
