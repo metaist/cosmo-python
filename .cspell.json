@@ -59,6 +59,7 @@
     "binfmt",
     "shellcheck",
     "Szorc",
-    "indygreg"
+    "indygreg",
+    "urlparse"
   ]
 }
