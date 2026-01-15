@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog] and this project adheres to date-based
 
 Sections order is: `Fixed`, `Changed`, `Added`, `Deprecated`, `Removed`, `Security`.
 
-[keep a changelog]: https://keepachangelog.com/en/1.0.0/
+[keep a changelog]: https://keepachangelog.com/en/1.1.0/
 
 ---
 
