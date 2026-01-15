@@ -4,7 +4,7 @@
 # Attestations are added by release.yaml, not here.
 #
 # Structure:
-#   1. setup: determine which versions to build
+#   1. setup: determine versions and cosmocc version from versions.json
 #   2. deps: build dependencies once (cached across runs)
 #   3. build: build Python versions in parallel (matrix)
 #
@@ -33,9 +33,6 @@ on:
 permissions:
   contents: read
 
-env:
-  COSMOCC_VERSION: "4.0.2"
-
 jobs:
   # First job: determine which versions to build
   setup:
@@ -43,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
+      cosmocc_version: ${{ steps.versions.outputs.cosmocc_version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -60,9 +58,15 @@ jobs:
           echo "matrix={\"version\":${VERSIONS}}" >> "$GITHUB_OUTPUT"
           echo "Building versions: $VERSIONS"
 
+          # Get cosmocc version for cache key (scripts read from versions.json directly)
+          COSMOCC=$(jq -r '.cosmocc.default' versions.json)
+          echo "cosmocc_version=$COSMOCC" >> "$GITHUB_OUTPUT"
+          echo "Cosmocc version: $COSMOCC"
+
   # Second job: build dependencies (cached)
   deps:
     name: Build Dependencies
+    needs: [setup]
     runs-on: ubuntu-latest
     env:
       COSMO_DIR: /tmp/cosmo
@@ -78,7 +82,7 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ env.COSMOCC_VERSION }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
 
       - name: Build dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -107,7 +111,7 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ env.COSMOCC_VERSION }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
           fail-on-cache-miss: true
 
       - name: Install uv

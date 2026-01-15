@@ -8,8 +8,9 @@ name: PR Build
 on:
   pull_request:
     paths:
-      - 'versions.json'
-      - 'scripts/**'
+      - "versions.json"
+      - "scripts/**"
+      - "keys.asc"
 
 jobs:
   build:

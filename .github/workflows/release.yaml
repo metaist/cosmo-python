@@ -4,8 +4,9 @@
 # Artifacts must be built first using the build workflow.
 #
 # Options:
+#   - release_tag: Custom tag name (default: YYYYMMDD-HHMMSS)
 #   - from_run_id: Download artifacts from a specific build workflow run
-#   - rebuild: Build fresh instead of downloading (slower, but self-contained)
+#   - dry_run: Build and prepare but do not publish the release
 #
 name: release
 
@@ -30,7 +31,7 @@ permissions:
   contents: write
   id-token: write
   attestations: write
-  actions: read  # Required to download artifacts from other runs
+  actions: read # Required to download artifacts from other runs
 
 jobs:
   # Build all versions (if not downloading from existing run)
@@ -109,14 +110,14 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum python-*.com > checksums.txt
+          sha256sum manifest.json python-*.com > checksums.txt
           cat checksums.txt
 
       - name: Generate version table
         id: versions
         run: |
           {
-            echo 'table<<EOF'
+            echo 'version_table<<EOF'
             echo "| Python Version | Download |"
             echo "|----------------|----------|"
             for bin in dist/python-*-cosmo.com; do
@@ -128,36 +129,33 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+          # Get default Python version for examples in release notes
+          DEFAULT_MINOR=$(jq -r '.python.default' versions.json)
+          DEFAULT_VERSION=$(jq -r ".python.latest[\"$DEFAULT_MINOR\"]" versions.json)
+          echo "default_version=$DEFAULT_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: |
-            dist/python-*.com
-            dist/manifest.json
             dist/checksums.txt
+            dist/manifest.json
+            dist/python-*.com
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v6
         with:
           name: release-${{ steps.tag.outputs.release_tag }}
           path: |
-            dist/python-*.com
-            dist/manifest.json
             dist/checksums.txt
+            dist/manifest.json
+            dist/python-*.com
 
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.release_tag }}
-          name: ${{ steps.tag.outputs.release_tag }}
-          draft: false
-          prerelease: false
-          files: |
-            dist/python-*.com
-            dist/manifest.json
-            dist/checksums.txt
-          body: |
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: |
             ## Cosmopolitan Python Release ${{ steps.tag.outputs.release_tag }}
 
             ### Downloads
@@ -168,11 +166,11 @@ jobs:
 
             ```bash
             # Download
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.release_tag }}/python-3.12.8-cosmo.com
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.release_tag }}/python-${{ steps.versions.outputs.default_version }}-cosmo.com
 
             # Make executable and run
-            chmod +x python-3.12.8-cosmo.com
-            ./python-3.12.8-cosmo.com --version
+            chmod +x python-${{ steps.versions.outputs.default_version }}-cosmo.com
+            ./python-${{ steps.versions.outputs.default_version }}-cosmo.com --version
             ```
 
             ### Programmatic Access
@@ -190,5 +188,12 @@ jobs:
             sha256sum -c checksums.txt
 
             # Verify build attestation (requires gh CLI)
-            gh attestation verify python-3.12.8-cosmo.com --repo ${{ github.repository }}
+            gh attestation verify python-${{ steps.versions.outputs.default_version }}-cosmo.com --repo ${{ github.repository }}
             ```
+        run: |
+          gh release create "${{ steps.tag.outputs.release_tag }}" \
+            --title "${{ steps.tag.outputs.release_tag }}" \
+            --notes "$RELEASE_NOTES" \
+            dist/checksums.txt \
+            dist/manifest.json \
+            dist/python-*.com
