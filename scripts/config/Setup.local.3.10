@@ -1,0 +1,87 @@
+# Cosmopolitan Python 3.10 static modules
+# Format: module_name source.c [...] [-Dflag] [-Ipath] [-Lpath] [-llib]
+
+*static*
+
+# Math
+math mathmodule.c
+cmath cmathmodule.c
+
+# Data structures
+_struct _struct.c
+array arraymodule.c
+_bisect _bisectmodule.c
+_heapq _heapqmodule.c
+_queue _queuemodule.c
+_random _randommodule.c
+
+# Async
+_asyncio _asynciomodule.c
+_contextvars _contextvarsmodule.c
+
+# Date/time
+_datetime _datetimemodule.c
+
+# IO/Network
+_socket socketmodule.c
+select selectmodule.c
+mmap mmapmodule.c
+fcntl fcntlmodule.c
+
+# Binary/Serialization
+binascii binascii.c
+_pickle _pickle.c
+_json _json.c
+_csv _csv.c
+
+# Compression
+zlib zlibmodule.c
+_bz2 _bz2module.c -lbz2
+_lzma _lzmamodule.c -llzma
+
+# Hashing - builtin
+_md5 md5module.c
+_sha1 sha1module.c
+_sha256 sha256module.c
+_sha512 sha512module.c
+
+# SSL/TLS
+_ssl _ssl.c -lssl -lcrypto
+_hashlib _hashopenssl.c -lssl -lcrypto
+
+# Database
+# Note: We disable extension loading and shared cache since our sqlite build doesn't support them
+_sqlite3 _sqlite/cache.c _sqlite/connection.c _sqlite/cursor.c _sqlite/microprotocols.c _sqlite/module.c _sqlite/prepare_protocol.c _sqlite/row.c _sqlite/statement.c _sqlite/util.c -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_OMIT_SHARED_CACHE -lsqlite3
+_gdbm _gdbmmodule.c -lgdbm
+
+# System/POSIX
+_posixsubprocess _posixsubprocess.c
+grp grpmodule.c
+resource resource.c
+syslog syslogmodule.c
+termios termios.c
+
+# Unicode
+unicodedata unicodedata.c
+
+# CJK codecs
+_multibytecodec cjkcodecs/multibytecodec.c
+_codecs_cn cjkcodecs/_codecs_cn.c
+_codecs_hk cjkcodecs/_codecs_hk.c
+_codecs_iso2022 cjkcodecs/_codecs_iso2022.c
+_codecs_jp cjkcodecs/_codecs_jp.c
+_codecs_kr cjkcodecs/_codecs_kr.c
+_codecs_tw cjkcodecs/_codecs_tw.c
+
+# Misc
+_statistics _statisticsmodule.c
+_lsprof _lsprof.c rotatingtree.c
+_opcode _opcode.c
+_zoneinfo _zoneinfo.c
+
+# Readline
+readline readline.c -lreadline -ltinfo
+
+# Multiprocessing
+_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c
+_posixshmem _multiprocessing/posixshmem.c

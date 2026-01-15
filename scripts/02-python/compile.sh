@@ -59,13 +59,13 @@ done
 
 log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
-# Apply Cosmopolitan-specific patches
+# Apply Cosmopolitan-specific patches from top-level patches/ directory
 # Patches can be version-specific by naming them with version suffixes:
 #   foo.patch              - applies to all versions
 #   foo-3.10.patch         - applies only to 3.10.x
 #   foo-3.10-3.11.patch    - applies to 3.10.x and 3.11.x
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PATCHES_DIR="${SCRIPT_DIR}/patches"
+PATCHES_DIR="${REPO_ROOT}/scripts/patches"
+CONFIG_DIR="${REPO_ROOT}/scripts/config"
 PYTHON_MINOR="${PYTHON_VERSION%.*}"  # e.g., 3.10 from 3.10.16
 
 apply_patch() {
@@ -176,54 +176,72 @@ fi
 
 # For cosmopolitan, we need all modules built statically into the binary
 #
-# Python 3.11+ has Modules/Setup.stdlib; Python 3.10 uses Modules/Setup directly
-# Note: Files are in SRC_DIR, not BUILD_DIR (out-of-tree build)
+# Python 3.11+ has Modules/Setup.stdlib which lists all modules
+# Python 3.10 has most modules built by setup.py which uses -shared (unsupported)
+# We provide a custom Setup.local.3.10 file with all modules listed for static build
 log_info "patching for static module building..."
 
 if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
   # Python 3.11+: Patch Setup.stdlib to use *static* instead of *shared*
   SETUP_FILE="${SRC_DIR}/Modules/Setup.stdlib"
-else
-  # Python 3.10: Use Modules/Setup directly
-  SETUP_FILE="${SRC_DIR}/Modules/Setup"
-fi
+  sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
 
-sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
+  # Enable modules that configure might not have detected
+  sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
+  sed -i 's/^#readline /readline /' "$SETUP_FILE"
+  sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
+  sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
 
-# Enable modules that configure might not have detected
-sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
-sed -i 's/^#readline /readline /' "$SETUP_FILE"
-sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
-sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
-
-# Remove modules that need unavailable headers/libraries
-#
-# _crypt: Deprecated 3.11, removed 3.13 (PEP 594). Security concerns:
-#   - Only DES guaranteed (2^56 key space - extremely weak)
-#   - Not cross-platform (doesn't exist on Windows)
-#   - Can't interact with system passwords (must use PAM)
-#   - Better alternatives: hashlib.pbkdf2_hmac(), hashlib.scrypt()
-#   - Would require building libxcrypt for a deprecated insecure module
-#
-# _uuid: Requires libuuid (part of util-linux, complex to extract/build).
-#   Python's fallback is sufficient:
-#   - uuid4() (most common) uses os.urandom(), doesn't need libuuid
-#   - uuid1() fallback uses time.time_ns() + random + getnode()
-#   - Only downside: potential race under heavy multi-threaded uuid1()
-#   - superconfigure also skips libuuid
-#
-# _dbm: Requires ndbm library (part of glibc, not worth extracting).
-#   gdbm's --enable-libgdbm-compat provides ndbm API compatibility,
-#   but Python's _dbm module specifically wants ndbm.h which we don't have.
-#
-DISABLE_MODULES="_crypt _uuid _dbm"
-for mod in $DISABLE_MODULES; do
-  sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
-done
-
-# For 3.11+, copy to Setup.local in source dir; for 3.10, it's already the right file
-if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
+  # Remove modules that need unavailable headers/libraries
+  #
+  # _crypt: Deprecated 3.11, removed 3.13 (PEP 594). Security concerns:
+  #   - Only DES guaranteed (2^56 key space - extremely weak)
+  #   - Not cross-platform (doesn't exist on Windows)
+  #   - Can't interact with system passwords (must use PAM)
+  #   - Better alternatives: hashlib.pbkdf2_hmac(), hashlib.scrypt()
+  #   - Would require building libxcrypt for a deprecated insecure module
+  #
+  # _uuid: Requires libuuid (part of util-linux, complex to extract/build).
+  #   Python's fallback is sufficient:
+  #   - uuid4() (most common) uses os.urandom(), doesn't need libuuid
+  #   - uuid1() fallback uses time.time_ns() + random + getnode()
+  #   - Only downside: potential race under heavy multi-threaded uuid1()
+  #   - superconfigure also skips libuuid
+  #
+  # _dbm: Requires ndbm library (part of glibc, not worth extracting).
+  #   gdbm's --enable-libgdbm-compat provides ndbm API compatibility,
+  #   but Python's _dbm module specifically wants ndbm.h which we don't have.
+  #
+  DISABLE_MODULES="_crypt _uuid _dbm"
+  for mod in $DISABLE_MODULES; do
+    sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
+  done
+  
   cp "${SRC_DIR}/Modules/Setup.stdlib" "${SRC_DIR}/Modules/Setup.local"
+else
+  # Python 3.10: Use our custom Setup.local that lists all modules for static build
+  # This is necessary because Python 3.10's setup.py builds modules as shared
+  # libraries, which cosmocc doesn't support (-shared flag not available)
+  log_info "using custom Setup.local for Python 3.10"
+  SETUP_LOCAL_310="${CONFIG_DIR}/Setup.local.3.10"
+  if [ -f "$SETUP_LOCAL_310" ]; then
+    # Substitute variables in the Setup.local file
+    # Write to BUILD_DIR, not SRC_DIR - the Makefile expects it there
+    sed -e "s|\$(srcdir)|${SRC_DIR}|g" \
+        -e "s|-lz|-L${DEPS_DIR}/lib -L${COSMO_DIR}/lib -lz|g" \
+        -e "s|-lbz2|-L${DEPS_DIR}/lib -lbz2|g" \
+        -e "s|-llzma|-L${DEPS_DIR}/lib -llzma|g" \
+        -e "s|-lssl|-L${DEPS_DIR}/lib -lssl|g" \
+        -e "s|-lcrypto|-L${DEPS_DIR}/lib -lcrypto|g" \
+        -e "s|-lsqlite3|-L${DEPS_DIR}/lib -lsqlite3|g" \
+        -e "s|-lgdbm|-L${DEPS_DIR}/lib -lgdbm|g" \
+        -e "s|-lffi|-L${DEPS_DIR}/lib -lffi|g" \
+        -e "s|-lreadline|-L${DEPS_DIR}/lib -lreadline|g" \
+        -e "s|-ltermcap|-L${DEPS_DIR}/lib -ltinfo|g" \
+        "$SETUP_LOCAL_310" > "${BUILD_DIR}/Modules/Setup.local"
+  else
+    log_warn "Setup.local.3.10 not found, build may be incomplete"
+  fi
 fi
 
 # Regenerate Makefile
@@ -231,7 +249,18 @@ log_info "regenerating Makefile..."
 make Makefile
 
 log_info "compiling (this may take several minutes)..."
-timed make -j"$(nproc)"
+# For Python 3.10, we need to add _math.o to the library manually
+# since it's normally handled by setup.py for shared builds
+if [ ! -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
+  # Build everything except the final link (library, objects, but not python binary)
+  timed make -j"$(nproc)" libpython3.10.a Modules/_math.o
+  log_info "adding _math.o to library..."
+  ${COSMO_DIR}/bin/cosmoar rcs libpython3.10.a Modules/_math.o
+  # Now build python binary
+  timed make -j"$(nproc)" python
+else
+  timed make -j"$(nproc)"
+fi
 
 log_ok "Python ${PYTHON_VERSION} compiled"
 log_info "  binary: ${BUILD_DIR}/python.com"

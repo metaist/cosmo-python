@@ -1,0 +1,23 @@
+--- a/Modules/_sqlite/module.c
++++ b/Modules/_sqlite/module.c
+@@ -134,6 +134,7 @@ static int
+ pysqlite_enable_shared_cache_impl(PyObject *module, int do_enable)
+ /*[clinic end generated code: output=259c74eedee1516b input=26e40d5971d3487d]*/
+ {
++#ifndef SQLITE_OMIT_SHARED_CACHE
+     int rc;
+ 
+     rc = sqlite3_enable_shared_cache(do_enable);
+@@ -143,6 +144,11 @@ pysqlite_enable_shared_cache_impl(PyObject *module, int do_enable)
+         return NULL;
+     } else {
+         Py_RETURN_NONE;
+     }
++#else
++    PyErr_SetString(PyExc_NotImplementedError, 
++                    "sqlite3 was built without shared cache support");
++    return NULL;
++#endif
+ }
+ 
+ /*[clinic input]

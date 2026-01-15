@@ -97,17 +97,30 @@ log_info "extracting..."
 tar xzf "${TARBALL}"
 rm "${TARBALL}"
 
-# Apply version-specific patches if they exist
-PATCHES_DIR="${REPO_ROOT}/patches/${PYTHON_MAJOR_MINOR}"
+# Apply patches from patches/ directory
+# - patches/*.patch - applied to all versions (stdlib patches)
+# - patches/3.xx/*.patch - applied only to that minor version
+cd "${SRC_DIR}"
 
-if [ -d "${PATCHES_DIR}" ]; then
-  log_info "applying patches from ${PATCHES_DIR}..."
-  cd "${SRC_DIR}"
-  for patch in "${PATCHES_DIR}"/*.patch; do
+# Apply universal patches (all versions)
+UNIVERSAL_PATCHES_DIR="${REPO_ROOT}/scripts/patches"
+for patch in "${UNIVERSAL_PATCHES_DIR}"/*.patch; do
+  if [ -f "$patch" ]; then
+    patch_name=$(basename "$patch")
+    log_info "applying universal patch: ${patch_name}..."
+    patch -p1 < "$patch" || log_warn "patch may have already been applied: ${patch_name}"
+  fi
+done
+
+# Apply version-specific patches
+VERSION_PATCHES_DIR="${REPO_ROOT}/scripts/patches/${PYTHON_MAJOR_MINOR}"
+if [ -d "${VERSION_PATCHES_DIR}" ]; then
+  log_info "applying version-specific patches from ${VERSION_PATCHES_DIR}..."
+  for patch in "${VERSION_PATCHES_DIR}"/*.patch; do
     if [ -f "$patch" ]; then
       patch_name=$(basename "$patch")
       log_info "  applying ${patch_name}..."
-      patch -p1 < "$patch"
+      patch -p1 < "$patch" || log_warn "patch may have already been applied: ${patch_name}"
     fi
   done
 fi
