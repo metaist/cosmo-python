@@ -1,26 +1,6 @@
 {
   "python": {
     "versions": {
-      "3.10.16": {
-        "sha256": "f2e22ed965a93cfeb642378ed6e6cdbc127682664b24123679f3d013fafe9cd0",
-        "status": "security",
-        "eol": "2026-10"
-      },
-      "3.11.11": {
-        "sha256": "883bddee3c92fcb91cf9c09c5343196953cbb9ced826213545849693970868ed",
-        "status": "security",
-        "eol": "2027-10"
-      },
-      "3.12.8": {
-        "sha256": "5978435c479a376648cb02854df3b892ace9ed7d32b1fead652712bee9d03a45",
-        "status": "security",
-        "eol": "2028-10"
-      },
-      "3.13.1": {
-        "sha256": "1513925a9f255ef0793dbf2f78bb4533c9f184bdd0ad19763fd7f47a400a7c55",
-        "status": "bugfix",
-        "eol": "2029-10"
-      },
       "3.10.19": {
         "status": "security",
         "eol": "2026-10",
