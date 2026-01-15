@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   check-updates:
+    name: Check for Updates
     runs-on: ubuntu-latest
 
     steps:
@@ -35,7 +36,7 @@ jobs:
       - name: Check for updates
         id: check
         run: |
-          ./scripts/check-updates.sh 2>&1 | tee /tmp/update-output.txt
+          ./scripts/03-ci/check-updates.sh 2>&1 | tee /tmp/update-output.txt
 
           # Check if versions.json changed
           if git diff --quiet versions.json README.md; then

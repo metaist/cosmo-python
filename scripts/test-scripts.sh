@@ -38,11 +38,11 @@ echo "Checking syntax..."
 for f in \
   scripts/common.sh \
   scripts/build.sh \
-  scripts/check-updates.sh \
+  scripts/03-ci/check-updates.sh \
   scripts/00-setup/*.sh \
   scripts/01-deps/*.sh \
   scripts/02-python/*.sh \
-  scripts/03-release/*.sh
+  scripts/03-ci/*.sh
 do
   if [ -f "${REPO_ROOT}/${f}" ]; then
     if bash -n "${REPO_ROOT}/${f}" 2>/dev/null; then
@@ -104,7 +104,7 @@ fi
 #
 echo ""
 echo "Checking directory structure..."
-for dir in scripts/00-setup scripts/01-deps scripts/02-python scripts/03-release; do
+for dir in scripts/00-setup scripts/01-deps scripts/02-python scripts/03-ci; do
   if [ -d "${REPO_ROOT}/${dir}" ]; then
     pass "$dir exists"
   else
@@ -131,7 +131,7 @@ required_scripts=(
   "scripts/02-python/source.sh"
   "scripts/02-python/compile.sh"
   "scripts/02-python/package.sh"
-  "scripts/03-release/manifest.sh"
+  "scripts/03-ci/manifest.sh"
 )
 
 for script in "${required_scripts[@]}"; do

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check for dependency updates and update versions.json + README.md
 #
-# Usage: ./scripts/check-updates.sh [--dry-run]
+# Usage: ./scripts/03-ci/check-updates.sh [--dry-run]
 #
 # Checks all upstreams for newer versions, updates versions.json with new
 # versions and SHA256 hashes, and regenerates README.md with cog.
@@ -15,7 +15,7 @@ source "$(dirname "$0")/common.sh"
 DRY_RUN="${1:-}"
 
 # Dependencies to skip updating (but still fetch for reporting)
-SKIP_UPDATE=("openssl")
+SKIP_UPDATE=()
 
 # Track changes
 declare -A UPDATES=()
@@ -175,11 +175,12 @@ fetch_bz2_latest() {
     curl -sL "$url" | grep -oE 'bzip2-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1
 }
 
-# OpenSSL 1.1.1 series: EOL, no longer in releases
-# Last version was 1.1.1w - we're stuck on 1.1.1u for Cosmo compatibility
-fetch_openssl_1_latest() {
-    # Return current version since 1.1.1 is EOL and not in releases API
-    echo "1.1.1u"
+# OpenSSL 3.x: Fetch latest from GitHub releases
+fetch_openssl_latest() {
+    local tag
+    tag=$(gh api repos/openssl/openssl/releases/latest --jq '.tag_name' 2>/dev/null) || return 1
+    # Tag format: "openssl-3.5.4" -> "3.5.4"
+    echo "${tag#openssl-}"
 }
 
 #------------------------------------------------------------------------------
@@ -251,6 +252,18 @@ regenerate_readme() {
     fi
 }
 
+# Normalize versions.json key ordering using Python
+normalize_versions_json() {
+    log_info "Normalizing versions.json key ordering..."
+
+    if ! command -v uv &>/dev/null; then
+        log_warn "uv not found, skipping normalization"
+        return 0
+    fi
+
+    uv run "$(dirname "$0")/normalize-versions.py"
+}
+
 #------------------------------------------------------------------------------
 # Main checking logic
 #------------------------------------------------------------------------------
@@ -291,7 +304,7 @@ check_dependency() {
             ;;
         openssl)
             # Fetch but note we're on 1.1.1 series
-            latest_version=$(fetch_openssl_1_latest) || return 1
+            latest_version=$(fetch_openssl_latest) || return 1
             ;;
         *)
             log_warn "Unknown dependency: $dep"
@@ -349,8 +362,8 @@ update_dependency() {
             url="https://curl.se/ca/cacert-${new_version}.pem"
             ;;
         openssl)
-            local ver_underscores="${new_version//./_}"
-            url="https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_${ver_underscores}.tar.gz"
+            
+            url="https://github.com/openssl/openssl/releases/download/openssl-${new_version}/openssl-${new_version}.tar.gz"
             ;;
         *)
             log_error "Don't know how to update $dep"
@@ -619,8 +632,9 @@ main() {
     done
     echo
 
-    # Regenerate README if there were updates
+    # Normalize and regenerate if there were updates
     if [[ "$HAS_UPDATES" == "true" ]] && [[ "$DRY_RUN" != "--dry-run" ]]; then
+        normalize_versions_json
         regenerate_readme
     fi
 

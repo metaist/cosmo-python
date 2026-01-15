@@ -35,6 +35,7 @@ permissions:
 jobs:
   # Build all versions (if not downloading from existing run)
   build:
+    name: Build All Versions
     if: ${{ inputs.from_run_id == '' }}
     uses: ./.github/workflows/build.yaml
     with:
@@ -42,6 +43,7 @@ jobs:
 
   # Collect artifacts, attest, and create release
   release:
+    name: Create Release
     runs-on: ubuntu-latest
     needs: [build]
     # Run even if build was skipped (when using from_run_id)
@@ -99,9 +101,9 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.tag.outputs.release_tag }}"
           if [ "${{ steps.prev_manifest.outputs.found }}" = "true" ]; then
-            ./scripts/03-release/manifest.sh "$RELEASE_TAG" --merge /tmp/prev-manifest.json
+            ./scripts/03-ci/manifest.sh "$RELEASE_TAG" --merge /tmp/prev-manifest.json
           else
-            ./scripts/03-release/manifest.sh "$RELEASE_TAG"
+            ./scripts/03-ci/manifest.sh "$RELEASE_TAG"
           fi
 
       - name: Generate checksums

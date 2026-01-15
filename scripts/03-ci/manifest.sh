@@ -42,7 +42,6 @@ if [ -z "$RELEASE_TAG" ]; then
 fi
 
 MANIFEST_PATH="${DIST_DIR}/manifest.json"
-TEMP_MANIFEST="${DIST_DIR}/.manifest-new.json"
 PREV_MANIFEST="${DIST_DIR}/.manifest-prev.json"
 
 log_build "manifest for release ${RELEASE_TAG}"
@@ -97,9 +96,6 @@ for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
   fi
 done
 
-# Build merged manifest using jq
-log_info "generating manifest..."
-
 # Create base structure for new versions
 NEW_VERSIONS_JSON="{"
 first=true
@@ -118,110 +114,28 @@ for version in $(echo "${!NEW_VERSIONS[@]}" | tr ' ' '\n' | sort -V); do
 done
 NEW_VERSIONS_JSON+="}"
 
-# Get disabled versions from versions.json (for yanking)
-DISABLED_JSON=$(jq -c '.python.disabled // {}' "$VERSIONS_FILE")
-if [ "$DISABLED_JSON" != "{}" ]; then
-  log_warn "disabled versions configured: $(echo "$DISABLED_JSON" | jq -r 'keys | join(", ")')"
-fi
+# Generate manifest using Python
+log_info "generating manifest..."
 
-# Merge with previous manifest or create new
+PREV_MANIFEST_ARG=""
 if [ -f "$PREV_MANIFEST" ]; then
+  PREV_MANIFEST_ARG="$PREV_MANIFEST"
   log_info "merging with previous manifest..."
-  
-  # Merge: new versions override old ones with same key
-  jq -n \
-    --arg release "$RELEASE_TAG" \
-    --arg cosmocc "$COSMOCC_VERSION" \
-    --arg generated "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    --argjson new_versions "$NEW_VERSIONS_JSON" \
-    --argjson disabled "$DISABLED_JSON" \
-    --slurpfile prev "$PREV_MANIFEST" '
-    # Get previous versions, default to empty object
-    ($prev[0].versions // {}) as $old_versions |
-    
-    # Merge: new overrides old
-    ($old_versions + $new_versions) as $merged_versions |
-    
-    # Filter out disabled versions
-    # Disabled can be "3.10" (whole minor) or "3.10.5" (specific patch)
-    ($disabled | keys) as $disabled_patterns |
-    ($merged_versions | to_entries | map(
-      select(
-        .key as $ver |
-        ($disabled_patterns | map(
-          . as $pat |
-          ($ver | startswith($pat))
-        ) | any) | not
-      )
-    ) | from_entries) as $all_versions |
-    
-    # Compute latest for each minor version
-    ([$all_versions | to_entries[] | {
-      minor: (.key | split(".") | .[0:2] | join(".")),
-      version: .key
-    }] | group_by(.minor) | map({
-      key: .[0].minor,
-      value: ([.[].version] | sort | last)
-    }) | from_entries) as $latest |
-    
-    # Find default (highest non-prerelease version)
-    ([$all_versions | keys[] | select(test("[ab]|rc") | not)] | sort | last // ($all_versions | keys | sort | last)) as $default |
-    
-    {
-      release: $release,
-      cosmocc: $cosmocc,
-      generated: $generated,
-      versions: $all_versions,
-      latest: $latest,
-      default: $default
-    }
-  ' > "$TEMP_MANIFEST"
 else
   log_info "creating new manifest..."
-  
-  jq -n \
-    --arg release "$RELEASE_TAG" \
-    --arg cosmocc "$COSMOCC_VERSION" \
-    --arg generated "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-    --argjson versions "$NEW_VERSIONS_JSON" \
-    --argjson disabled "$DISABLED_JSON" '
-    # Filter out disabled versions
-    ($disabled | keys) as $disabled_patterns |
-    ($versions | to_entries | map(
-      select(
-        .key as $ver |
-        ($disabled_patterns | map(
-          . as $pat |
-          ($ver | startswith($pat))
-        ) | any) | not
-      )
-    ) | from_entries) as $all_versions |
-    
-    # Compute latest for each minor version
-    ([$all_versions | to_entries[] | {
-      minor: (.key | split(".") | .[0:2] | join(".")),
-      version: .key
-    }] | group_by(.minor) | map({
-      key: .[0].minor,
-      value: ([.[].version] | sort | last)
-    }) | from_entries) as $latest |
-    
-    # Find default (highest non-prerelease version)
-    ([$all_versions | keys[] | select(test("[ab]|rc") | not)] | sort | last // ($all_versions | keys | sort | last)) as $default |
-    
-    {
-      release: $release,
-      cosmocc: $cosmocc,
-      generated: $generated,
-      versions: $all_versions,
-      latest: $latest,
-      default: $default
-    }
-  ' > "$TEMP_MANIFEST"
 fi
 
-# Move temp to final
-mv "$TEMP_MANIFEST" "$MANIFEST_PATH"
+GENERATED=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+uv run "$(dirname "$0")/manifest.py" \
+  "$RELEASE_TAG" \
+  "$COSMOCC_VERSION" \
+  "$GENERATED" \
+  "$MANIFEST_PATH" \
+  "$VERSIONS_FILE" \
+  "$NEW_VERSIONS_JSON" \
+  "$PREV_MANIFEST_ARG"
+
 rm -f "$PREV_MANIFEST"
 
 log_ok "manifest written to ${MANIFEST_PATH}"

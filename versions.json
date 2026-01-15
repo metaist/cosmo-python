@@ -1,67 +1,7 @@
 {
   "python": {
-    "versions": {
-      "3.10.19": {
-        "eol": "2026-10",
-        "status": "security",
-        "sha256": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec",
-        "sigstore": {
-          "identity": "pablogsal@python.org",
-          "issuer": "https://accounts.google.com"
-        },
-        "url": "https://www.python.org/ftp/python/3.10.19/Python-3.10.19.tgz",
-        "license": "PSF-2.0",
-        "license_url": "https://docs.python.org/3/license.html"
-      },
-      "3.11.14": {
-        "eol": "2027-10",
-        "status": "security",
-        "sha256": "563d2a1b2a5ba5d5409b5ecd05a0e1bf9b028cf3e6a6f0c87a5dc8dc3f2d9182",
-        "sigstore": {
-          "identity": "pablogsal@python.org",
-          "issuer": "https://accounts.google.com"
-        },
-        "url": "https://www.python.org/ftp/python/3.11.14/Python-3.11.14.tgz",
-        "license": "PSF-2.0",
-        "license_url": "https://docs.python.org/3/license.html"
-      },
-      "3.12.12": {
-        "eol": "2028-10",
-        "status": "security",
-        "sha256": "487c908ddf4097a1b9ba859f25fe46d22ccaabfb335880faac305ac62bffb79b",
-        "sigstore": {
-          "identity": "thomas@python.org",
-          "issuer": "https://accounts.google.com"
-        },
-        "url": "https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz",
-        "license": "PSF-2.0",
-        "license_url": "https://docs.python.org/3/license.html"
-      },
-      "3.13.11": {
-        "eol": "2029-10",
-        "status": "bugfix",
-        "sha256": "03cfedbe06ce21bc44ce09245e091a77f2fee9ec9be5c52069048a181300b202",
-        "sigstore": {
-          "identity": "thomas@python.org",
-          "issuer": "https://accounts.google.com"
-        },
-        "url": "https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz",
-        "license": "PSF-2.0",
-        "license_url": "https://docs.python.org/3/license.html"
-      },
-      "3.14.2": {
-        "eol": "2030-10",
-        "status": "bugfix",
-        "sha256": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d",
-        "sigstore": {
-          "identity": "hugo@python.org",
-          "issuer": "https://github.com/login/oauth"
-        },
-        "url": "https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz",
-        "license": "PSF-2.0",
-        "license_url": "https://docs.python.org/3/license.html"
-      }
-    },
+    "default": "3.13",
+    "disabled": {},
     "latest": {
       "3.10": "3.10.19",
       "3.11": "3.11.14",
@@ -69,168 +9,228 @@
       "3.13": "3.13.11",
       "3.14": "3.14.2"
     },
-    "default": "3.13",
-    "disabled": {}
+    "versions": {
+      "3.10.19": {
+        "eol": "2026-10",
+        "status": "security",
+        "url": "https://www.python.org/ftp/python/3.10.19/Python-3.10.19.tgz",
+        "sha256": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec",
+        "sigstore": {
+          "identity": "pablogsal@python.org",
+          "issuer": "https://accounts.google.com"
+        },
+        "license": "PSF-2.0",
+        "license_url": "https://docs.python.org/3/license.html"
+      },
+      "3.11.14": {
+        "eol": "2027-10",
+        "status": "security",
+        "url": "https://www.python.org/ftp/python/3.11.14/Python-3.11.14.tgz",
+        "sha256": "563d2a1b2a5ba5d5409b5ecd05a0e1bf9b028cf3e6a6f0c87a5dc8dc3f2d9182",
+        "sigstore": {
+          "identity": "pablogsal@python.org",
+          "issuer": "https://accounts.google.com"
+        },
+        "license": "PSF-2.0",
+        "license_url": "https://docs.python.org/3/license.html"
+      },
+      "3.12.12": {
+        "eol": "2028-10",
+        "status": "security",
+        "url": "https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz",
+        "sha256": "487c908ddf4097a1b9ba859f25fe46d22ccaabfb335880faac305ac62bffb79b",
+        "sigstore": {
+          "identity": "thomas@python.org",
+          "issuer": "https://accounts.google.com"
+        },
+        "license": "PSF-2.0",
+        "license_url": "https://docs.python.org/3/license.html"
+      },
+      "3.13.11": {
+        "eol": "2029-10",
+        "status": "bugfix",
+        "url": "https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz",
+        "sha256": "03cfedbe06ce21bc44ce09245e091a77f2fee9ec9be5c52069048a181300b202",
+        "sigstore": {
+          "identity": "thomas@python.org",
+          "issuer": "https://accounts.google.com"
+        },
+        "license": "PSF-2.0",
+        "license_url": "https://docs.python.org/3/license.html"
+      },
+      "3.14.2": {
+        "eol": "2030-10",
+        "status": "bugfix",
+        "url": "https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz",
+        "sha256": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d",
+        "sigstore": {
+          "identity": "hugo@python.org",
+          "issuer": "https://github.com/login/oauth"
+        },
+        "license": "PSF-2.0",
+        "license_url": "https://docs.python.org/3/license.html"
+      }
+    }
   },
   "cosmocc": {
+    "default": "4.0.2",
     "versions": {
       "4.0.2": {
-        "sha256": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44",
         "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip",
+        "sha256": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44",
         "license": "ISC",
         "license_url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE"
       }
-    },
-    "default": "4.0.2"
+    }
   },
   "bz2": {
+    "default": "1.0.8",
     "versions": {
       "1.0.8": {
+        "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
         "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
         "gpg": "12768A96795990107A0D2FDFFC57E3CCACD99A78",
-        "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
         "license": "bzip2-1.0.6",
         "license_url": "https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE"
       }
-    },
-    "default": "1.0.8"
+    }
   },
   "cacert": {
+    "default": "2025-12-02",
     "versions": {
       "2025-12-02": {
-        "sha256": "f1407d974c5ed87d544bd931a278232e13925177e239fca370619aba63c757b4",
         "notes": "Mozilla CA certificate bundle from curl.se",
         "url": "https://curl.se/ca/cacert-2025-12-02.pem",
+        "sha256": "f1407d974c5ed87d544bd931a278232e13925177e239fca370619aba63c757b4",
         "license": "MPL-2.0",
         "license_url": "https://www.mozilla.org/en-US/MPL/2.0/"
       }
-    },
-    "default": "2025-12-02"
+    }
   },
   "gdbm": {
+    "default": "1.26",
     "versions": {
       "1.23": {
+        "url": "https://ftp.gnu.org/gnu/gdbm/gdbm-1.23.tar.gz",
         "sha256": "74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd",
         "gpg": "4BE4E62655488EB92ABB468F79FFD94BFCE230B1",
-        "url": "https://ftp.gnu.org/gnu/gdbm/gdbm-1.23.tar.gz",
         "license": "GPL-3.0",
         "license_url": "https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING"
       },
       "1.26": {
+        "url": "https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz",
         "sha256": "6a24504a14de4a744103dcb936be976df6fbe88ccff26065e54c1c47946f4a5e",
         "gpg": "4BE4E62655488EB92ABB468F79FFD94BFCE230B1",
-        "url": "https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz",
         "license": "GPL-3.0",
         "license_url": "https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING"
       }
-    },
-    "default": "1.26"
+    }
   },
   "libffi": {
+    "default": "3.5.2",
     "versions": {
       "3.4.2": {
-        "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620",
         "url": "https://github.com/libffi/libffi/releases/download/v3.4.2/libffi-3.4.2.tar.gz",
+        "sha256": "540fb721619a6aba3bdeef7d940d8e9e0e6d2c193595bc243241b77ff9e93620",
         "license": "MIT",
         "license_url": "https://github.com/libffi/libffi/blob/master/LICENSE"
       },
       "3.5.2": {
-        "sha256": "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc",
         "url": "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz",
+        "sha256": "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc",
         "license": "MIT",
         "license_url": "https://github.com/libffi/libffi/blob/master/LICENSE"
       }
-    },
-    "default": "3.5.2"
+    }
   },
   "ncurses": {
+    "default": "6.6",
     "versions": {
       "6.4": {
+        "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz",
         "sha256": "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159",
         "gpg": "19882D92DDA4C400C22C0D56CC2AF4472167BE03",
-        "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.4.tar.gz",
         "license": "X11",
         "license_url": "https://invisible-island.net/ncurses/ncurses-license.html"
       },
       "6.6": {
+        "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz",
         "sha256": "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11",
         "gpg": "19882D92DDA4C400C22C0D56CC2AF4472167BE03",
-        "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz",
         "license": "X11",
         "license_url": "https://invisible-island.net/ncurses/ncurses-license.html"
       }
-    },
-    "default": "6.6"
+    }
   },
   "openssl": {
+    "default": "3.5.4",
     "versions": {
       "1.1.1u": {
-        "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
         "notes": "EOL but matches superconfigure; stable with Cosmopolitan",
-        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
         "url": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1u.tar.gz",
+        "sha256": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7",
+        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
         "license": "Apache-2.0",
         "license_url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt"
       },
       "3.5.4": {
-        "sha256": "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99",
         "notes": "First OpenSSL 3.x version compatible with Cosmopolitan",
-        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
         "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz",
+        "sha256": "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99",
+        "gpg": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF",
         "license": "Apache-2.0",
         "license_url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt"
       }
-    },
-    "default": "3.5.4"
+    }
   },
   "readline": {
+    "default": "8.3",
     "versions": {
       "8.2": {
+        "url": "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz",
         "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35",
         "gpg": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB",
-        "url": "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz",
         "license": "GPL-3.0",
         "license_url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING"
       },
       "8.3": {
+        "url": "https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz",
         "sha256": "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc",
         "gpg": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB",
-        "url": "https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz",
         "license": "GPL-3.0",
         "license_url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING"
       }
-    },
-    "default": "8.3"
+    }
   },
   "sqlite": {
+    "default": "3.51.2",
     "versions": {
       "3.51.2": {
+        "url": "https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz",
         "sha256": "fbd89f866b1403bb66a143065440089dd76100f2238314d92274a082d4f2b7bb",
         "autoconf_version": "3510200",
-        "url": "https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz",
         "license": "Public-Domain",
         "license_url": "https://www.sqlite.org/copyright.html"
       }
-    },
-    "default": "3.51.2"
+    }
   },
   "xz": {
+    "default": "5.8.2",
     "versions": {
       "5.4.5": {
+        "url": "https://github.com/tukaani-project/xz/releases/download/v5.4.5/xz-5.4.5.tar.gz",
         "sha256": "135c90b934aee8fbc0d467de87a05cb70d627da36abe518c357a873709e5b7d6",
         "gpg": "3690C240CE51B4670D30AD1C38EE757D69184620",
-        "url": "https://github.com/tukaani-project/xz/releases/download/v5.4.5/xz-5.4.5.tar.gz",
         "license": "Public-Domain",
         "license_url": "https://github.com/tukaani-project/xz/blob/master/COPYING"
       },
       "5.8.2": {
+        "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz",
         "sha256": "ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1",
         "gpg": "3690C240CE51B4670D30AD1C38EE757D69184620",
-        "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz",
         "license": "Public-Domain",
         "license_url": "https://github.com/tukaani-project/xz/blob/master/COPYING"
       }
-    },
-    "default": "5.8.2"
+    }
   }
 }

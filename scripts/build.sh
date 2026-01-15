@@ -132,5 +132,5 @@ for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
 done
 echo ""
 echo "  To generate a release manifest:"
-echo "    ./scripts/03-release/manifest.sh <release-tag>"
+echo "    ./scripts/03-ci/manifest.sh <release-tag>"
 echo ""

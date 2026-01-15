@@ -39,6 +39,7 @@ env:
 jobs:
   # First job: determine which versions to build
   setup:
+    name: Setup Build Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
@@ -61,6 +62,7 @@ jobs:
 
   # Second job: build dependencies (cached)
   deps:
+    name: Build Dependencies
     runs-on: ubuntu-latest
     env:
       COSMO_DIR: /tmp/cosmo
@@ -84,6 +86,7 @@ jobs:
 
   # Third job: build Python versions in parallel
   build:
+    name: Build Python ${{ matrix.version }}
     needs: [setup, deps]
     runs-on: ubuntu-latest
     strategy:

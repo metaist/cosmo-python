@@ -8,6 +8,7 @@ on:
 
 jobs:
   validate:
+    name: Lint & Validate
     runs-on: ubuntu-latest
 
     steps:

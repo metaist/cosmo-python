@@ -58,7 +58,7 @@ smoke-all.shell = """
 
 # Release
 manifest.help = "generate manifest.json for a release"
-manifest.shell = "./scripts/03-release/manifest.sh $@"
+manifest.shell = "./scripts/03-ci/manifest.sh $@"
 
 # Development
 dev.help = "quick validation: lint + cog-check + test-scripts"
