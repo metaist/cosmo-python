@@ -125,7 +125,7 @@ run_configure ./configure \
   CFLAGS="-Os"
 
 log_info "compiling..."
-timed make -j"$(nproc)"
+timed run_dep_make -j"$(nproc)"
 
 log_info "installing..."
 make install

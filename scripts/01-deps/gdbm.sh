@@ -81,7 +81,7 @@ run_configure ./configure \
 
 # Build
 log_info "compiling..."
-timed make -j"$(nproc)"
+timed run_dep_make -j"$(nproc)"
 
 # Create aarch64 archives before install
 # cosmoar (used as RANLIB) expects .aarch64 archives to exist

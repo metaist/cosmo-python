@@ -63,7 +63,7 @@ make clean 2>/dev/null || true
 
 # bzip2 uses a simple Makefile, override CC and AR
 log_info "compiling..."
-timed make -j"$(nproc)" \
+timed run_dep_make -j"$(nproc)" \
   CC="${CC}" \
   AR="${AR}" \
   RANLIB="${RANLIB}" \

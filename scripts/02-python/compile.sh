@@ -244,13 +244,13 @@ log_info "compiling (this may take several minutes)..."
 # since it's normally handled by setup.py for shared builds
 if [ ! -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
   # Build everything except the final link (library, objects, but not python binary)
-  timed make -j"$(nproc)" libpython3.10.a Modules/_math.o
+  timed run_python_make -j"$(nproc)" libpython3.10.a Modules/_math.o
   log_info "adding _math.o to library..."
   ${COSMO_DIR}/bin/cosmoar rcs libpython3.10.a Modules/_math.o
   # Now build python binary
-  timed make -j"$(nproc)" python
+  timed run_python_make -j"$(nproc)" python
 else
-  timed make -j"$(nproc)"
+  timed run_python_make -j"$(nproc)"
 fi
 
 log_ok "Python ${PYTHON_VERSION} compiled"

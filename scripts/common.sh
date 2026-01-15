@@ -110,6 +110,42 @@ timed() {
   return $status
 }
 
+#------------------------------------------------------------------------------
+# Timeouts for long-running commands
+#------------------------------------------------------------------------------
+
+# Timeouts (override with env vars)
+# Generous defaults to avoid false failures while catching runaway processes
+CONFIGURE_TIMEOUT="${CONFIGURE_TIMEOUT:-5m}"       # 5 min for configure scripts
+DEP_MAKE_TIMEOUT="${DEP_MAKE_TIMEOUT:-15m}"        # 15 min for dependency builds
+PYTHON_MAKE_TIMEOUT="${PYTHON_MAKE_TIMEOUT:-45m}"  # 45 min for Python compile
+
+# Run make with timeout for dependency builds
+# Usage: run_dep_make -j$(nproc)
+run_dep_make() {
+  if ! timeout "$DEP_MAKE_TIMEOUT" make "$@"; then
+    local status=$?
+    if [ $status -eq 124 ]; then
+      log_error "make timed out after $DEP_MAKE_TIMEOUT"
+      log_error "increase DEP_MAKE_TIMEOUT if this is expected"
+    fi
+    return $status
+  fi
+}
+
+# Run make with timeout for Python builds
+# Usage: run_python_make -j$(nproc)
+run_python_make() {
+  if ! timeout "$PYTHON_MAKE_TIMEOUT" make "$@"; then
+    local status=$?
+    if [ $status -eq 124 ]; then
+      log_error "make timed out after $PYTHON_MAKE_TIMEOUT"
+      log_error "increase PYTHON_MAKE_TIMEOUT if this is expected"
+    fi
+    return $status
+  fi
+}
+
 # Common directories (can be overridden by environment)
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 WORK_DIR="${WORK_DIR:-${REPO_ROOT}/work}"
@@ -324,8 +360,14 @@ clean_dep() {
 # On failure, outputs config.log and exits
 run_configure() {
   log_info "configuring..."
-  if ! "$@" > /tmp/configure-output.log 2>&1; then
-    log_error "configure failed!"
+  if ! timeout "$CONFIGURE_TIMEOUT" "$@" > /tmp/configure-output.log 2>&1; then
+    local status=$?
+    if [ $status -eq 124 ]; then
+      log_error "configure timed out after $CONFIGURE_TIMEOUT"
+      log_error "increase CONFIGURE_TIMEOUT if this is expected"
+    else
+      log_error "configure failed!"
+    fi
     log_error "--- configure output ---"
     cat /tmp/configure-output.log >&2
     if [ -f config.log ]; then

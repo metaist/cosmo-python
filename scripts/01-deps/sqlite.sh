@@ -86,7 +86,7 @@ run_configure ./configure \
   CFLAGS="-Os -DSQLITE_DQS=0 -DSQLITE_DEFAULT_MEMSTATUS=0 -DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 -DSQLITE_LIKE_DOESNT_MATCH_BLOBS -DSQLITE_OMIT_DEPRECATED -DSQLITE_OMIT_SHARED_CACHE -DSQLITE_OMIT_LOAD_EXTENSION"
 
 log_info "compiling..."
-timed make -j"$(nproc)"
+timed run_dep_make -j"$(nproc)"
 
 log_info "installing..."
 make install

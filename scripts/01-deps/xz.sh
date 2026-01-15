@@ -82,7 +82,7 @@ run_configure ./configure \
 
 # Build only liblzma
 log_info "compiling..."
-timed make -C src/liblzma -j"$(nproc)"
+timed run_dep_make -C src/liblzma -j"$(nproc)"
 
 # Install
 log_info "installing..."

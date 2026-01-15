@@ -91,7 +91,7 @@ run_configure ./configure \
   LDFLAGS="-L${DEPS_DIR}/lib"
 
 log_info "compiling..."
-timed make -j"$(nproc)"
+timed run_dep_make -j"$(nproc)"
 
 log_info "installing..."
 make install

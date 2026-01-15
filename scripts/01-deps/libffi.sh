@@ -155,7 +155,7 @@ build_arch() {
     RANLIB="${RANLIB}" \
     CFLAGS="-Os"
 
-  timed make -j"$(nproc)"
+  timed run_dep_make -j"$(nproc)"
   make install
 }
 

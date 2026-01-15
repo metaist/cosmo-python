@@ -124,7 +124,7 @@ log_info "configuring..."
 sed -i 's/^\*shared\*/*static*/' Makefile 2>/dev/null || true
 
 log_info "compiling (this may take a few minutes)..."
-timed make -j"$(nproc)" build_libs
+timed run_dep_make -j"$(nproc)" build_libs
 
 # Manual install - avoid make install_sw because cosmoar conflicts with
 # OpenSSL's install script when handling fat binary directories
