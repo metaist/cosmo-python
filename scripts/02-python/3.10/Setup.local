@@ -99,3 +99,9 @@ _curses_panel _curses_panel.c -lpanelw -lncursesw -ltinfo
 # Multiprocessing
 _multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c
 _posixshmem _multiprocessing/posixshmem.c
+
+# FFI/ctypes
+# Note: pythonapi requires dlopen(NULL) which Cosmopolitan doesn't support.
+# Our ctypes-cosmopolitan.patch sets pythonapi=None as a fallback.
+# Basic ctypes functionality (structs, arrays, c types) still works.
+_ctypes _ctypes/_ctypes.c _ctypes/callbacks.c _ctypes/callproc.c _ctypes/stgdict.c _ctypes/cfield.c -lffi

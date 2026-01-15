@@ -103,7 +103,7 @@ fi
 
 for version in "${VERSIONS[@]}"; do
   log_info "downloading Python ${version} source..."
-  "${SCRIPT_DIR}/00-setup/python-source.sh" "${version}"
+  "${SCRIPT_DIR}/02-python/source.sh" "${version}"
 done
 
 #
@@ -184,9 +184,7 @@ echo "  Phase 4: Smoke Tests"
 echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
-  # Find the built binary for this version
-  MAJOR_MINOR="${version%.*}"
-  BINARY="${DIST_DIR}/python-${version}-cosmo-${MAJOR_MINOR}.com"
+  BINARY="${DIST_DIR}/python-${version}-cosmo.com"
   
   if [ -f "$BINARY" ]; then
     log_info "testing Python ${version}..."
@@ -211,7 +209,7 @@ echo ""
 echo "  Duration: $((BUILD_DURATION / 60))m $((BUILD_DURATION % 60))s"
 echo ""
 echo "  Artifacts:"
-for artifact in "${DIST_DIR}"/python-*-cosmo-*.com; do
+for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
   if [ -f "$artifact" ]; then
     size=$(du -h "$artifact" | cut -f1)
     echo "    $(basename "$artifact") ($size)"
