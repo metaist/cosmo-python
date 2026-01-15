@@ -167,6 +167,28 @@ for version in "${VERSIONS[@]}"; do
 done
 
 #
+# Phase 4: Smoke Tests
+#
+echo ""
+echo "========================================"
+echo "  Phase 4: Smoke Tests"
+echo "========================================"
+
+for version in "${VERSIONS[@]}"; do
+  # Find the built binary for this version
+  MAJOR_MINOR="${version%.*}"
+  BINARY="${DIST_DIR}/python-${version}-cosmo-${MAJOR_MINOR}.com"
+  
+  if [ -f "$BINARY" ]; then
+    log_info "testing Python ${version}..."
+    "${SCRIPT_DIR}/04-test/smoke.sh" "${BINARY}"
+  else
+    log_error "binary not found: ${BINARY}"
+    exit 1
+  fi
+done
+
+#
 # Summary
 #
 BUILD_END=$(date +%s)
