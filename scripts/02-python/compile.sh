@@ -60,20 +60,42 @@ done
 log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
 # Apply Cosmopolitan-specific patches
+# Patches can be version-specific by naming them with version suffixes:
+#   foo.patch              - applies to all versions
+#   foo-3.10.patch         - applies only to 3.10.x
+#   foo-3.10-3.11.patch    - applies to 3.10.x and 3.11.x
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PATCHES_DIR="${SCRIPT_DIR}/patches"
+PYTHON_MINOR="${PYTHON_VERSION%.*}"  # e.g., 3.10 from 3.10.16
+
+apply_patch() {
+  local patch="$1"
+  local patch_name
+  patch_name=$(basename "$patch")
+  
+  # Check if patch is version-specific
+  if [[ "$patch_name" =~ -([0-9]+\.[0-9]+)(-([0-9]+\.[0-9]+))?\.patch$ ]]; then
+    local min_ver="${BASH_REMATCH[1]}"
+    local max_ver="${BASH_REMATCH[3]:-$min_ver}"
+    # Skip if current version is outside the range
+    if [[ "$PYTHON_MINOR" < "$min_ver" ]] || [[ "$PYTHON_MINOR" > "$max_ver" ]]; then
+      return 0
+    fi
+  fi
+  
+  if ! grep -q "COSMO_PATCH_APPLIED_${patch_name}" "${SRC_DIR}/.cosmo_patches" 2>/dev/null; then
+    log_info "applying patch: ${patch_name}"
+    cd "${SRC_DIR}"
+    patch -p1 < "$patch" || log_warn "patch may have already been applied"
+    echo "COSMO_PATCH_APPLIED_${patch_name}" >> "${SRC_DIR}/.cosmo_patches"
+    cd - > /dev/null
+  fi
+}
 
 if [ -d "${PATCHES_DIR}" ]; then
   for patch in "${PATCHES_DIR}"/*.patch; do
     if [ -f "$patch" ]; then
-      patch_name=$(basename "$patch")
-      if ! grep -q "COSMO_PATCH_APPLIED_${patch_name}" "${SRC_DIR}/.cosmo_patches" 2>/dev/null; then
-        log_info "applying patch: ${patch_name}"
-        cd "${SRC_DIR}"
-        patch -p1 < "$patch" || log_warn "patch may have already been applied"
-        echo "COSMO_PATCH_APPLIED_${patch_name}" >> "${SRC_DIR}/.cosmo_patches"
-        cd - > /dev/null
-      fi
+      apply_patch "$patch"
     fi
   done
 fi
@@ -81,9 +103,15 @@ fi
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
 setup_cosmocc
-export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include"
+export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include --sysroot=${COSMO_DIR}"
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
+
+# Python 3.10's setup.py adds /usr/include to include paths unless cross-compiling.
+# Setting _PYTHON_HOST_PLATFORM triggers cross-compile mode, and --sysroot above
+# ensures sysroot_paths() won't find /usr/include (since $COSMO_DIR/usr/include
+# doesn't exist). This prevents system header conflicts with cosmopolitan.
+export _PYTHON_HOST_PLATFORM="cosmo"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
   log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"

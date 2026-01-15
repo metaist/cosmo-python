@@ -1,0 +1,13 @@
+--- a/setup.py
++++ b/setup.py
+@@ -665,6 +665,10 @@ class PyBuildExt(build_ext):
+ 
+     def add_multiarch_paths(self):
+         # Debian/Ubuntu multiarch support.
++        # COSMO: Disable multiarch detection to prevent adding /usr/include/x86_64-linux-gnu
++        # which conflicts with cosmopolitan headers
++        return
++
+         # https://wiki.ubuntu.com/MultiarchSpec
+         tmpfile = os.path.join(self.build_temp, 'multiarch')
+         if not os.path.exists(self.build_temp):
