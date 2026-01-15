@@ -51,6 +51,12 @@
     "keyserver",
     "keyservers",
     "GNUPGHOME",
-    "mktemp"
+    "mktemp",
+    "subkeys",
+    "endoflife",
+    "ltermcap",
+    "ctypes",
+    "binfmt",
+    "shellcheck"
   ]
 }
