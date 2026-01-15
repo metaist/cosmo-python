@@ -21,10 +21,11 @@ else
   RESET=''
 fi
 
-# Get script name for logging prefix
+# Get script name for logging prefix (strip path, keep just XX-dir/name)
 _SCRIPT_NAME="${BASH_SOURCE[1]:-$0}"
-_SCRIPT_NAME="${_SCRIPT_NAME#./scripts/}"
-_SCRIPT_NAME="${_SCRIPT_NAME%.sh}"
+_SCRIPT_NAME="${_SCRIPT_NAME##*/scripts/}"  # Strip everything up to /scripts/
+_SCRIPT_NAME="${_SCRIPT_NAME#./scripts/}"   # Strip ./scripts/ prefix
+_SCRIPT_NAME="${_SCRIPT_NAME%.sh}"          # Strip .sh suffix
 
 # Logging functions
 log_info() {
