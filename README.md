@@ -117,6 +117,19 @@ checksums.txt
 ```
 <!--[[[end]]]-->
 
+### How Releases Work
+
+Releases are created through a semi-automated pipeline:
+
+1. **[check-updates.yaml]** runs weekly to detect new Python/dependency versions and creates a PR
+2. **[pr-build.yaml]** validates the PR by building all Python versions
+3. A maintainer reviews and merges the PR
+4. A maintainer triggers **[release.yaml]** to publish the new release
+
+[check-updates.yaml]: .github/workflows/check-updates.yaml
+[pr-build.yaml]: .github/workflows/pr-build.yaml
+[release.yaml]: .github/workflows/release.yaml
+
 ### Manifest Format
 
 The `manifest.json` acts as a spanning registry, tracking all versions across releases:
@@ -136,15 +149,6 @@ The `manifest.json` acts as a spanning registry, tracking all versions across re
   "default": "3.12"
 }
 ```
-
-### When We Release
-
-A new release is triggered when:
-
-- **Upstream Python patch** - New bugfix release (e.g., 3.12.8 → 3.12.9)
-- **Cosmopolitan update** - New cosmocc version with fixes
-- **Build patches** - Changes to our patches or build configuration
-- **Security issues** - CVEs in Python or dependencies
 
 ---
 
