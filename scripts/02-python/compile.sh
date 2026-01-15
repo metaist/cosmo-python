@@ -170,9 +170,9 @@ fi
 # We provide a custom Setup.local.3.10 file with all modules listed for static build
 log_info "patching for static module building..."
 
-if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
+if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   # Python 3.11+: Patch Setup.stdlib to use *static* instead of *shared*
-  SETUP_FILE="${SRC_DIR}/Modules/Setup.stdlib"
+  SETUP_FILE="${BUILD_DIR}/Modules/Setup.stdlib"
   sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
 
   # Enable modules that configure might not have detected
@@ -180,6 +180,12 @@ if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
   sed -i 's/^#readline /readline /' "$SETUP_FILE"
   sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
   sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
+  sed -i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
+  sed -i 's/^#_curses /_curses /' "$SETUP_FILE"
+  sed -i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
+  sed -i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
+  sed -i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
+  sed -i 's/^#_sqlite3 /_sqlite3 /' "$SETUP_FILE"
 
   # Remove modules that need unavailable headers/libraries
   #
@@ -206,7 +212,7 @@ if [ -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
     sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
   done
   
-  cp "${SRC_DIR}/Modules/Setup.stdlib" "${SRC_DIR}/Modules/Setup.local"
+  cp "${BUILD_DIR}/Modules/Setup.stdlib" "${BUILD_DIR}/Modules/Setup.local"
 else
   # Python 3.10: Use our custom Setup.local that lists all modules for static build
   # This is necessary because Python 3.10's setup.py builds modules as shared
@@ -242,7 +248,7 @@ make Makefile
 log_info "compiling (this may take several minutes)..."
 # For Python 3.10, we need to add _math.o to the library manually
 # since it's normally handled by setup.py for shared builds
-if [ ! -f "${SRC_DIR}/Modules/Setup.stdlib" ]; then
+if [ ! -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   # Build everything except the final link (library, objects, but not python binary)
   timed run_python_make -j"$(nproc)" libpython3.10.a Modules/_math.o
   log_info "adding _math.o to library..."
