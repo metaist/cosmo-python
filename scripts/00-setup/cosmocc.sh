@@ -37,3 +37,25 @@ else
   log_error "cosmocc installation failed"
   exit 1
 fi
+
+# Setup APE loader (allows running Cosmopolitan binaries directly)
+APE_LOADER="${COSMO_DIR}/bin/ape-x86_64.elf"
+if [ -f "$APE_LOADER" ] && [ ! -f /usr/bin/ape ]; then
+  if [ -w /usr/bin ] 2>/dev/null; then
+    log_info "installing APE loader to /usr/bin/ape..."
+    cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
+  elif command -v sudo >/dev/null 2>&1; then
+    log_info "installing APE loader to /usr/bin/ape (via sudo)..."
+    sudo cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
+  fi
+fi
+
+# Register APE with binfmt_misc (Linux only, best-effort)
+if [ -f /proc/sys/fs/binfmt_misc/register ] && [ ! -f /proc/sys/fs/binfmt_misc/APE ]; then
+  log_info "registering APE with binfmt_misc..."
+  if [ -w /proc/sys/fs/binfmt_misc/register ] 2>/dev/null; then
+    echo ':APE:M::MZqFpD::/usr/bin/ape:' > /proc/sys/fs/binfmt_misc/register 2>/dev/null || true
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' > /proc/sys/fs/binfmt_misc/register" 2>/dev/null || true
+  fi
+fi

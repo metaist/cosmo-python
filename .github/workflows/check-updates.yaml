@@ -33,7 +33,7 @@ jobs:
         id: check
         run: |
           ./scripts/check-updates.sh 2>&1 | tee /tmp/update-output.txt
-          
+
           # Check if versions.json changed
           if git diff --quiet versions.json README.md; then
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
@@ -41,7 +41,7 @@ jobs:
           else
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
             echo "Updates found!"
-            
+
             # Capture diff for PR body
             {
               echo 'diff_stat<<EOF'

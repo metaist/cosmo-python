@@ -1,7 +1,7 @@
 # PR Build Workflow
 #
-# Validates dependency updates by building all Python versions.
-# Triggered on PRs that modify versions.json or README.md.
+# Validates changes by building all Python versions.
+# Triggered on PRs that modify versions.json, scripts, or README.
 #
 name: PR Build
 
@@ -12,86 +12,8 @@ on:
       - 'README.md'
       - 'scripts/**'
 
-permissions:
-  contents: read
-
 jobs:
   build:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false  # Continue building other versions if one fails
-      matrix:
-        python_minor: ["3.10", "3.11", "3.12", "3.13"]
-
-    env:
-      WORK_DIR: ${{ github.workspace }}/work
-      DIST_DIR: ${{ github.workspace }}/dist
-      COSMO_DIR: /tmp/cosmo
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: false  # We only use uvx for sigstore, no deps to cache
-
-      - name: Detect Python version from versions.json
-        id: detect
-        run: |
-          # Get the latest version for this minor series from versions.json
-          VERSION=$(jq -r ".python.latest[\"${{ matrix.python_minor }}\"]" versions.json)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building Python $VERSION (minor: ${{ matrix.python_minor }})"
-
-      - name: Register APE with binfmt_misc
-        run: |
-          sudo mkdir -p /usr/bin
-          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
-
-      - name: Build Python ${{ steps.detect.outputs.version }}
-        run: |
-          ./scripts/build.sh "${{ steps.detect.outputs.version }}"
-
-      - name: Copy APE loader
-        run: |
-          if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
-            sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
-          fi
-
-      - name: Run smoke tests
-        run: |
-          BIN="dist/python-${{ steps.detect.outputs.version }}-cosmo.com"
-          if [ -f "$BIN" ]; then
-            ./scripts/04-test/smoke.sh "$BIN"
-          else
-            echo "Binary not found: $BIN"
-            ls -la dist/
-            exit 1
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: python-${{ matrix.python_minor }}-cosmo
-          path: dist/python-*-cosmo.com
-          if-no-files-found: error
-
-  summary:
-    runs-on: ubuntu-latest
-    needs: build
-    if: always()
-
-    steps:
-      - name: Check build results
-        run: |
-          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ "${{ needs.build.result }}" = "success" ]; then
-            echo "✅ All Python versions built successfully!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Some builds failed. Check individual job logs." >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+    uses: ./.github/workflows/build.yaml
+    with:
+      python_version: "all"

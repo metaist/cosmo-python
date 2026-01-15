@@ -1,10 +1,16 @@
 # Cosmopolitan Python Build Workflow
 #
 # Builds Python versions using a matrix for parallel execution.
-# Each version is attested for supply chain security.
+# Attestations are added by release.yaml, not here.
+#
+# Structure:
+#   1. setup: determine which versions to build
+#   2. deps: build dependencies once (cached across runs)
+#   3. build: build Python versions in parallel (matrix)
 #
 # Usage:
 #   - Single version: python_version = "3.12.8"
+#   - Multiple: python_version = "3.12.8, 3.13.1"
 #   - All versions: python_version = "all" (reads from versions.json)
 #
 name: build
@@ -17,11 +23,15 @@ on:
         required: true
         default: "3.12.8"
         type: string
+  workflow_call:
+    inputs:
+      python_version:
+        description: "Python version(s) to build: '3.12.8', '3.12.8, 3.13.1', or 'all'"
+        required: true
+        type: string
 
 permissions:
   contents: read
-  id-token: write       # Required for OIDC attestation
-  attestations: write   # Required to upload attestations
 
 env:
   COSMOCC_VERSION: "4.0.2"
@@ -49,49 +59,68 @@ jobs:
           echo "matrix={\"version\":${VERSIONS}}" >> "$GITHUB_OUTPUT"
           echo "Building versions: $VERSIONS"
 
-  # Second job: build each version in parallel
-  build:
-    needs: setup
+  # Second job: build dependencies (cached)
+  deps:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false  # Don't cancel other versions if one fails
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
-
     env:
-      WORK_DIR: ${{ github.workspace }}/work
-      DIST_DIR: ${{ github.workspace }}/dist
       COSMO_DIR: /tmp/cosmo
+      WORK_DIR: ${{ github.workspace }}/work
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v5
+        with:
+          path: |
+            /tmp/cosmo
+            work/deps
+          key: deps-cosmocc${{ env.COSMOCC_VERSION }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+
+      - name: Build dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: ./scripts/01-deps/build.sh
+
+  # Third job: build Python versions in parallel
+  build:
+    needs: [setup, deps]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true  # Stop all if one fails (can't release partial set)
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+
+    env:
+      COSMO_DIR: /tmp/cosmo
+      WORK_DIR: ${{ github.workspace }}/work
+      DIST_DIR: ${{ github.workspace }}/dist
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Restore deps from cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            /tmp/cosmo
+            work/deps
+          key: deps-cosmocc${{ env.COSMOCC_VERSION }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+          fail-on-cache-miss: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
-      - name: Register APE with binfmt_misc
-        run: |
-          sudo mkdir -p /usr/bin
-          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" || true
+      - name: Setup APE loader
+        run: ./scripts/00-setup/cosmocc.sh
 
       - name: Build Python ${{ matrix.version }}
-        run: ./scripts/build.sh "${{ matrix.version }}"
-
-      - name: Copy APE loader
-        run: |
-          if [ -f /tmp/cosmo/bin/ape-x86_64.elf ]; then
-            sudo cp /tmp/cosmo/bin/ape-x86_64.elf /usr/bin/ape
-          fi
+        run: ./scripts/02-python/build.sh "${{ matrix.version }}"
 
       - name: Run smoke tests
         run: |
-          ./scripts/04-test/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: dist/python-${{ matrix.version }}-cosmo.com
+          ./scripts/02-python/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6

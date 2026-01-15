@@ -15,11 +15,9 @@
 #   ./scripts/build.sh --all
 #
 # Build phases:
-#   0: Setup      System deps, cosmocc toolchain, APE loader
-#   1: Deps       Build dependencies (ncurses, readline, openssl, etc.)
-#   2: Python     Download, verify, patch, compile Python
-#   3: Package    Create distributable archive
-#   4: Test       Run smoke tests
+#   1: Deps       System deps, cosmocc, library dependencies
+#   2: Python     Download, compile, package Python
+#   3: Test       Run smoke tests
 #
 set -euo pipefail
 
@@ -36,13 +34,11 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ "$1" = "--all" ]; then
-  # Read versions from versions.json using jq
   if [ ! -f "$VERSIONS_FILE" ]; then
     log_error "versions.json not found at $VERSIONS_FILE"
     exit 1
   fi
   
-  # Extract all Python versions from .python.versions
   mapfile -t VERSIONS < <(jq -r '.python.versions | keys[]' "$VERSIONS_FILE")
   
   if [ ${#VERSIONS[@]} -eq 0 ]; then
@@ -67,39 +63,9 @@ echo "  Work dir: ${WORK_DIR}"
 echo "  Dist dir: ${DIST_DIR}"
 echo ""
 
-#
-# Phase 0: Setup
-#
-echo ""
-echo "========================================"
-echo "  Phase 0: Setup"
-echo "========================================"
-
 # Print diagnostics if VERBOSE is set or if running in CI
 if [ "${VERBOSE:-}" = "1" ] || [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
   print_diagnostics
-fi
-
-log_info "checking system dependencies..."
-"${SCRIPT_DIR}/00-setup/system-deps.sh"
-
-log_info "setting up cosmocc toolchain..."
-"${SCRIPT_DIR}/00-setup/cosmocc.sh"
-
-# Install APE loader for binfmt_misc (allows running APE binaries directly)
-# This must happen AFTER cosmocc is downloaded but BEFORE any builds
-# that might have configure scripts trying to run compiled binaries.
-APE_LOADER="${COSMO_DIR}/bin/ape-x86_64.elf"
-if [ -f "$APE_LOADER" ] && [ -w /usr/bin ] 2>/dev/null; then
-  if [ ! -f /usr/bin/ape ]; then
-    log_info "installing APE loader to /usr/bin/ape..."
-    sudo cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
-  fi
-elif [ -f "$APE_LOADER" ] && command -v sudo >/dev/null 2>&1; then
-  if [ ! -f /usr/bin/ape ]; then
-    log_info "installing APE loader to /usr/bin/ape (via sudo)..."
-    sudo cp "$APE_LOADER" /usr/bin/ape 2>/dev/null || true
-  fi
 fi
 
 #
@@ -110,43 +76,10 @@ echo "========================================"
 echo "  Phase 1: Dependencies"
 echo "========================================"
 
-# Build dependencies in parallel where possible
-# - ncurses must complete before readline (readline depends on ncurses)
-# - all others have no dependencies on each other
-#
-if command -v parallel >/dev/null 2>&1; then
-  log_info "building dependencies in parallel..."
-  
-  # Wave 1: ncurses + all independent deps
-  parallel --line-buffer --halt now,fail=1 ::: \
-    "${SCRIPT_DIR}/01-deps/ncurses.sh" \
-    "${SCRIPT_DIR}/01-deps/bz2.sh" \
-    "${SCRIPT_DIR}/01-deps/gdbm.sh" \
-    "${SCRIPT_DIR}/01-deps/libffi.sh" \
-    "${SCRIPT_DIR}/01-deps/openssl.sh" \
-    "${SCRIPT_DIR}/01-deps/sqlite.sh" \
-    "${SCRIPT_DIR}/01-deps/xz.sh"
-  
-  # Wave 2: readline (needs ncurses)
-  "${SCRIPT_DIR}/01-deps/readline.sh"
-else
-  log_info "building dependencies sequentially (install 'parallel' for faster builds)..."
-  
-  # ncurses must be built before readline
-  "${SCRIPT_DIR}/01-deps/ncurses.sh"
-  "${SCRIPT_DIR}/01-deps/readline.sh"
-  
-  # Remaining deps in alphabetical order
-  "${SCRIPT_DIR}/01-deps/bz2.sh"
-  "${SCRIPT_DIR}/01-deps/gdbm.sh"
-  "${SCRIPT_DIR}/01-deps/libffi.sh"
-  "${SCRIPT_DIR}/01-deps/openssl.sh"
-  "${SCRIPT_DIR}/01-deps/sqlite.sh"
-  "${SCRIPT_DIR}/01-deps/xz.sh"
-fi
+${SCRIPT_DIR}/01-deps/build.sh
 
 #
-# Phase 2: Python (download, verify, patch, compile)
+# Phase 2: Python (download, compile, package)
 #
 echo ""
 echo "========================================"
@@ -154,34 +87,15 @@ echo "  Phase 2: Python"
 echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
-  log_info "downloading Python ${version} source..."
-  "${SCRIPT_DIR}/02-python/source.sh" "${version}"
-done
-
-for version in "${VERSIONS[@]}"; do
-  log_info "compiling Python ${version}..."
-  "${SCRIPT_DIR}/02-python/compile.sh" "${version}"
+  "${SCRIPT_DIR}/02-python/build.sh" "${version}"
 done
 
 #
-# Phase 3: Package
+# Phase 3: Smoke Tests
 #
 echo ""
 echo "========================================"
-echo "  Phase 3: Package"
-echo "========================================"
-
-for version in "${VERSIONS[@]}"; do
-  log_info "packaging Python ${version}..."
-  "${SCRIPT_DIR}/03-package/package.sh" "${version}"
-done
-
-#
-# Phase 4: Smoke Tests
-#
-echo ""
-echo "========================================"
-echo "  Phase 4: Smoke Tests"
+echo "  Phase 3: Smoke Tests"
 echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
@@ -189,7 +103,7 @@ for version in "${VERSIONS[@]}"; do
   
   if [ -f "$BINARY" ]; then
     log_info "testing Python ${version}..."
-    "${SCRIPT_DIR}/04-test/smoke.sh" "${BINARY}"
+    "${SCRIPT_DIR}/02-python/smoke.sh" "${BINARY}"
   else
     log_error "binary not found: ${BINARY}"
     exit 1
@@ -218,5 +132,5 @@ for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
 done
 echo ""
 echo "  To generate a release manifest:"
-echo "    ./scripts/03-package/manifest.sh <release-tag>"
+echo "    ./scripts/03-release/manifest.sh <release-tag>"
 echo ""

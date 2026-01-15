@@ -18,8 +18,8 @@ clean.shell = """
 """
 
 # Lint
-lint.help = "check shell scripts and spelling"
-lint.composite = ["shellcheck", "cspell"]
+lint.help = "check shell scripts, yaml, and spelling"
+lint.composite = ["shellcheck", "yamllint", "cspell"]
 
 shellcheck.help = "lint shell scripts"
 # Excluded checks:
@@ -33,12 +33,15 @@ shellcheck.shell = "find scripts -name '*.sh' -exec npx --yes shellcheck -x -e S
 cspell.help = "check spelling in docs"
 cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.md'"
 
+yamllint.help = "lint yaml files"
+yamllint.shell = "uvx yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
+
 # Test
 test-scripts.help = "validate build script structure and syntax"
 test-scripts.shell = "./scripts/test-scripts.sh"
 
 smoke.help = "run smoke tests on a binary"
-smoke.shell = "./scripts/04-test/smoke.sh $@"
+smoke.shell = "./scripts/02-python/smoke.sh $@"
 
 smoke-all.help = "run smoke tests on all binaries in dist/"
 smoke-all.shell = """
@@ -46,16 +49,16 @@ smoke-all.shell = """
   for bin in dist/python-*-cosmo.com; do
     if [ -f "$bin" ]; then
       echo "Testing: $bin";
-      ./scripts/04-test/smoke.sh "$bin" || failed=1;
+      ./scripts/02-python/smoke.sh "$bin" || failed=1;
       echo;
     fi;
   done;
   exit $failed
 """
 
-# Package
+# Release
 manifest.help = "generate manifest.json for a release"
-manifest.shell = "./scripts/03-package/manifest.sh $@"
+manifest.shell = "./scripts/03-release/manifest.sh $@"
 
 # Development
 dev.help = "quick validation: lint + test-scripts"

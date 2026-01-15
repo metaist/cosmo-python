@@ -1,8 +1,8 @@
 #!/bin/bash
 # Smoke tests for Cosmopolitan Python builds
 #
-# Usage: ./scripts/04-test/smoke.sh <python_binary>
-#        ./scripts/04-test/smoke.sh dist/python-3.12.8-cosmo.com
+# Usage: ./scripts/02-python/smoke.sh <python_binary>
+#        ./scripts/02-python/smoke.sh dist/python-3.12.8-cosmo.com
 #
 # Tests:
 #   - Basic execution (--version)

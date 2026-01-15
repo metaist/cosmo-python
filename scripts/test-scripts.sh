@@ -42,7 +42,7 @@ for f in \
   scripts/00-setup/*.sh \
   scripts/01-deps/*.sh \
   scripts/02-python/*.sh \
-  scripts/03-package/*.sh
+  scripts/03-release/*.sh
 do
   if [ -f "${REPO_ROOT}/${f}" ]; then
     if bash -n "${REPO_ROOT}/${f}" 2>/dev/null; then
@@ -104,7 +104,7 @@ fi
 #
 echo ""
 echo "Checking directory structure..."
-for dir in scripts/00-setup scripts/01-deps scripts/02-python scripts/03-package; do
+for dir in scripts/00-setup scripts/01-deps scripts/02-python scripts/03-release; do
   if [ -d "${REPO_ROOT}/${dir}" ]; then
     pass "$dir exists"
   else
@@ -130,8 +130,8 @@ required_scripts=(
   "scripts/01-deps/xz.sh"
   "scripts/02-python/source.sh"
   "scripts/02-python/compile.sh"
-  "scripts/03-package/package.sh"
-  "scripts/03-package/manifest.sh"
+  "scripts/02-python/package.sh"
+  "scripts/03-release/manifest.sh"
 )
 
 for script in "${required_scripts[@]}"; do
@@ -158,17 +158,4 @@ if [ $FAIL -gt 0 ]; then
   exit 1
 fi
 
-#
-# Check test scripts
-#
-echo ""
-echo "Checking test scripts..."
-for script in scripts/04-test/*.sh; do
-  if [ -f "$script" ]; then
-    if [ -x "$script" ]; then
-      pass "$script (executable)"
-    else
-      fail "$script (not executable)"
-    fi
-  fi
-done
+
