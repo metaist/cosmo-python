@@ -44,24 +44,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+
       - name: Determine versions to build
         id: versions
-        run: |
-          INPUT="${{ inputs.python_version }}"
-          if [ "$INPUT" = "all" ]; then
-            # Get all versions from versions.json
-            VERSIONS=$(jq -c '[.python.versions | keys[]]' versions.json)
-          else
-            # Split by comma or space into JSON array
-            VERSIONS=$(echo "$INPUT" | tr ',' ' ' | xargs -n1 | jq -R . | jq -sc .)
-          fi
-          echo "matrix={\"version\":${VERSIONS}}" >> "$GITHUB_OUTPUT"
-          echo "Building versions: $VERSIONS"
-
-          # Get cosmocc version for cache key (scripts read from versions.json directly)
-          COSMOCC=$(jq -r '.cosmocc.default' versions.json)
-          echo "cosmocc_version=$COSMOCC" >> "$GITHUB_OUTPUT"
-          echo "Cosmocc version: $COSMOCC"
+        run: uv run -m ci.build_matrix "${{ inputs.python_version }}"
 
   # Second job: build dependencies (cached)
   deps:

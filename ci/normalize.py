@@ -4,25 +4,24 @@
 Package order: python, cosmocc, then alphabetical
 Version order: semver sorted (not alphabetical)
 Key order within versions: notes, eol, status, url, sha256, gpg/sigstore, license, license_url
+
+Usage:
+    uv run -m ci.normalize
 """
 
+from __future__ import annotations
+
 import json
+import logging
+import sys
 from pathlib import Path
 
+from .common import VERSIONS_FILE, setup_logging, version_key
 
-def version_key(v: str) -> list:
-    """Sort versions by semver, handling pre-release tags."""
-    parts = v.replace("a", ".a.").replace("b", ".b.").replace("rc", ".rc.").split(".")
-    result = []
-    for p in parts:
-        if p.isdigit():
-            result.append((0, int(p)))
-        else:
-            result.append((1, p))
-    return result
+log = logging.getLogger("ci.normalize")
 
 
-def sort_version_keys(ver_data: dict) -> dict:
+def sort_version_keys(ver_data: dict[str, object]) -> dict[str, object]:
     """Sort keys within a version entry."""
     key_order = [
         "notes",
@@ -30,7 +29,6 @@ def sort_version_keys(ver_data: dict) -> dict:
         "status",
         "url",
         "sha256",
-        "autoconf_version",
         "gpg",
         "sigstore",
         "license",
@@ -48,7 +46,7 @@ def sort_version_keys(ver_data: dict) -> dict:
     return sorted_data
 
 
-def sort_package_keys(pkg_data: dict) -> dict:
+def sort_package_keys(pkg_data: dict[str, object]) -> dict[str, object]:
     """Sort keys within a package entry."""
     key_order = ["default", "disabled", "latest", "versions"]
     sorted_data = {}
@@ -90,6 +88,12 @@ def normalize(path: Path) -> None:
     path.write_text(json.dumps(sorted_data, indent=2) + "\n")
 
 
+def main() -> int:
+    setup_logging()
+    normalize(VERSIONS_FILE)
+    log.info("OK versions.json normalized")
+    return 0
+
+
 if __name__ == "__main__":
-    normalize(Path("versions.json"))
-    print("  versions.json normalized")
+    sys.exit(main())

@@ -68,9 +68,6 @@ if [ "${VERBOSE:-}" = "1" ] || [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ];
   print_diagnostics
 fi
 
-#
-# Phase 1: Dependencies
-#
 echo ""
 echo "========================================"
 echo "  Phase 1: Dependencies"
@@ -78,9 +75,6 @@ echo "========================================"
 
 ${SCRIPT_DIR}/01-deps/build.sh
 
-#
-# Phase 2: Python (download, compile, package)
-#
 echo ""
 echo "========================================"
 echo "  Phase 2: Python"
@@ -90,9 +84,6 @@ for version in "${VERSIONS[@]}"; do
   "${SCRIPT_DIR}/02-python/build.sh" "${version}"
 done
 
-#
-# Phase 3: Smoke Tests
-#
 echo ""
 echo "========================================"
 echo "  Phase 3: Smoke Tests"
@@ -100,7 +91,7 @@ echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
   BINARY="${DIST_DIR}/python-${version}-cosmo.com"
-  
+
   if [ -f "$BINARY" ]; then
     log_info "testing Python ${version}..."
     "${SCRIPT_DIR}/02-python/smoke.sh" "${BINARY}"
@@ -110,9 +101,6 @@ for version in "${VERSIONS[@]}"; do
   fi
 done
 
-#
-# Summary
-#
 BUILD_END=$(date +%s)
 BUILD_DURATION=$((BUILD_END - BUILD_START))
 
@@ -132,5 +120,5 @@ for artifact in "${DIST_DIR}"/python-*-cosmo.com; do
 done
 echo ""
 echo "  To generate a release manifest:"
-echo "    ./scripts/03-ci/manifest.sh <release-tag>"
+echo "    uv run ci/manifest.py <release-tag>"
 echo ""

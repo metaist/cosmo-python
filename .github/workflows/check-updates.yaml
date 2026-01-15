@@ -36,7 +36,7 @@ jobs:
       - name: Check for updates
         id: check
         run: |
-          ./scripts/03-ci/check-updates.sh 2>&1 | tee /tmp/update-output.txt
+          uv run -m ci.check_updates 2>&1 | tee /tmp/update-output.txt
 
           if git diff --quiet versions.json; then
             echo "has_updates=false" >> "$GITHUB_OUTPUT"

@@ -226,6 +226,17 @@ get_dep_sha256() {
   get_pkg_sha256 "$dep" "$version"
 }
 
+# Convert SQLite version to autoconf version number
+# Convert SQLite version to autoconf version number
+# Usage: sqlite_autoconf 3.51.2  -> "3510200"
+# Usage: sqlite_autoconf 3.51.2.1  -> "3510201"
+sqlite_autoconf() {
+  local version="$1"
+  local major minor patch sub
+  IFS='.' read -r major minor patch sub <<< "$version"
+  printf "%d%02d%02d%02d" "$major" "$minor" "$patch" "${sub:-0}"
+}
+
 # Get Python latest version from minor
 # Usage: get_python_latest 3.12  -> "3.12.8"
 get_python_latest() {

@@ -14,27 +14,33 @@ clean.help = "remove build artifacts"
 clean.shell = """
   rm -rf work/;
   rm -rf dist/;
+  rm -rf ci/__pycache__;
   rm -f build*.log;
 """
 
 # Lint
-lint.help = "check shell scripts, yaml, and spelling"
-lint.composite = ["shellcheck", "yamllint", "cspell"]
+lint.help = "lint shell, python, yaml, and spelling"
+lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check"]
 
 shellcheck.help = "lint shell scripts"
-# Excluded checks:
-#   SC1091: "not following" for dynamic source paths
-#   SC2164: "cd without || exit" - we use set -euo pipefail
-#   SC2086: unquoted variables - intentional for word splitting in ar commands
-#   SC2103: "cd back" style suggestion
-#   SC2129: redirect grouping style suggestion
+# Excluded: SC1091 (dynamic source), SC2164 (cd || exit), SC2086 (unquoted), SC2103/SC2129 (style)
 shellcheck.shell = "find scripts -name '*.sh' -exec npx --yes shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +"
 
-cspell.help = "check spelling in docs"
-cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.md'"
+ruff-format = "uvx ruff format ${@:-ci}"
+ruff-lint = "uvx ruff check --fix ${@:-ci}"
+
+cspell.help = "check spelling"
+cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.{py,md}'"
 
 yamllint.help = "lint yaml files"
 yamllint.shell = "uvx yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
+
+# Type Check
+types.help = "run type checkers on Python code"
+types.composite = ["ty", "pyright", "mypy"]
+ty = "uvx ty check ci"
+pyright = "npx --yes pyright ci"
+mypy = "uvx mypy --strict ci"
 
 # Test
 test-scripts.help = "validate build script structure and syntax"
@@ -58,11 +64,11 @@ smoke-all.shell = """
 
 # Release
 manifest.help = "generate manifest.json for a release"
-manifest.shell = "./scripts/03-ci/manifest.sh $@"
+manifest.shell = "uv run -m ci.manifest $@"
 
 # Development
-dev.help = "quick validation: lint + cog-check + test-scripts"
-dev.composite = ["lint", "cog-check", "test-scripts"]
+dev.help = "quick validation: lint + types + test-scripts"
+dev.composite = ["lint", "types", "test-scripts"]
 
 cog.help = "regenerate dynamic content in README.md"
 cog.shell = "uvx --from cogapp cog -r README.md"

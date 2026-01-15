@@ -86,6 +86,11 @@ jobs:
           find artifacts -name "*.sha256" -exec cp {} dist/ \;
           ls -la dist/
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+
       - name: Fetch previous manifest
         id: prev_manifest
         run: |
@@ -102,9 +107,9 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.tag.outputs.release_tag }}"
           if [ "${{ steps.prev_manifest.outputs.found }}" = "true" ]; then
-            ./scripts/03-ci/manifest.sh "$RELEASE_TAG" --merge /tmp/prev-manifest.json
+            uv run -m ci.manifest "$RELEASE_TAG" --merge /tmp/prev-manifest.json
           else
-            ./scripts/03-ci/manifest.sh "$RELEASE_TAG"
+            uv run -m ci.manifest "$RELEASE_TAG"
           fi
 
       - name: Generate checksums
@@ -115,24 +120,7 @@ jobs:
 
       - name: Generate version table
         id: versions
-        run: |
-          {
-            echo 'version_table<<EOF'
-            echo "| Python Version | Download |"
-            echo "|----------------|----------|"
-            for bin in dist/python-*-cosmo.com; do
-              filename=$(basename "$bin")
-              version=$(echo "$filename" | sed 's/python-\(.*\)-cosmo.com/\1/')
-              minor=$(echo "$version" | cut -d. -f1,2)
-              echo "| ${minor}.x | \`${filename}\` |"
-            done
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-          # Get default Python version for examples in release notes
-          DEFAULT_MINOR=$(jq -r '.python.default' versions.json)
-          DEFAULT_VERSION=$(jq -r ".python.latest[\"$DEFAULT_MINOR\"]" versions.json)
-          echo "default_version=$DEFAULT_VERSION" >> "$GITHUB_OUTPUT"
+        run: uv run -m ci.release_notes dist
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3

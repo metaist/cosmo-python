@@ -121,8 +121,8 @@ The `check-updates.yaml` workflow runs weekly to detect new versions:
 To check for updates manually:
 
 ```bash
-./scripts/03-ci/check-updates.sh --dry-run  # see what would change
-./scripts/03-ci/check-updates.sh            # apply changes
+./ci/check-updates.sh --dry-run  # see what would change
+./ci/check-updates.sh            # apply changes
 ```
 
 ## Adding a New Python Version

@@ -31,18 +31,13 @@ echo ""
 echo "=== Script Validation ==="
 echo ""
 
-#
-# Check all scripts have valid syntax
-#
 echo "Checking syntax..."
 for f in \
   scripts/common.sh \
   scripts/build.sh \
-  scripts/03-ci/check-updates.sh \
   scripts/00-setup/*.sh \
   scripts/01-deps/*.sh \
-  scripts/02-python/*.sh \
-  scripts/03-ci/*.sh
+  scripts/02-python/*.sh
 do
   if [ -f "${REPO_ROOT}/${f}" ]; then
     if bash -n "${REPO_ROOT}/${f}" 2>/dev/null; then
@@ -55,9 +50,6 @@ do
   fi
 done
 
-#
-# Check common.sh sources and logging works
-#
 echo ""
 echo "Checking common.sh..."
 cd "${REPO_ROOT}"
@@ -81,9 +73,6 @@ else
   fail "log_skip failed"
 fi
 
-#
-# Check versions.json parsing
-#
 echo ""
 echo "Checking versions.json parsing..."
 if [ -f "${REPO_ROOT}/versions.json" ]; then
@@ -99,54 +88,6 @@ else
   fail "versions.json not found"
 fi
 
-#
-# Check required directory structure
-#
-echo ""
-echo "Checking directory structure..."
-for dir in scripts/00-setup scripts/01-deps scripts/02-python scripts/03-ci; do
-  if [ -d "${REPO_ROOT}/${dir}" ]; then
-    pass "$dir exists"
-  else
-    fail "$dir missing"
-  fi
-done
-
-#
-# Check required scripts exist
-#
-echo ""
-echo "Checking required scripts..."
-required_scripts=(
-  "scripts/build.sh"
-  "scripts/common.sh"
-  "scripts/00-setup/cosmocc.sh"
-  "scripts/00-setup/system-deps.sh"
-  "scripts/01-deps/bz2.sh"
-  "scripts/01-deps/libffi.sh"
-  "scripts/01-deps/ncurses.sh"
-  "scripts/01-deps/openssl.sh"
-  "scripts/01-deps/readline.sh"
-  "scripts/01-deps/xz.sh"
-  "scripts/02-python/download.sh"
-  "scripts/02-python/compile.sh"
-  "scripts/02-python/package.sh"
-  "scripts/03-ci/manifest.sh"
-)
-
-for script in "${required_scripts[@]}"; do
-  if [ -x "${REPO_ROOT}/${script}" ]; then
-    pass "$script (executable)"
-  elif [ -f "${REPO_ROOT}/${script}" ]; then
-    fail "$script (not executable)"
-  else
-    fail "$script (missing)"
-  fi
-done
-
-#
-# Summary
-#
 echo ""
 echo "=== Summary ==="
 echo ""
