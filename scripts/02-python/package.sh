@@ -85,6 +85,31 @@ cd "${STAGING_DIR}/zip"
 rm -f lib/libpython*.a
 rm -rf lib/pkgconfig
 
+# Remove test directories (not needed in distribution, saves significant space)
+log_info "removing test directories..."
+find lib/python${PYTHON_MAJOR_MINOR} -type d -name 'test' -exec rm -rf {} + 2>/dev/null || true
+find lib/python${PYTHON_MAJOR_MINOR} -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true
+find lib/python${PYTHON_MAJOR_MINOR} -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+
+# Pre-compile .py to .pyc for faster startup
+# Uses the built binary with PYTHONPATH pointing to staged stdlib
+# -b: write .pyc to legacy location (beside .py, not __pycache__/)
+# -f: force recompile
+# -q: quiet
+# -s: strip this prefix from source paths
+# -p: prepend this prefix (so tracebacks show /zip/lib/...)
+log_info "pre-compiling bytecode..."
+PYTHONPATH="${PWD}/lib/python${PYTHON_MAJOR_MINOR}" \
+    "${BINARY}" -m compileall -fqb \
+    -s "${PWD}" \
+    -p /zip \
+    lib/python${PYTHON_MAJOR_MINOR}
+
+# Remove .py source files (keep only .pyc)
+# This reduces size and ensures bytecode is always used
+log_info "removing source files (keeping .pyc only)..."
+find lib/python${PYTHON_MAJOR_MINOR} -name '*.py' -delete
+
 # Add CA certificates for SSL verification
 # These will be accessible at /zip/share/ssl/ inside the binary
 if [ -d "${DEPS_DIR}/share/ssl" ]; then
