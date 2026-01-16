@@ -6,21 +6,19 @@ This document describes known limitations of Cosmopolitan Python compared to sta
 
 Most of the standard library works normally. Here are modules people often ask about:
 
-| Module | Status | Notes |
-|--------|--------|-------|
-| `ssl`, `hashlib` | ✅ | HTTPS, TLS, crypto all work |
-| `sqlite3` | ✅ | Fully functional |
-| `asyncio` | ✅ | Full async/await support |
-| `threading` | ✅ | Works normally |
-| `subprocess` | ✅ | Can run external commands |
-| `multiprocessing` | ⚠️ | `fork` works; `spawn` doesn't ([details](#multiprocessing)) |
-| `json`, `csv`, `xml` | ✅ | All data formats work |
-| `re`, `difflib` | ✅ | Text processing works |
-| `http.server` | ✅ | Can serve HTTP |
-| `unittest`, `doctest` | ✅ | Testing works |
-| `curses` | ✅ | TUI applications work |
-| `gzip`, `bz2`, `lzma` | ✅ | All compression works |
-| `ctypes` | ⚠️ | Structs work; no dlopen ([details](#ctypes)) |
+| Category | Modules | Status |
+|----------|---------|--------|
+| **Crypto/Network** | `ssl`, `hashlib`, `hmac`, `socket`, `http.server` | ✅ |
+| **Database** | `sqlite3` | ✅ |
+| **Async** | `asyncio`, `threading`, `subprocess`, `select`, `selectors` | ✅ |
+| **Data Formats** | `json`, `csv`, `xml`, `struct`, `pickle` | ✅ |
+| **Compression** | `gzip`, `bz2`, `lzma`, `zlib`, `zipfile`, `tarfile` | ✅ |
+| **Text** | `re`, `difflib`, `textwrap`, `unicodedata` | ✅ |
+| **Testing** | `unittest`, `doctest` | ✅ |
+| **TUI** | `curses`, `readline` | ✅ |
+| **Unix** | `pty`, `termios`, `tty`, `fcntl`, `pwd`, `grp`, `resource`, `syslog`, `signal`, `mmap` | ✅ |
+| **Misc** | `venv`, `webbrowser`, `logging`, `argparse`, `pathlib` | ✅ |
+| **Partial** | `multiprocessing` ([details](#multiprocessing)), `ctypes` ([details](#ctypes)) | ⚠️ |
 
 ---
 
@@ -28,7 +26,7 @@ Most of the standard library works normally. Here are modules people often ask a
 
 | Feature | Module | Status | Notes |
 |---------|--------|--------|-------|
-| [GUI](#gui) | `tkinter` | ❌ | Requires Tk/Tcl |
+| [GUI](#gui) | `tkinter`, `turtle` | ❌ | Requires Tk/Tcl |
 | [Packages](#package-management) | `ensurepip` | ❌ | Single-file design |
 | [Concurrency](#concurrency) | `multiprocessing` | ⚠️ | `spawn` fails; `fork` works |
 | [FFI](#foreign-function-interface) | `ctypes` | ⚠️ | No dynamic loading |
@@ -37,13 +35,16 @@ Most of the standard library works normally. Here are modules people often ask a
 | [Cryptography](#cryptography) | `ssl` | ⚠️ | No QUIC/HTTP/3 |
 | [Platform](#platform-detection) | `sys.platform` | ⚠️ | Varies by host OS |
 | [Database](#database) | `dbm` | ⚠️ | Only gdbm backend |
+| [Unix-only](#unix-only-modules) | `spwd`, `nis`, `ossaudiodev` | ❌ | Not included |
+| [Windows-only](#windows-only-modules) | `winreg`, `winsound`, `msvcrt`, `msilib` | ❌ | Not included |
+| [Deprecated](#deprecated-modules) | Various (see list) | ❌ | Removed in Python 3.13 |
 | [Miscellaneous](#miscellaneous) | `_uuid` | ⚠️ | Fallback implementation |
 
 ---
 
 ## GUI
 
-### tkinter
+### tkinter / turtle
 
 **Not available.** Tk/Tcl requires dynamic linking and X11/platform windowing libraries that can't be statically linked into a portable binary.
 
@@ -243,6 +244,60 @@ For portable databases, consider `sqlite3` (fully supported).
 
 ---
 
+## Unix-only Modules
+
+The following Unix-specific modules are **not included** in the build:
+
+| Module | Reason |
+|--------|--------|
+| `spwd` | Shadow password database; security-sensitive, rarely needed |
+| `nis` | NIS/Yellow Pages; deprecated, rarely used |
+| `ossaudiodev` | OSS audio; Linux-only, deprecated |
+
+**Note:** Many other Unix modules *are* included and work: `pty`, `termios`, `tty`, `fcntl`, `pwd`, `grp`, `resource`, `syslog`, `signal`, `mmap`.
+
+---
+
+## Windows-only Modules
+
+The following Windows-specific modules are **not available** when running on non-Windows platforms:
+
+| Module | Purpose |
+|--------|---------|
+| `winreg` | Windows registry access |
+| `winsound` | Windows sound API |
+| `msvcrt` | MS Visual C runtime |
+| `msilib` | MSI file creation |
+
+These may work when the binary runs on Windows, but we haven't tested extensively.
+
+---
+
+## Deprecated Modules
+
+Python 3.13 removed many deprecated modules. Our builds reflect this:
+
+| Module | Python 3.10-3.12 | Python 3.13+ |
+|--------|------------------|--------------|
+| `aifc` | ✅ Available | ❌ Removed |
+| `audioop` | ❌ Not included | ❌ Removed |
+| `chunk` | ✅ Available | ❌ Removed |
+| `cgi`, `cgitb` | ✅ Available | ❌ Removed |
+| `imghdr` | ✅ Available | ❌ Removed |
+| `sndhdr` | ✅ Available | ❌ Removed |
+| `nntplib` | ✅ Available | ❌ Removed |
+| `pipes` | ✅ Available | ❌ Removed |
+| `telnetlib` | ✅ Available | ❌ Removed |
+| `uu` | ✅ Available | ❌ Removed |
+| `xdrlib` | ✅ Available | ❌ Removed |
+| `mailcap` | ✅ Available | ❌ Removed |
+| `sunau` | ✅ Available | ❌ Removed |
+| `lib2to3` | ✅ Available | ❌ Removed |
+
+**Note:** `audioop` is not included in any version because it requires audio libraries we don't link.
+
+---
+
 ## Miscellaneous
 
 ### _uuid
@@ -253,6 +308,10 @@ For portable databases, consider `sqlite3` (fully supported).
 - `uuid1()`: ⚠️ Time-based fallback (no MAC address)
 
 Most code uses `uuid4()` and works fine.
+
+### idlelib
+
+**Included but non-functional.** The IDLE IDE code is present but requires `tkinter`, so it won't run.
 
 ---
 
