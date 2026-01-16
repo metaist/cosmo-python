@@ -13,6 +13,59 @@ from pathlib import Path
 from typing import Any
 
 
+def compact_json(
+    obj: Any, indent: int = 2, max_line: int = 100, _level: int = 0
+) -> str:
+    """Format JSON with smart compaction.
+
+    - Simple values inline
+    - Short objects/arrays on one line if they fit within max_line
+    - Longer structures get multi-line formatting
+
+    >>> compact_json({})
+    '{}'
+    >>> compact_json([])
+    '[]'
+    >>> compact_json({"a": 1})
+    '{"a": 1}'
+    >>> compact_json([{"name": "x", "value": "y"}])
+    '[{"name": "x", "value": "y"}]'
+    """
+    prefix = " " * (indent * _level)
+    child_prefix = " " * (indent * (_level + 1))
+
+    if isinstance(obj, dict):
+        if not obj:
+            return "{}"
+        # Try compact - serialize and check length
+        compact = json.dumps(obj, separators=(", ", ": "))
+        if len(prefix) + len(compact) <= max_line:
+            return compact
+        # Multi-line
+        items = []
+        for k, v in obj.items():
+            formatted_v = compact_json(v, indent, max_line, _level + 1)
+            items.append(f'{child_prefix}"{k}": {formatted_v}')
+        return "{\n" + ",\n".join(items) + "\n" + prefix + "}"
+
+    elif isinstance(obj, list):
+        if not obj:
+            return "[]"
+        # Try compact
+        compact = json.dumps(obj, separators=(", ", ": "))
+        if len(prefix) + len(compact) <= max_line:
+            return compact
+        # Multi-line - format each item
+        items = [
+            child_prefix + compact_json(item, indent, max_line, _level + 1)
+            for item in obj
+        ]
+        return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
+
+    else:
+        return json.dumps(obj)
+
+
 # Display names for components (only entries that differ from name)
 DISPLAY_NAMES: dict[str, str] = {
     "python": "Python",
@@ -68,6 +121,7 @@ class Component:
     eol: str | None = None  # End of life date (YYYY-MM)
     status: str | None = None  # e.g., "bugfix", "security"
     component_type: str = "library"  # CycloneDX type: application, library, data
+    attestation_repo: str | None = None  # GitHub repo for attestation verification
 
     @property
     def bom_ref(self) -> str:
@@ -146,9 +200,14 @@ class Bom:
     _disabled: dict[str, list[str]] = field(
         default_factory=dict
     )  # package -> [version prefixes]
+    _component_releases: dict[str, str] = field(
+        default_factory=dict
+    )  # "python@3.13.11" -> "20260115-134426"
 
     # Metadata
     timestamp: str | None = None
+    _release: str | None = None  # Release tag for manifest
+    _version: int = 1  # BOM revision number
 
     # Component access
 
@@ -174,11 +233,18 @@ class Bom:
         return self.get_component(name, version)
 
     def all_components(self) -> list[Component]:
-        """Get all components in the BOM."""
+        """Get all components in the BOM, sorted: python first, then deps alpha."""
+        from ci.common import version_key
+
+        def sort_key(c: Component) -> tuple[int, str, list[tuple[int, int | str]]]:
+            # python first (0), everything else alpha (1)
+            order = 0 if c.name == "python" else 1
+            return (order, c.name, version_key(c.version))
+
         result: list[Component] = []
         for versions in self._components.values():
             result.extend(versions.values())
-        return result
+        return sorted(result, key=sort_key)
 
     def component_names(self) -> list[str]:
         """Get all unique component names."""
@@ -199,10 +265,6 @@ class Bom:
         version = self.get_default_version(name)
         if version is None:
             return None
-        # For Python, default is minor (e.g., "3.13"), need to resolve to patch
-        latest_key = f"{name}:{version}"
-        if latest_key in self._latest:
-            version = self._latest[latest_key]
         return self.get_component(name, version)
 
     def set_latest(self, name: str, minor: str, version: str) -> None:
@@ -331,6 +393,7 @@ def _parse_component(data: dict[str, Any]) -> Component:
         eol=props.get("eol"),
         status=props.get("status"),
         component_type=data.get("type", "library"),
+        attestation_repo=props.get("attestation:repo"),
     )
 
 
@@ -341,9 +404,16 @@ def load(path: Path | str) -> Bom:
 
     bom = Bom()
 
+    # Parse BOM version (revision number)
+    bom._version = data.get("version", 1)
+
     # Parse metadata
     metadata = data.get("metadata", {})
     bom.timestamp = metadata.get("timestamp")
+
+    # Parse release version from metadata.component.version
+    meta_component = metadata.get("component", {})
+    bom._release = meta_component.get("version")
 
     # Parse metadata properties for defaults, latest, and disabled
     for prop in metadata.get("properties", []):
@@ -365,9 +435,15 @@ def load(path: Path | str) -> Bom:
             if prefixes:
                 bom.set_disabled(pkg, prefixes)
 
-    # Parse components
+    # Parse components and per-component releases
     for comp_data in data.get("components", []):
-        bom.add_component(_parse_component(comp_data))
+        comp = _parse_component(comp_data)
+        bom.add_component(comp)
+
+        # Check for per-component release property
+        for prop in comp_data.get("properties", []):
+            if prop.get("name") == "cosmo:release":
+                bom._component_releases[comp.bom_ref] = prop.get("value", "")
 
     # Parse dependencies
     for dep in data.get("dependencies", []):
@@ -379,7 +455,7 @@ def load(path: Path | str) -> Bom:
     return bom
 
 
-def _component_to_cdx(comp: Component) -> dict[str, Any]:
+def _component_to_cdx(comp: Component, release: str | None = None) -> dict[str, Any]:
     """Convert a Component to CycloneDX dict format."""
     result: dict[str, Any] = {
         "type": comp.component_type,
@@ -394,7 +470,9 @@ def _component_to_cdx(comp: Component) -> dict[str, Any]:
     if comp.purl:
         result["purl"] = comp.purl
 
-    result["hashes"] = [{"alg": "SHA-256", "content": comp.sha256}]
+    # Only include hash if present
+    if comp.sha256:
+        result["hashes"] = [{"alg": "SHA-256", "content": comp.sha256}]
 
     # License - use id if it looks like SPDX, otherwise use name
     license_entry: dict[str, str] = {}
@@ -407,7 +485,9 @@ def _component_to_cdx(comp: Component) -> dict[str, Any]:
         license_entry["url"] = comp.license_url
     result["licenses"] = [{"license": license_entry}]
 
-    result["externalReferences"] = [{"type": "distribution", "url": comp.url}]
+    # Only include distribution URL if present
+    if comp.url:
+        result["externalReferences"] = [{"type": "distribution", "url": comp.url}]
 
     # Properties
     properties: list[dict[str, str]] = []
@@ -425,6 +505,12 @@ def _component_to_cdx(comp: Component) -> dict[str, Any]:
         )
     if comp.gpg:
         properties.append({"name": "cosmo:gpg", "value": comp.gpg})
+    if comp.attestation_repo:
+        properties.append(
+            {"name": "cosmo:attestation:repo", "value": comp.attestation_repo}
+        )
+    if release:
+        properties.append({"name": "cosmo:release", "value": release})
 
     if properties:
         result["properties"] = properties
@@ -453,35 +539,55 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
         pkg, minor = key.split(":", 1)
         meta_props.append({"name": f"cosmo:latest:{pkg}:{minor}", "value": version})
 
+    # Build metadata component
+    meta_component: dict[str, Any] = {
+        "type": "application",
+        "name": "cosmo-python",
+        "publisher": "metaist",
+    }
+    if bom._release:
+        meta_component["version"] = bom._release
+
+    # Build components with per-component release info
+    components: list[dict[str, Any]] = []
+    for c in bom.all_components():
+        release = bom._component_releases.get(c.bom_ref)
+        components.append(_component_to_cdx(c, release))
+
     result: dict[str, Any] = {
         "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
-        "version": 1,
+        "version": bom._version,
         "metadata": {
             "timestamp": bom.timestamp
             or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "component": {
-                "type": "application",
-                "name": "cosmo-python",
-                "publisher": "metaist",
-            },
+            "component": meta_component,
             "properties": meta_props,
         },
-        "components": [_component_to_cdx(c) for c in bom.all_components()],
+        "components": components,
     }
 
     # Add dependencies
+    # Sort dependencies by ref: python first, then alpha, each with version_key
+    from ci.common import version_key
+
+    def dep_sort_key(
+        item: tuple[str, list[str]],
+    ) -> tuple[int, str, list[tuple[int, int | str]]]:
+        ref = item[0]
+        name, version = ref.split("@", 1)
+        order = 0 if name == "python" else 1
+        return (order, name, version_key(version))
+
     deps_list: list[dict[str, Any]] = []
-    for ref, depends_on in sorted(bom._dependencies.items()):
-        deps_list.append({"ref": ref, "dependsOn": depends_on})
+    for ref, depends_on in sorted(bom._dependencies.items(), key=dep_sort_key):
+        deps_list.append({"ref": ref, "dependsOn": sorted(depends_on)})
     if deps_list:
         result["dependencies"] = deps_list
 
     if path:
-        with open(path, "w") as f:
-            json.dump(result, f, indent=2)
-            f.write("\n")
+        Path(path).write_text(compact_json(result) + "\n")
 
     return result
 
@@ -581,5 +687,5 @@ def main() -> int:
     return 1
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

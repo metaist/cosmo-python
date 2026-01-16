@@ -239,6 +239,7 @@ def main() -> int:
 
     # Save and regenerate
     if has_updates and not DRY_RUN:
+        bom._version += 1  # Increment BOM revision
         cdx.dump(bom, CDX_FILE)
         regenerate_readme()
 

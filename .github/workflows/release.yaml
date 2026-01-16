@@ -94,8 +94,8 @@ jobs:
       - name: Fetch previous manifest
         id: prev_manifest
         run: |
-          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/latest/download/manifest.json"
-          if curl -fsSL "$MANIFEST_URL" -o /tmp/prev-manifest.json 2>/dev/null; then
+          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/latest/download/manifest.cdx.json"
+          if curl -fsSL "$MANIFEST_URL" -o /tmp/prev-manifest.cdx.json 2>/dev/null; then
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "Previous manifest found"
           else
@@ -107,7 +107,7 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.tag.outputs.release_tag }}"
           if [ "${{ steps.prev_manifest.outputs.found }}" = "true" ]; then
-            uv run -m ci.manifest "$RELEASE_TAG" --merge /tmp/prev-manifest.json
+            uv run -m ci.manifest "$RELEASE_TAG" --merge /tmp/prev-manifest.cdx.json
           else
             uv run -m ci.manifest "$RELEASE_TAG"
           fi
@@ -115,7 +115,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum manifest.json python-*.com > checksums.txt
+          sha256sum manifest.cdx.json python-*.com > checksums.txt
           cat checksums.txt
 
       - name: Generate version table
@@ -127,7 +127,7 @@ jobs:
         with:
           subject-path: |
             dist/checksums.txt
-            dist/manifest.json
+            dist/manifest.cdx.json
             dist/python-*.com
 
       - name: Upload release artifacts
@@ -136,7 +136,7 @@ jobs:
           name: release-${{ steps.tag.outputs.release_tag }}
           path: |
             dist/checksums.txt
-            dist/manifest.json
+            dist/manifest.cdx.json
             dist/python-*.com
 
       - name: Create GitHub Release
@@ -163,10 +163,10 @@ jobs:
 
             ### Programmatic Access
 
-            Fetch `manifest.json` to discover all available versions:
+            Fetch `manifest.cdx.json` to discover all available versions:
 
             ```bash
-            curl -sL https://github.com/${{ github.repository }}/releases/latest/download/manifest.json | jq .
+            curl -sL https://github.com/${{ github.repository }}/releases/latest/download/manifest.cdx.json | jq .
             ```
 
             ### Verification
@@ -183,5 +183,5 @@ jobs:
             --title "${{ steps.tag.outputs.release_tag }}" \
             --notes "$RELEASE_NOTES" \
             dist/checksums.txt \
-            dist/manifest.json \
+            dist/manifest.cdx.json \
             dist/python-*.com

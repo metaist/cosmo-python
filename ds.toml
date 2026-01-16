@@ -82,7 +82,7 @@ smoke-all.shell = """
 """
 
 # Release
-manifest.help = "generate manifest.json for a release"
+manifest.help = "generate manifest.cdx.json for a release"
 manifest.shell = "uv run -m ci.manifest $@"
 
 # Development

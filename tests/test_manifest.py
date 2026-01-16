@@ -1,6 +1,5 @@
 """Tests for ci/manifest.py."""
 
-import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -10,18 +9,32 @@ from ci.manifest import (
     get_cosmocc_version,
     get_repo,
     fetch_previous_manifest,
-    collect_new_versions,
+    collect_new_binaries,
     generate_manifest,
 )
 
 
 def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
-    """Create a test versions.cdx.json file."""
+    """Create a test versions.cdx.json file with Python and dependencies."""
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
         name="cosmocc", version="4.0.0", url="http://x", sha256="a", license="ISC"
     ))
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://py1", sha256="p1", license="PSF-2.0"
+    ))
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.1", url="http://py2", sha256="p2", license="PSF-2.0"
+    ))
+    bom.add_component(cdx.Component(
+        name="openssl", version="3.5.4", url="http://ssl", sha256="ssl", license="Apache-2.0"
+    ))
     bom.set_default("cosmocc", "4.0.0")
+    bom.set_default("python", "3.13")
+    bom.set_latest("python", "3.12", "3.12.8")
+    bom.set_latest("python", "3.13", "3.13.1")
+    bom.set_dependencies("python@3.12.8", ["openssl@3.5.4"])
+    bom.set_dependencies("python@3.13.1", ["openssl@3.5.4"])
     if disabled:
         bom.set_disabled("python", disabled)
 
@@ -67,31 +80,49 @@ def test_get_repo_from_env(monkeypatch: "pytest.MonkeyPatch") -> None:
 
 
 @patch("urllib.request.urlopen")
-def test_fetch_previous_manifest_url(mock_urlopen: MagicMock) -> None:
+def test_fetch_previous_manifest_url(mock_urlopen: MagicMock, tmp_path: Path) -> None:
     """fetch_previous_manifest fetches from URL."""
+    # Create a minimal CycloneDX BOM to return
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    cdx_data = cdx.dump(bom)
+
     mock_response = MagicMock()
-    mock_response.read.return_value = b'{"versions": {}}'
+    mock_response.read.return_value = bytes(str(cdx_data).replace("'", '"'), "utf-8")
     mock_response.__enter__.return_value = mock_response
     mock_urlopen.return_value = mock_response
 
-    result = fetch_previous_manifest("https://example.com/manifest.json")
-    assert result == {"versions": {}}
+    # This will fail since we're mocking with dict, let's use JSON
+    import json
+    mock_response.read.return_value = json.dumps(cdx_data).encode()
+
+    result = fetch_previous_manifest("https://example.com/manifest.cdx.json")
+    assert result is not None
+    assert isinstance(result, cdx.Bom)
 
 
 @patch("urllib.request.urlopen")
 def test_fetch_previous_manifest_url_failure(mock_urlopen: MagicMock) -> None:
     """fetch_previous_manifest returns None on error."""
     mock_urlopen.side_effect = Exception("Network error")
-    result = fetch_previous_manifest("https://example.com/manifest.json")
+    result = fetch_previous_manifest("https://example.com/manifest.cdx.json")
     assert result is None
 
 
 def test_fetch_previous_manifest_local(tmp_path: Path) -> None:
     """fetch_previous_manifest reads local file."""
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text('{"versions": {"3.12.8": {}}}')
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    manifest = tmp_path / "manifest.cdx.json"
+    cdx.dump(bom, manifest)
+
     result = fetch_previous_manifest(str(manifest))
-    assert result == {"versions": {"3.12.8": {}}}
+    assert result is not None
+    assert result.get_component("python", "3.12.8") is not None
 
 
 def test_fetch_previous_manifest_local_missing(tmp_path: Path) -> None:
@@ -100,8 +131,8 @@ def test_fetch_previous_manifest_local_missing(tmp_path: Path) -> None:
     assert result is None
 
 
-def test_collect_new_versions(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """collect_new_versions finds binaries and checksums."""
+def test_collect_new_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """collect_new_binaries finds binaries and checksums."""
     monkeypatch.setattr("ci.manifest.DIST_DIR", tmp_path)
     monkeypatch.setenv("REPO", "test/repo")
 
@@ -109,18 +140,17 @@ def test_collect_new_versions(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch")
     binary = tmp_path / "python-3.12.8-cosmo.com"
     binary.write_bytes(b"fake binary content")
 
-    result = collect_new_versions("v1.0.0")
+    result = collect_new_binaries("20260115-134426")
 
     assert "3.12.8" in result
     assert result["3.12.8"]["filename"] == "python-3.12.8-cosmo.com"
-    assert result["3.12.8"]["release"] == "v1.0.0"
     assert "sha256" in result["3.12.8"]
     # Check checksum file was created
     assert (tmp_path / "python-3.12.8-cosmo.com.sha256").exists()
 
 
-def test_collect_new_versions_uses_existing_checksum(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """collect_new_versions uses existing .sha256 file."""
+def test_collect_new_binaries_uses_existing_checksum(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """collect_new_binaries uses existing .sha256 file."""
     monkeypatch.setattr("ci.manifest.DIST_DIR", tmp_path)
     monkeypatch.setenv("REPO", "test/repo")
 
@@ -129,30 +159,65 @@ def test_collect_new_versions_uses_existing_checksum(tmp_path: Path, monkeypatch
     checksum = tmp_path / "python-3.12.8-cosmo.com.sha256"
     checksum.write_text("abc123  python-3.12.8-cosmo.com\n")
 
-    result = collect_new_versions("v1.0.0")
+    result = collect_new_binaries("20260115-134426")
     assert result["3.12.8"]["sha256"] == "abc123"
 
 
+def test_collect_new_binaries_prerelease(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """collect_new_binaries handles prerelease versions."""
+    monkeypatch.setattr("ci.manifest.DIST_DIR", tmp_path)
+    monkeypatch.setenv("REPO", "test/repo")
+
+    (tmp_path / "python-3.14.0a1-cosmo.com").write_bytes(b"fake")
+    (tmp_path / "python-3.14.0rc1-cosmo.com").write_bytes(b"fake")
+
+    result = collect_new_binaries("20260115-134426")
+    assert "3.14.0a1" in result
+    assert "3.14.0rc1" in result
+
+
 def test_generate_manifest_basic(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """generate_manifest creates proper structure."""
+    """generate_manifest creates proper CycloneDX structure."""
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
 
-    new_versions = {
-        "3.12.8": {"url": "http://a", "sha256": "aaa", "filename": "a.com", "release": "v1"},
-        "3.13.1": {"url": "http://b", "sha256": "bbb", "filename": "b.com", "release": "v1"},
+    new_binaries = {
+        "3.12.8": {"url": "http://a", "sha256": "aaa", "filename": "a.com"},
+        "3.13.1": {"url": "http://b", "sha256": "bbb", "filename": "b.com"},
     }
 
-    result = generate_manifest("v1.0.0", new_versions)
+    result = generate_manifest("20260115-134426", new_binaries)
 
-    assert result["release"] == "v1.0.0"
-    assert result["cosmocc"] == "4.0.0"
-    assert result["default"] == "3.13.1"
-    assert "3.12" in result["latest"]
-    assert "3.13" in result["latest"]
-    assert "3.12.8" in result["versions"]
-    assert "3.13.1" in result["versions"]
+    assert result._release == "20260115-134426"
+    assert result.get_default_version("python") == "3.13.1"
+    assert result.get_latest_version("python", "3.12") == "3.12.8"
+    assert result.get_latest_version("python", "3.13") == "3.13.1"
+    assert result.get_component("python", "3.12.8") is not None
+    assert result.get_component("python", "3.13.1") is not None
+    # Check cosmocc is included
+    assert result.get_component("cosmocc", "4.0.0") is not None
+
+
+def test_generate_manifest_includes_deps(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest includes dependencies."""
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
+
+    new_binaries = {
+        "3.13.1": {"url": "http://b", "sha256": "bbb", "filename": "b.com"},
+    }
+
+    result = generate_manifest("20260115-134426", new_binaries)
+
+    # Check openssl dependency is included
+    assert result.get_component("openssl", "3.5.4") is not None
+    # Check dependency relationship
+    deps = result.get_dependencies("python@3.13.1")
+    assert "openssl@3.5.4" in deps
 
 
 def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -160,20 +225,23 @@ def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
 
-    prev_manifest = {
-        "versions": {
-            "3.11.9": {"url": "http://old", "sha256": "old", "release": "v0.9"},
-        }
+    # Create previous manifest
+    prev_bom = cdx.Bom()
+    prev_bom.add_component(cdx.Component(
+        name="python", version="3.11.9", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    prev_bom._component_releases["python@3.11.9"] = "20260101-000000"
+
+    new_binaries = {
+        "3.12.8": {"url": "http://new", "sha256": "new", "filename": "new.com"},
     }
-    new_versions = {
-        "3.12.8": {"url": "http://new", "sha256": "new", "filename": "new.com", "release": "v1"},
-    }
 
-    result = generate_manifest("v1.0.0", new_versions, prev_manifest)
+    result = generate_manifest("20260115-134426", new_binaries, prev_bom)
 
-    assert "3.11.9" in result["versions"]  # from previous
-    assert "3.12.8" in result["versions"]  # from new
+    assert result.get_component("python", "3.11.9") is not None  # from previous
+    assert result.get_component("python", "3.12.8") is not None  # from new
 
 
 def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -181,16 +249,17 @@ def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest
     cdx_file = make_test_cdx(tmp_path, disabled=["3.9"])
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
 
-    new_versions = {
-        "3.9.18": {"url": "http://a", "sha256": "a", "filename": "a.com", "release": "v1"},
-        "3.12.8": {"url": "http://b", "sha256": "b", "filename": "b.com", "release": "v1"},
+    new_binaries = {
+        "3.9.18": {"url": "http://a", "sha256": "a", "filename": "a.com"},
+        "3.12.8": {"url": "http://b", "sha256": "b", "filename": "b.com"},
     }
 
-    result = generate_manifest("v1.0.0", new_versions)
+    result = generate_manifest("20260115-134426", new_binaries)
 
-    assert "3.9.18" not in result["versions"]
-    assert "3.12.8" in result["versions"]
+    assert result.get_component("python", "3.9.18") is None
+    assert result.get_component("python", "3.12.8") is not None
 
 
 def test_generate_manifest_prerelease_default(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -198,53 +267,88 @@ def test_generate_manifest_prerelease_default(tmp_path: Path, monkeypatch: "pyte
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
 
-    new_versions = {
-        "3.13.1": {"url": "http://a", "sha256": "a", "filename": "a.com", "release": "v1"},
-        "3.14.0a1": {"url": "http://b", "sha256": "b", "filename": "b.com", "release": "v1"},
+    new_binaries = {
+        "3.13.1": {"url": "http://a", "sha256": "a", "filename": "a.com"},
+        "3.14.0a1": {"url": "http://b", "sha256": "b", "filename": "b.com"},
     }
 
-    result = generate_manifest("v1.0.0", new_versions)
-    assert result["default"] == "3.13.1"  # stable, not prerelease
+    result = generate_manifest("20260115-134426", new_binaries)
+    default_version = result.get_default_version("python")
+    assert default_version == "3.13.1"  # stable, not prerelease
 
 
-def test_generate_manifest_only_prerelease(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """generate_manifest uses prerelease if no stable versions."""
+def test_generate_manifest_only_prereleases(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest uses highest prerelease when no stable versions."""
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
 
-    new_versions = {
-        "3.14.0a1": {"url": "http://a", "sha256": "a", "filename": "a.com", "release": "v1"},
-        "3.14.0a2": {"url": "http://b", "sha256": "b", "filename": "b.com", "release": "v1"},
+    new_binaries = {
+        "3.14.0a1": {"url": "http://a", "sha256": "a", "filename": "a.com"},
+        "3.14.0b2": {"url": "http/b", "sha256": "b", "filename": "b.com"},
     }
 
-    result = generate_manifest("v1.0.0", new_versions)
-    assert result["default"] == "3.14.0a2"  # highest prerelease
+    result = generate_manifest("20260115-134426", new_binaries)
+    default_version = result.get_default_version("python")
+    assert default_version == "3.14.0b2"  # highest prerelease
 
 
-def test_print_summary(capsys: "pytest.CaptureFixture[str]") -> None:
+def test_generate_manifest_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest handles no binaries."""
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
+
+    result = generate_manifest("20260115-134426", {})
+    # No default set when no versions
+    assert result.get_default_version("python") is None
+
+
+def test_generate_manifest_attestation_repo(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest includes attestation repo."""
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
+
+    new_binaries = {
+        "3.13.1": {"url": "http://a", "sha256": "a", "filename": "a.com"},
+    }
+
+    result = generate_manifest("20260115-134426", new_binaries)
+    comp = result.get_component("python", "3.13.1")
+    assert comp is not None
+    assert comp.attestation_repo == "test/repo"
+
+
+def test_print_summary(tmp_path: Path, capsys: "pytest.CaptureFixture[str]") -> None:
     """print_summary outputs manifest info."""
     from ci.manifest import print_summary
     from ci.common import setup_logging
     setup_logging()
 
-    manifest = {
-        "release": "v1.0.0",
-        "cosmocc": "4.0.0",
-        "default": "3.13.1",
-        "versions": {"3.13.1": {"release": "v1.0.0"}}
-    }
-    print_summary(manifest)
+    bom = cdx.Bom()
+    bom._release = "20260115-134426"
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.1", url="http://a", sha256="a", license="PSF-2.0"
+    ))
+    bom.set_default("python", "3.13")
+    bom.set_latest("python", "3.13", "3.13.1")
+    bom._component_releases["python@3.13.1"] = "20260115-134426"
+
+    print_summary(bom)
 
     out, _ = capsys.readouterr()
-    assert "v1.0.0" in out
-    assert "4.0.0" in out
+    assert "20260115-134426" in out
     assert "3.13.1" in out
 
 
-def test_collect_new_versions_skips_non_matching(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """collect_new_versions skips files that don't match pattern."""
+def test_collect_new_binaries_skips_non_matching(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """collect_new_binaries skips files that don't match pattern."""
     monkeypatch.setattr("ci.manifest.DIST_DIR", tmp_path)
     monkeypatch.setenv("REPO", "test/repo")
 
@@ -254,7 +358,7 @@ def test_collect_new_versions_skips_non_matching(tmp_path: Path, monkeypatch: "p
     # And one that does
     (tmp_path / "python-3.12.8-cosmo.com").write_bytes(b"fake")
 
-    result = collect_new_versions("v1.0.0")
+    result = collect_new_binaries("20260115-134426")
 
     assert len(result) == 1
     assert "3.12.8" in result
@@ -285,7 +389,7 @@ def test_main_no_args(monkeypatch: "pytest.MonkeyPatch", capsys: "pytest.Capture
 def test_main_unknown_arg(monkeypatch: "pytest.MonkeyPatch") -> None:
     """main() with unknown arg returns error."""
     from ci.manifest import main
-    monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0", "--unknown"])
+    monkeypatch.setattr("sys.argv", ["manifest", "20260115-134426", "--unknown"])
 
     result = main()
 
@@ -306,12 +410,12 @@ def test_main_success(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
-    monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])
+    monkeypatch.setattr("sys.argv", ["manifest", "20260115-134426"])
 
     result = main()
 
     assert result == 0
-    assert (dist / "manifest.json").exists()
+    assert (dist / "manifest.cdx.json").exists()
 
 
 def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -323,8 +427,12 @@ def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> N
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
 
     # Previous manifest
-    prev = tmp_path / "prev-manifest.json"
-    prev.write_text(json.dumps({"versions": {"3.12.8": {"url": "old", "release": "v0.9"}}}))
+    prev_bom = cdx.Bom()
+    prev_bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    prev = tmp_path / "prev-manifest.cdx.json"
+    cdx.dump(prev_bom, prev)
 
     cdx_file = make_test_cdx(tmp_path)
 
@@ -332,14 +440,14 @@ def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> N
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
-    monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0", "--merge", str(prev)])
+    monkeypatch.setattr("sys.argv", ["manifest", "20260115-134426", "--merge", str(prev)])
 
     result = main()
 
     assert result == 0
-    manifest = json.loads((dist / "manifest.json").read_text())
-    assert "3.12.8" in manifest["versions"]  # from previous
-    assert "3.13.1" in manifest["versions"]  # from new
+    manifest = cdx.load(dist / "manifest.cdx.json")
+    assert manifest.get_component("python", "3.12.8") is not None  # from previous
+    assert manifest.get_component("python", "3.13.1") is not None  # from new
 
 
 def test_main_empty_tag(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -364,15 +472,19 @@ def test_main_empty_tag(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> No
 
 
 def test_main_uses_existing_manifest(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """main() uses existing manifest.json if present."""
+    """main() uses existing manifest.cdx.json if present."""
     from ci.manifest import main
 
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
-    (dist / "manifest.json").write_text(json.dumps({
-        "versions": {"3.12.8": {"url": "old", "release": "v0.9"}}
-    }))
+
+    # Create existing manifest
+    existing_bom = cdx.Bom()
+    existing_bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    cdx.dump(existing_bom, dist / "manifest.cdx.json")
 
     cdx_file = make_test_cdx(tmp_path)
 
@@ -380,13 +492,13 @@ def test_main_uses_existing_manifest(tmp_path: Path, monkeypatch: "pytest.Monkey
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
-    monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])
+    monkeypatch.setattr("sys.argv", ["manifest", "20260115-134426"])
 
     result = main()
 
     assert result == 0
-    manifest = json.loads((dist / "manifest.json").read_text())
-    assert "3.12.8" in manifest["versions"]  # from existing
+    manifest = cdx.load(dist / "manifest.cdx.json")
+    assert manifest.get_component("python", "3.12.8") is not None  # from existing
 
 
 def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch", capsys: "pytest.CaptureFixture[str]") -> None:
@@ -396,9 +508,11 @@ def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch
     dist = tmp_path / "dist"
     dist.mkdir()
     # Create existing manifest so we have versions to work with
-    (dist / "manifest.json").write_text(json.dumps({
-        "versions": {"3.12.8": {"url": "old", "release": "v0.9"}}
-    }))
+    existing_bom = cdx.Bom()
+    existing_bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+    ))
+    cdx.dump(existing_bom, dist / "manifest.cdx.json")
 
     cdx_file = make_test_cdx(tmp_path)
 
@@ -406,7 +520,7 @@ def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
-    monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])
+    monkeypatch.setattr("sys.argv", ["manifest", "20260115-134426"])
 
     result = main()
 

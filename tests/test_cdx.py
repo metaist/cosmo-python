@@ -162,13 +162,12 @@ def test_bom_defaults() -> None:
     assert bom.get_default_component("missing") is None
 
 
-def test_bom_python_default_resolves_minor() -> None:
-    """Test that Python default resolves minor to patch version."""
+def test_bom_default_component() -> None:
+    """Test get_default_component returns the default version."""
     bom = cdx.Bom()
     c = cdx.Component(name="python", version="3.13.11", url="x", sha256="a", license="PSF-2.0")
     bom.add_component(c)
-    bom.set_default("python", "3.13")
-    bom.set_latest("python", "3.13", "3.13.11")
+    bom.set_default("python", "3.13.11")
 
     assert bom.get_default_component("python") == c
 
@@ -342,6 +341,24 @@ def test_dump() -> None:
     assert result["dependencies"] == [{"ref": "test@1.0", "dependsOn": ["other@2.0"]}]
 
 
+def test_dump_sorts_dependencies() -> None:
+    """Test dump sorts dependencies: python first, then alpha, each with version_key."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.9.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="python", version="3.10.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="cosmocc", version="4.0.0", url="x", sha256="a", license="ISC"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache-2.0"))
+    bom.set_dependencies("openssl@3.0.0", ["zlib@1.0"])
+    bom.set_dependencies("cosmocc@4.0.0", ["gcc@1.0"])
+    bom.set_dependencies("python@3.10.0", ["openssl@3.0.0"])
+    bom.set_dependencies("python@3.9.0", ["openssl@3.0.0"])
+
+    result = cdx.dump(bom)
+    refs = [d["ref"] for d in result["dependencies"]]
+    # python first (sorted by version_key: 3.9 < 3.10), then deps alpha
+    assert refs == ["python@3.9.0", "python@3.10.0", "cosmocc@4.0.0", "openssl@3.0.0"]
+
+
 def test_dump_to_file() -> None:
     """Test writing BOM to file."""
     bom = cdx.Bom()
@@ -424,7 +441,7 @@ def test_real_versions_cdx_json() -> None:
     bom = cdx.load("versions.cdx.json")
 
     # Check metadata
-    assert bom.get_default_version("python") == "3.13"
+    assert bom.get_default_version("python") == "3.13.11"
     assert bom.get_latest_version("python", "3.13") == "3.13.11"
 
     # Check Python components

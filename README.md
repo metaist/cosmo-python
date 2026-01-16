@@ -40,10 +40,14 @@ chmod +x python-3.13.11-cosmo.com
 ```
 <!--[[[end]]]-->
 
-Or use the [manifest][manifest] to find available versions:
+Or use the [manifest][manifest] to get the default version dynamically:
 
 ```bash
-curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json | jq .
+curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json -o manifest.cdx.json
+VERSION=$(jq -r '.metadata.properties[] | select(.name=="cosmo:default:python") | .value' manifest.cdx.json)
+curl -LO "https://github.com/metaist/cosmo-python/releases/latest/download/python-${VERSION}-cosmo.com"
+chmod +x python-${VERSION}-cosmo.com
+./python-${VERSION}-cosmo.com --version
 ```
 
 ## Releases
@@ -60,7 +64,7 @@ Each release includes:
 ```
 python-3.x.y-cosmo.com
 ...
-manifest.json
+manifest.cdx.json
 checksums.txt
 ```
 
@@ -102,23 +106,7 @@ The [manifest][manifest] also includes SHA256 hashes for programmatic verificati
 
 ### Manifest Format
 
-The [manifest][manifest] acts as a spanning registry, tracking all versions across releases:
-
-```json
-{
-  "release": "YYYYMMDD-HHMMSS",
-  "cosmocc": "X.Y.Z",
-  "versions": {
-    "3.12.8": {
-      "url": "https://github.com/metaist/cosmo-python/releases/download/.../python-3.12.8-cosmo.com",
-      "sha256": "...",
-      "release": "YYYYMMDD-HHMMSS"
-    }
-  },
-  "latest": { "3.12": "3.12.9", "3.13": "3.13.1" },
-  "default": "3.13"
-}
-```
+The [manifest][manifest] is a [CycloneDX 1.5](https://cyclonedx.org/) SBOM that tracks all versions across releases. It includes custom `cosmo:*` properties for version discovery and build attestation.
 
 For details on how binaries are built and source verification, see [Building](#building).
 
@@ -182,9 +170,9 @@ for name in bom.component_names():
 | Dependency | Version | Source | Integrity | Signature | License |
 |------------|---------|--------|-----------|-----------|---------|
 | **Python** | 3.10–3.14 | [python.org](https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz) | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
-| **Cosmopolitan** | 4.0.2 | [github.com](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
 | **bzip2** | 1.0.8 | [sourceware.org](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
 | **CA certs** | 2025-12-02 | [curl.se](https://curl.se/ca/cacert-2025-12-02.pem) | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
+| **Cosmopolitan** | 4.0.2 | [github.com](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
 | **gdbm** | 1.26 | [gnu.org](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
 | **libffi** | 3.5.2 | [github.com](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
 | **ncurses** | 6.6 | [gnu.org](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
@@ -222,7 +210,7 @@ Upstream dependency licenses are shown in the [Upstream Sources](#upstream-sourc
 
 <!-- project links -->
 [cosmo]: https://github.com/jart/cosmopolitan
-[manifest]: https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json
+[manifest]: https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json
 [versions-cdx]: https://github.com/metaist/cosmo-python/blob/main/versions.cdx.json
 
 <!-- workflows -->

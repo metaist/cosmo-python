@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Generate manifest.json for a release.
+"""Generate manifest.cdx.json for a release.
 
-This creates a spanning manifest that includes:
+This creates a CycloneDX SBOM manifest that includes:
 - All Python versions from the current release
 - All Python versions from previous releases (merged)
+- All dependencies used to build each Python version
+- Build attestation information for verification
 
 The manifest serves as a registry of all available versions across releases.
 
 Usage:
     uv run -m ci.manifest <release_tag> [--merge <url_or_path>]
 
-Outputs: ${DIST_DIR}/manifest.json (default: ./dist/manifest.json)
+Outputs: ${DIST_DIR}/manifest.cdx.json (default: ./dist/manifest.cdx.json)
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import os
 import re
@@ -24,13 +25,15 @@ import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from . import cdx
 from .common import CDX_FILE, setup_logging, version_key
 
 # Directories
 DIST_DIR = Path(os.environ.get("DIST_DIR", "dist"))
+
+# GitHub repo for attestation verification
+DEFAULT_REPO = "metaist/cosmo-python"
 
 log = logging.getLogger("ci.manifest")
 
@@ -50,18 +53,27 @@ def get_cosmocc_version() -> str:
 
 def get_repo() -> str:
     """Get repo from environment or default."""
-    return os.environ.get("REPO", "metaist/cosmo-python")
+    return os.environ.get("REPO", DEFAULT_REPO)
 
 
-def fetch_previous_manifest(url_or_path: str) -> dict[str, Any] | None:
+def fetch_previous_manifest(url_or_path: str) -> cdx.Bom | None:
     """Fetch previous manifest from URL or local path."""
     if url_or_path.startswith("http"):
         log.info(f"Fetching previous manifest from {url_or_path}...")
         try:
             with urllib.request.urlopen(url_or_path, timeout=30) as resp:
-                data: dict[str, Any] = json.loads(resp.read().decode())
+                # Write to temp file and load
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                ) as tmp:
+                    tmp.write(resp.read().decode())
+                    tmp_path = tmp.name
+                bom = cdx.load(tmp_path)
+                Path(tmp_path).unlink()
                 log.info("Previous manifest fetched")
-                return data
+                return bom
         except Exception as e:
             log.warning(f"Could not fetch previous manifest: {e}")
             return None
@@ -69,21 +81,26 @@ def fetch_previous_manifest(url_or_path: str) -> dict[str, Any] | None:
         path = Path(url_or_path)
         if path.exists():
             log.info(f"Using previous manifest from {path}")
-            return dict(json.loads(path.read_text()))
+            return cdx.load(path)
         else:
             log.warning(f"Previous manifest not found at {path}")
             return None
 
 
-def collect_new_versions(release_tag: str) -> dict[str, Any]:
-    """Collect all built Python versions from dist/."""
-    new_versions = {}
+def collect_new_binaries(release_tag: str) -> dict[str, dict[str, str]]:
+    """Collect all built Python binaries from dist/.
+
+    Returns dict mapping version -> {url, sha256, filename}.
+    """
+    binaries: dict[str, dict[str, str]] = {}
     repo = get_repo()
 
     for artifact in sorted(DIST_DIR.glob("python-*-cosmo.com")):
         filename = artifact.name
         # Extract version from filename: python-3.12.8-cosmo.com
-        match = re.match(r"python-(\d+\.\d+\.\d+)-cosmo\.com", filename)
+        match = re.match(
+            r"python-(\d+\.\d+\.\d+[ab]?\d*(?:rc\d+)?)-cosmo\.com", filename
+        )
         if not match:
             continue
         version = match.group(1)
@@ -97,88 +114,151 @@ def collect_new_versions(release_tag: str) -> dict[str, Any]:
             checksum_file.write_text(f"{checksum}  {filename}\n")
 
         url = f"https://github.com/{repo}/releases/download/{release_tag}/{filename}"
-        new_versions[version] = {
+        binaries[version] = {
             "url": url,
             "sha256": checksum,
             "filename": filename,
-            "release": release_tag,
         }
         log.info(f"New: {version} ({checksum[:16]}...)")
 
-    return new_versions
+    return binaries
 
 
 def generate_manifest(
     release_tag: str,
-    new_versions: dict[str, Any],
-    prev_manifest: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Generate manifest with proper merging and ordering."""
+    new_binaries: dict[str, dict[str, str]],
+    prev_manifest: cdx.Bom | None = None,
+) -> cdx.Bom:
+    """Generate CycloneDX manifest with proper merging."""
+    repo = get_repo()
     cosmocc_version = get_cosmocc_version()
-    generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Load disabled versions from versions.cdx.json
-    bom = cdx.load(CDX_FILE)
-    disabled_prefixes = bom.get_disabled("python")
+    # Load build config to get dependencies
+    build_bom = cdx.load(CDX_FILE)
+    disabled_prefixes = build_bom.get_disabled("python")
     if disabled_prefixes:
         log.warning(f"Disabled version prefixes: {disabled_prefixes}")
 
-    # Get previous versions
-    old_versions = {}
+    # Start with empty manifest or previous
     if prev_manifest:
-        old_versions = prev_manifest.get("versions", {})
-
-    # Merge: new overrides old
-    all_versions = {**old_versions, **new_versions}
-
-    # Filter out disabled versions
-    if disabled_prefixes:
-        all_versions = {
-            ver: data
-            for ver, data in all_versions.items()
-            if not any(ver.startswith(prefix) for prefix in disabled_prefixes)
-        }
-
-    # Compute latest for each minor version
-    minors: dict[str, str] = {}
-    for ver in all_versions:
-        minor = ".".join(ver.split(".")[:2])
-        if minor not in minors or version_key(ver) > version_key(minors[minor]):
-            minors[minor] = ver
-    latest = {k: minors[k] for k in sorted(minors.keys(), key=version_key)}
-
-    # Find default (highest non-prerelease version)
-    stable_versions = [v for v in all_versions if not is_prerelease(v)]
-    if stable_versions:
-        default = sorted(stable_versions, key=version_key)[-1]
+        manifest = prev_manifest
     else:
-        default = sorted(all_versions.keys(), key=version_key)[-1]
+        manifest = cdx.Bom()
 
-    # Build manifest with ordered keys
-    return {
-        "release": release_tag,
-        "cosmocc": cosmocc_version,
-        "generated": generated,
-        "default": default,
-        "latest": latest,
-        "versions": {
-            k: all_versions[k] for k in sorted(all_versions.keys(), key=version_key)
-        },
-    }
+    # Update manifest metadata
+    manifest._release = release_tag
+
+    # Add cosmocc as a component (toolchain used for builds)
+    cosmocc_comp = build_bom.get_component("cosmocc", cosmocc_version)
+    if cosmocc_comp:
+        # Create a copy without download URL (it's a build tool, not distributed)
+        manifest.add_component(
+            cdx.Component(
+                name="cosmocc",
+                version=cosmocc_version,
+                url="",  # Not distributed
+                sha256="",
+                license=cosmocc_comp.license,
+                license_url=cosmocc_comp.license_url,
+                description="Cosmopolitan C Compiler toolchain used for builds",
+                component_type="application",
+            )
+        )
+
+    # Collect all dependency versions needed
+    dep_versions_needed: set[str] = set()  # "openssl@3.5.4" format
+
+    # Add new Python binaries
+    for version, binary_info in new_binaries.items():
+        # Check if disabled
+        if disabled_prefixes and any(version.startswith(p) for p in disabled_prefixes):
+            log.warning(f"Skipping disabled version: {version}")
+            continue
+
+        # Get source component for license info
+        source_comp = build_bom.get_component("python", version)
+
+        # Create binary component
+        comp = cdx.Component(
+            name="python",
+            version=version,
+            url=binary_info["url"],
+            sha256=binary_info["sha256"],
+            license=source_comp.license if source_comp else "PSF-2.0",
+            license_url=source_comp.license_url if source_comp else None,
+            component_type="application",
+            # Attestation info for verification
+            attestation_repo=repo,
+        )
+        manifest.add_component(comp)
+
+        # Track release tag per component
+        manifest._component_releases[f"python@{version}"] = release_tag
+
+        # Update latest for this minor
+        minor = ".".join(version.split(".")[:2])
+        current_latest = manifest.get_latest_version("python", minor)
+        if not current_latest or version_key(version) > version_key(current_latest):
+            manifest.set_latest("python", minor, version)
+
+        # Collect dependencies from build config
+        deps = build_bom.get_dependencies(f"python@{version}")
+        for dep_ref in deps:
+            dep_versions_needed.add(dep_ref)
+
+        # Set dependencies in manifest
+        manifest.set_dependencies(f"python@{version}", deps)
+
+    # Add all needed dependency components
+    for dep_ref in sorted(dep_versions_needed):
+        name, version = dep_ref.split("@")
+        dep_comp = build_bom.get_component(name, version)
+        if dep_comp and not manifest.get_component(name, version):
+            manifest.add_component(dep_comp)
+
+    # Compute default (highest non-prerelease stable version)
+    all_python_versions = manifest.python_versions()
+    stable_versions = [v for v in all_python_versions if not is_prerelease(v)]
+    if stable_versions:
+        default_version = sorted(stable_versions, key=version_key)[-1]
+    elif all_python_versions:
+        default_version = sorted(all_python_versions, key=version_key)[-1]
+    else:
+        default_version = ""
+
+    if default_version:
+        manifest.set_default("python", default_version)
+
+    return manifest
 
 
-def print_summary(manifest: dict[str, Any]) -> None:
+def print_summary(manifest: cdx.Bom) -> None:
     """Print manifest summary."""
     print()
     log.info("Manifest summary:")
-    print(f"  Release: {manifest['release']}")
-    print(f"  Cosmocc: {manifest['cosmocc']}")
-    print(f"  Versions: {len(manifest['versions'])}")
-    print(f"  Default: {manifest['default']}")
+    print(f"  Release: {manifest._release}")
+    print(f"  Python versions: {len(manifest.python_versions())}")
+
+    default_minor = manifest.get_default_version("python")
+    if default_minor:
+        default_version = manifest.get_latest_version("python", default_minor)
+        print(f"  Default: {default_version}")
+
     print()
     print("  Available versions:")
-    for ver, data in manifest["versions"].items():
-        print(f"    {ver} -> {data.get('release', 'unknown')}")
+    for version in manifest.python_versions():
+        release = manifest._component_releases.get(f"python@{version}", "unknown")
+        print(f"    {version} -> {release}")
+
+    # Show dependencies
+    dep_names = [n for n in manifest.component_names() if n != "python"]
+    if dep_names:
+        print()
+        print("  Dependencies included:")
+        for name in sorted(dep_names):
+            comps = manifest.get_components(name)
+            versions = [c.version for c in comps]
+            print(f"    {name}: {', '.join(versions)}")
 
 
 def main() -> int:
@@ -218,22 +298,22 @@ def main() -> int:
         prev_manifest = fetch_previous_manifest(merge_url)
     else:
         # Check for existing manifest
-        existing = DIST_DIR / "manifest.json"
+        existing = DIST_DIR / "manifest.cdx.json"
         if existing.exists():
             log.info("Using existing manifest as base")
-            prev_manifest = json.loads(existing.read_text())
+            prev_manifest = cdx.load(existing)
 
-    # Collect new versions
-    new_versions = collect_new_versions(release_tag)
-    if not new_versions:
+    # Collect new binaries
+    new_binaries = collect_new_binaries(release_tag)
+    if not new_binaries:
         log.warning("No binaries found in dist/")
 
     # Generate manifest
-    manifest = generate_manifest(release_tag, new_versions, prev_manifest)
+    manifest = generate_manifest(release_tag, new_binaries, prev_manifest)
 
     # Write manifest
-    manifest_path = DIST_DIR / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_path = DIST_DIR / "manifest.cdx.json"
+    cdx.dump(manifest, manifest_path)
     log.info(f"OK Manifest written to {manifest_path}")
 
     # Print summary
