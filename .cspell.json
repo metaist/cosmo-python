@@ -83,6 +83,14 @@
     "capfd",
     "caextract",
     "delenv",
-    "regen"
+    "regen",
+    "forkserver",
+    "dlopen",
+    "mydb",
+    "hasattr",
+    "asyncio",
+    "toolkits",
+    "runpy",
+    "difflib"
   ]
 }

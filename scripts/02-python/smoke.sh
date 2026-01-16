@@ -234,6 +234,38 @@ assert struct.unpack('iif', packed) == (1, 2, 3.0)
 "
 
 echo ""
+echo "Asyncio..."
+
+run_test "import asyncio" "import asyncio"
+run_test "asyncio.run" "
+import asyncio
+async def main():
+    return 42
+assert asyncio.run(main()) == 42
+"
+run_test "asyncio.gather" "
+import asyncio
+async def double(x):
+    await asyncio.sleep(0.001)
+    return x * 2
+async def main():
+    results = await asyncio.gather(*[double(i) for i in range(5)])
+    assert results == [0, 2, 4, 6, 8]
+asyncio.run(main())
+"
+run_test "asyncio.create_task" "
+import asyncio
+async def worker():
+    await asyncio.sleep(0.001)
+    return 'done'
+async def main():
+    task = asyncio.create_task(worker())
+    result = await task
+    assert result == 'done'
+asyncio.run(main())
+"
+
+echo ""
 echo "Subprocess..."
 
 if run_test "subprocess.run echo" "
