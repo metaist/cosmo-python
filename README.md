@@ -17,10 +17,12 @@ See [LIMITATIONS.md](LIMITATIONS.md) for known differences from standard CPython
 ## Usage
 
 <!--[[[cog
-import json
-versions = json.load(open("versions.json"))
-default_minor = versions["python"]["default"]
-default_version = versions["python"]["latest"][default_minor]
+import sys; sys.path.insert(0, ".")
+from ci import cdx
+
+bom = cdx.load("versions.cdx.json")
+default_python = bom.get_default_component("python")
+default_version = default_python.version
 cog.outl(f"Download and run:")
 cog.outl("")
 cog.outl("```bash")
@@ -167,93 +169,29 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 All upstream sources are SHA256 verified against known-good hashes in [`versions.json`][versions-json]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
 
 <!--[[[cog
-from urllib.parse import urlparse
-
-# Special display names for sources (default: base domain without subdomain)
-SOURCE_NAMES = {
-    "github.com": "GitHub",
-    "ftp.gnu.org": "GNU FTP",
-}
-
-# Display names for packages (default: use key as-is)
-DISPLAY_NAMES = {
-    "python": "Python",
-    "bz2": "bzip2",
-    "cacert": "CA certs",
-    "cosmocc": "Cosmopolitan",
-    "openssl": "OpenSSL",
-    "xz": "xz/liblzma",
-}
-
-def get_source_name(url):
-    """Derive human-readable source name from URL domain."""
-    domain = urlparse(url).netloc
-    if domain in SOURCE_NAMES:
-        return SOURCE_NAMES[domain]
-    # Strip www/ftp subdomain for cleaner display
-    if domain.startswith(("www.", "ftp.")):
-        domain = domain.split(".", 1)[1]
-    return domain
-
-def get_sig_type(ver_info):
-    """Get signature type from version info."""
-    if "sigstore" in ver_info:
-        return "Sigstore"
-    elif "gpg" in ver_info:
-        return "GPG"
-    return "—"
-
-def get_version_display(key, info):
-    """Get version display string."""
-    # Python is special - users choose versions, so show range
-    if key == "python":
-        minors = sorted(set(".".join(v.split(".")[:2]) for v in info["versions"]))
-        return f"{minors[0]}–{minors[-1]}"
-    # For deps, just show the default version
-    return info["default"]
-
-def get_default_ver_info(info):
-    """Get version info for the default version."""
-    default = info["default"]
-    # Handle case where default is a minor version (e.g., "3.13" -> "3.13.11")
-    if "latest" in info and default in info["latest"]:
-        default = info["latest"][default]
-    return info["versions"][default]
-
-def get_license_link(ver_info):
-    """Get license as markdown link."""
-    license_name = ver_info.get("license", "—")
-    license_url = ver_info.get("license_url", "")
-    if license_url:
-        return f"[{license_name}]({license_url})"
-    return license_name
-
 cog.outl("| Dependency | Version | Source | Integrity | Signature | License |")
 cog.outl("|------------|---------|--------|-----------|-----------|---------|")
 
-for key, info in versions.items():
-    name = DISPLAY_NAMES.get(key, key)
-    ver_display = get_version_display(key, info)
-    ver_info = get_default_ver_info(info)
-    url = ver_info["url"]
-    sig = get_sig_type(ver_info)
-    source = get_source_name(url)
-    license_link = get_license_link(ver_info)
-    cog.outl(f"| **{name}** | {ver_display} | [{source}]({url}) | SHA256 | {sig} | {license_link} |")
+for name in bom.component_names():
+    comp = bom.get_default_component(name)
+    if not comp:
+        continue
+    ver = f"{bom.python_minors()[0]}–{bom.python_minors()[-1]}" if name == "python" else comp.version
+    cog.outl(f"| **{comp.display_name}** | {ver} | [{comp.source_domain}]({comp.url}) | SHA256 | {comp.signature_type} | {comp.license_link} |")
 ]]]-->
 | Dependency | Version | Source | Integrity | Signature | License |
 |------------|---------|--------|-----------|-----------|---------|
 | **Python** | 3.10–3.14 | [python.org](https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz) | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
-| **Cosmopolitan** | 4.0.2 | [GitHub](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
+| **Cosmopolitan** | 4.0.2 | [github.com](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
 | **bzip2** | 1.0.8 | [sourceware.org](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
 | **CA certs** | 2025-12-02 | [curl.se](https://curl.se/ca/cacert-2025-12-02.pem) | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
-| **gdbm** | 1.26 | [GNU FTP](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG | [GPL-3.0](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
-| **libffi** | 3.5.2 | [GitHub](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
-| **ncurses** | 6.6 | [GNU FTP](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
-| **OpenSSL** | 3.5.4 | [GitHub](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
-| **readline** | 8.3 | [GNU FTP](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG | [GPL-3.0](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
-| **sqlite** | 3.51.2 | [sqlite.org](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | SHA256 | — | [Public-Domain](https://www.sqlite.org/copyright.html) |
-| **xz/liblzma** | 5.8.2 | [GitHub](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG | [Public-Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
+| **gdbm** | 1.26 | [gnu.org](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
+| **libffi** | 3.5.2 | [github.com](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
+| **ncurses** | 6.6 | [gnu.org](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
+| **OpenSSL** | 3.5.4 | [github.com](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
+| **readline** | 8.3 | [gnu.org](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
+| **sqlite** | 3.51.2 | [sqlite.org](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | SHA256 | — | [Public Domain](https://www.sqlite.org/copyright.html) |
+| **xz/liblzma** | 5.8.2 | [github.com](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | SHA256 | GPG | [Public Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
 <!--[[[end]]]-->
 
 ---

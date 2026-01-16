@@ -19,8 +19,8 @@ clean.shell = """
 """
 
 # Lint
-lint.help = "lint shell, python, yaml, and spelling"
-lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check"]
+lint.help = "lint shell, python, yaml, spelling, and schemas"
+lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check", "cdx-schema"]
 
 shellcheck.help = "lint shell scripts"
 # Excluded: SC1091 (dynamic source), SC2164 (cd || exit), SC2086 (unquoted), SC2103/SC2129 (style)
@@ -41,6 +41,9 @@ cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.{py,md}'"
 
 yamllint.help = "lint yaml files"
 yamllint.shell = "uvx yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
+
+cdx-schema.help = "validate versions.cdx.json against CycloneDX schema"
+cdx-schema.shell = "uvx check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.5.schema.json versions.cdx.json"
 
 # Type Check
 types.help = "run type checkers on Python code"
