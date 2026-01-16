@@ -17,7 +17,8 @@ import re
 import sys
 from pathlib import Path
 
-from .common import load_versions, setup_logging, version_key
+from . import cdx
+from .common import CDX_FILE, setup_logging, version_key
 
 log = logging.getLogger("ci.release_notes")
 
@@ -53,9 +54,9 @@ def main() -> int:
     version_table = "\n".join(lines)
 
     # Get default version
-    data = load_versions()
-    default_minor = data["python"]["default"]
-    default_version = data["python"]["latest"][default_minor]
+    bom = cdx.load(CDX_FILE)
+    default_python = bom.get_default_component("python")
+    default_version = default_python.version if default_python else "unknown"
 
     # Output for GitHub Actions
     github_output = os.environ.get("GITHUB_OUTPUT")

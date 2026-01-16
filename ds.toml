@@ -7,7 +7,7 @@
 build.help = "build a single Python version"
 build.shell = "./scripts/build.sh $@"
 
-build-all.help = "build all Python versions from versions.json"
+build-all.help = "build all Python versions"
 build-all.shell = "./scripts/build.sh --all"
 
 clean.help = "remove build artifacts"

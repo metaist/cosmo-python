@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any
 
 # Paths - relative to repo root (this file is at ci/common.py)
 REPO_ROOT = Path(__file__).parent.parent
-VERSIONS_FILE = REPO_ROOT / "versions.json"
+CDX_FILE = REPO_ROOT / "versions.cdx.json"
 
 # ANSI colors
 GREEN = "\033[92m"
@@ -61,13 +59,3 @@ def version_key(v: str) -> list[tuple[int, int | str]]:
         else:
             result.append((1, p))
     return result
-
-
-def load_versions() -> dict[str, Any]:
-    """Load versions.json."""
-    return dict(json.loads(VERSIONS_FILE.read_text()))
-
-
-def save_versions(data: dict[str, Any]) -> None:
-    """Save versions.json (without normalization)."""
-    VERSIONS_FILE.write_text(json.dumps(data, indent=2) + "\n")

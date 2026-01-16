@@ -129,6 +129,13 @@ class Bom:
     >>> bom.set_default("test", "1.0")
     >>> bom.get_default_version("test")
     '1.0'
+    >>> bom.set_disabled("python", ["3.9"])
+    >>> bom.get_disabled("python")
+    ['3.9']
+    >>> bom.is_disabled("python", "3.9.1")
+    True
+    >>> bom.is_disabled("python", "3.10.1")
+    False
     """
 
     # Internal storage
@@ -136,6 +143,9 @@ class Bom:
     _defaults: dict[str, str] = field(default_factory=dict)
     _latest: dict[str, str] = field(default_factory=dict)  # "python:3.13" -> "3.13.11"
     _dependencies: dict[str, list[str]] = field(default_factory=dict)
+    _disabled: dict[str, list[str]] = field(
+        default_factory=dict
+    )  # package -> [version prefixes]
 
     # Metadata
     timestamp: str | None = None
@@ -213,6 +223,23 @@ class Bom:
         """Get the dependency refs for a component."""
         return self._dependencies.get(ref, [])
 
+    # Disabled versions
+
+    def set_disabled(self, name: str, prefixes: list[str]) -> None:
+        """Set disabled version prefixes for a package."""
+        self._disabled[name] = prefixes
+
+    def get_disabled(self, name: str) -> list[str]:
+        """Get disabled version prefixes for a package."""
+        return self._disabled.get(name, [])
+
+    def is_disabled(self, name: str, version: str) -> bool:
+        """Check if a version is disabled (matches any disabled prefix)."""
+        for prefix in self.get_disabled(name):
+            if version.startswith(prefix):
+                return True
+        return False
+
     # Convenience methods
 
     def python_versions(self) -> list[str]:
@@ -249,6 +276,9 @@ class Bom:
 
         # Merge dependencies (other wins for same ref)
         result._dependencies = {**self._dependencies, **other._dependencies}
+
+        # Merge disabled (other wins for same package)
+        result._disabled = {**self._disabled, **other._disabled}
 
         return result
 
@@ -315,7 +345,7 @@ def load(path: Path | str) -> Bom:
     metadata = data.get("metadata", {})
     bom.timestamp = metadata.get("timestamp")
 
-    # Parse metadata properties for defaults and latest
+    # Parse metadata properties for defaults, latest, and disabled
     for prop in metadata.get("properties", []):
         name = prop.get("name", "")
         value = prop.get("value", "")
@@ -328,6 +358,12 @@ def load(path: Path | str) -> Bom:
             if ":" in rest:
                 pkg, minor = rest.split(":", 1)
                 bom.set_latest(pkg, minor, value)
+        elif name.startswith("cosmo:disabled:"):
+            # e.g., "cosmo:disabled:python" -> "3.9,3.8" (comma-separated prefixes)
+            pkg = name[15:]  # Remove "cosmo:disabled:" prefix
+            prefixes = [p.strip() for p in value.split(",") if p.strip()]
+            if prefixes:
+                bom.set_disabled(pkg, prefixes)
 
     # Parse components
     for comp_data in data.get("components", []):
@@ -405,7 +441,14 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
     for pkg, version in sorted(bom._defaults.items()):
         meta_props.append({"name": f"cosmo:default:{pkg}", "value": version})
 
-    # Add latest (only python for now)
+    # Add disabled
+    for pkg, prefixes in sorted(bom._disabled.items()):
+        if prefixes:
+            meta_props.append(
+                {"name": f"cosmo:disabled:{pkg}", "value": ",".join(prefixes)}
+            )
+
+    # Add latest
     for key, version in sorted(bom._latest.items()):
         pkg, minor = key.split(":", 1)
         meta_props.append({"name": f"cosmo:latest:{pkg}:{minor}", "value": version})

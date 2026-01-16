@@ -1,62 +1,52 @@
 """Tests for ci/check_updates.py."""
 
-import json
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+from ci import cdx
 from ci.check_updates import (
-    get_dep_license,
     update_dependency,
     update_python_version,
     check_python_versions,
     check_dependencies,
-    ensure_license_info,
 )
 
 
-def test_get_dep_license_found() -> None:
-    """get_dep_license extracts license from default version."""
-    data = {
-        "openssl": {
-            "default": "3.5.4",
-            "versions": {
-                "3.5.4": {"license": "Apache-2.0", "license_url": "http://lic"}
-            }
-        }
-    }
-    result = get_dep_license(data, "openssl")
-    assert result == ("Apache-2.0", "http://lic")
-
-
-def test_get_dep_license_not_found() -> None:
-    """get_dep_license returns None if no license."""
-    data = {"openssl": {"default": "3.5.4", "versions": {"3.5.4": {}}}}
-    result = get_dep_license(data, "openssl")
-    assert result is None
-
-
-def test_get_dep_license_no_default() -> None:
-    """get_dep_license returns None if no default."""
-    data = {"openssl": {"versions": {}}}
-    result = get_dep_license(data, "openssl")
-    assert result is None
+def make_test_bom() -> cdx.Bom:
+    """Create a test BOM with sample data."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://py/3.13.0.tgz",
+        sha256="abc", license="PSF-2.0", license_url="http://psf",
+        sigstore_identity="test@python.org", sigstore_issuer="https://accounts.google.com",
+        eol="2029-10", status="bugfix", component_type="application"
+    ))
+    bom.add_component(cdx.Component(
+        name="xz", version="5.6.0", url="http://xz/5.6.0.tar.gz",
+        sha256="def", license="MIT", license_url="http://mit",
+        gpg="ABC123", component_type="library"
+    ))
+    bom.set_default("python", "3.13")
+    bom.set_latest("python", "3.13", "3.13.0")
+    bom.set_default("xz", "5.6.0")
+    bom.set_dependencies("python@3.13.0", ["xz@5.6.0"])
+    return bom
 
 
 @patch("ci.check_updates.fetch_sha256")
 @patch("ci.check_updates.DEPS")
 def test_update_dependency_dry_run(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_dependency in dry-run mode doesn't modify data."""
+    """update_dependency in dry-run mode doesn't modify bom."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", True)
     mock_sha256.return_value = "abc123"
     mock_upstream = MagicMock()
     mock_upstream.build_url.return_value = "http://test"
     mock_deps.get.return_value = mock_upstream
 
-    data = {"xz": {"default": "5.6.0", "versions": {"5.6.0": {}}}}
-    result = update_dependency(data, "xz", "5.6.1")
+    bom = make_test_bom()
+    result = update_dependency(bom, "xz", "5.6.1")
 
     assert result is True
-    assert "5.6.1" not in data["xz"]["versions"]
+    assert bom.get_component("xz", "5.6.1") is None  # Not added
 
 
 @patch("ci.check_updates.fetch_sha256")
@@ -64,31 +54,41 @@ def test_update_dependency_dry_run(mock_deps: MagicMock, mock_sha256: MagicMock,
 def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
     """update_dependency adds new version."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
+    mock_sha256.return_value = "def456"
     mock_upstream = MagicMock()
-    mock_upstream.build_url.return_value = "http://test/5.6.1.tar.gz"
+    mock_upstream.build_url.return_value = "http://xz/5.6.1.tar.gz"
     mock_deps.get.return_value = mock_upstream
 
-    data = {
-        "xz": {
-            "default": "5.6.0",
-            "versions": {"5.6.0": {"license": "MIT", "license_url": "http://lic"}}
-        }
-    }
-    result = update_dependency(data, "xz", "5.6.1")
+    bom = make_test_bom()
+    result = update_dependency(bom, "xz", "5.6.1")
 
     assert result is True
-    assert data["xz"]["default"] == "5.6.1"
-    assert data["xz"]["versions"]["5.6.1"]["sha256"] == "abc123"
-    assert data["xz"]["versions"]["5.6.1"]["license"] == "MIT"
+    assert bom.get_default_version("xz") == "5.6.1"
+    comp = bom.get_component("xz", "5.6.1")
+    assert comp is not None
+    assert comp.sha256 == "def456"
+    assert comp.license == "MIT"  # Copied from old default
+    assert comp.gpg == "ABC123"  # Copied from old default
 
 
 @patch("ci.check_updates.DEPS")
 def test_update_dependency_unknown(mock_deps: MagicMock) -> None:
     """update_dependency returns False for unknown dep."""
     mock_deps.get.return_value = None
-    data = {}
-    result = update_dependency(data, "unknown", "1.0.0")
+    bom = make_test_bom()
+    result = update_dependency(bom, "unknown", "1.0.0")
+    assert result is False
+
+
+@patch("ci.check_updates.DEPS")
+def test_update_dependency_no_url(mock_deps: MagicMock) -> None:
+    """update_dependency returns False if build_url returns empty."""
+    mock_upstream = MagicMock()
+    mock_upstream.build_url.return_value = ""
+    mock_deps.get.return_value = mock_upstream
+
+    bom = make_test_bom()
+    result = update_dependency(bom, "xz", "5.6.1")
     assert result is False
 
 
@@ -101,213 +101,197 @@ def test_update_dependency_fetch_error(mock_deps: MagicMock, mock_sha256: MagicM
     mock_upstream.build_url.return_value = "http://test"
     mock_deps.get.return_value = mock_upstream
 
-    data = {}
-    result = update_dependency(data, "xz", "5.6.1")
+    bom = make_test_bom()
+    result = update_dependency(bom, "xz", "5.6.1")
     assert result is False
 
 
 @patch("ci.check_updates.fetch_sha256")
-@patch("ci.check_updates.PythonUpstream")
-def test_update_python_version_dry_run(mock_py: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_python_version in dry-run mode doesn't modify data."""
+def test_update_python_version_dry_run(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_python_version in dry-run mode doesn't modify bom."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", True)
     mock_sha256.return_value = "abc123"
-    mock_instance = MagicMock()
-    mock_instance.build_url.return_value = "http://test"
-    mock_instance.get_status.return_value = "bugfix"
-    mock_instance.get_eol.return_value = "2029-10"
 
-    data = {"python": {"latest": {"3.13": "3.13.0"}, "versions": {"3.13.0": {}}}}
-    result = update_python_version(data, "3.13", "3.13.1", mock_instance)
+    mock_py = MagicMock()
+    mock_py.build_url.return_value = "http://test"
+    mock_py.get_status.return_value = "bugfix"
+    mock_py.get_eol.return_value = "2029-10"
+
+    bom = make_test_bom()
+    result = update_python_version(bom, "3.13", "3.13.1", mock_py)
 
     assert result is True
-    assert "3.13.1" not in data["python"]["versions"]
+    assert bom.get_component("python", "3.13.1") is None  # Not added
 
 
 @patch("ci.check_updates.fetch_sha256")
 def test_update_python_version_success(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
     """update_python_version adds new version."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
+    mock_sha256.return_value = "def456"
 
     mock_py = MagicMock()
-    mock_py.build_url.return_value = "http://test/Python-3.13.1.tgz"
+    mock_py.build_url.return_value = "http://py/Python-3.13.1.tgz"
     mock_py.get_status.return_value = "bugfix"
     mock_py.get_eol.return_value = "2029-10"
 
-    data = {
-        "python": {
-            "latest": {"3.13": "3.13.0"},
-            "versions": {"3.13.0": {"license": "PSF", "license_url": "http://psf"}}
-        }
-    }
-    result = update_python_version(data, "3.13", "3.13.1", mock_py)
+    bom = make_test_bom()
+    result = update_python_version(bom, "3.13", "3.13.1", mock_py)
 
     assert result is True
-    assert data["python"]["latest"]["3.13"] == "3.13.1"
-    assert data["python"]["versions"]["3.13.1"]["sha256"] == "abc123"
-    assert data["python"]["versions"]["3.13.1"]["status"] == "bugfix"
-
-
-@patch("ci.check_updates.PythonUpstream")
-def test_check_python_versions(mock_py_class: MagicMock) -> None:
-    """check_python_versions finds updates."""
-    mock_py = MagicMock()
-    mock_py.fetch_latest.side_effect = lambda m: {"3.12": "3.12.9", "3.13": "3.13.1"}.get(m)
-    mock_py.get_status.return_value = "bugfix"
-
-    data = {
-        "python": {
-            "latest": {"3.12": "3.12.8", "3.13": "3.13.1"},
-            "versions": {}
-        }
-    }
-    updates = check_python_versions(data, mock_py)
-
-    assert ("3.12", "3.12.9") in updates
-    assert len(updates) == 1  # 3.13 is current
-
-
-@patch("ci.check_updates.DEPS")
-def test_check_dependencies(mock_deps: MagicMock) -> None:
-    """check_dependencies finds updates."""
-    mock_upstream = MagicMock()
-    mock_upstream.fetch_latest.return_value = "5.6.1"
-    mock_deps.get.return_value = mock_upstream
-    mock_deps.__iter__ = lambda _: iter(["xz"])
-
-    data = {"xz": {"default": "5.6.0"}}
-    updates = check_dependencies(data)
-
-    assert ("xz", "5.6.1") in updates
-
-
-def test_ensure_license_info() -> None:
-    """ensure_license_info backfills license."""
-    data = {
-        "xz": {
-            "default": "5.6.1",
-            "versions": {
-                "5.6.0": {},
-                "5.6.1": {"license": "MIT", "license_url": "http://lic"}
-            }
-        }
-    }
-    updated = ensure_license_info(data)
-
-    assert updated is True
-    assert data["xz"]["versions"]["5.6.0"]["license"] == "MIT"
-
-
-def test_ensure_license_info_no_changes() -> None:
-    """ensure_license_info returns False if nothing to do."""
-    data = {
-        "xz": {
-            "default": "5.6.1",
-            "versions": {
-                "5.6.0": {"license": "MIT", "license_url": "http://lic"},
-                "5.6.1": {"license": "MIT", "license_url": "http://lic"}
-            }
-        }
-    }
-    updated = ensure_license_info(data)
-    assert updated is False
-
-
-def test_save_versions(tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch") -> None:
-    """save_versions writes and normalizes."""
-    from ci.check_updates import save_versions
-    import json
-    from pathlib import Path
-
-    test_file = tmp_path / "versions.json"
-    # Also need to patch where normalize reads from
-    monkeypatch.setattr("ci.common.VERSIONS_FILE", test_file)
-    monkeypatch.setattr("ci.check_updates.VERSIONS_FILE", test_file)
-    monkeypatch.setattr("ci.normalize.VERSIONS_FILE", test_file)
-
-    data = {"xz": {"default": "1.0", "versions": {}}, "python": {"default": "3.13", "versions": {}}}
-    save_versions(data)
-
-    result = json.loads(test_file.read_text())
-    # Should be normalized: python first
-    assert list(result.keys())[0] == "python"
-
-
-@patch("ci.check_updates.DEPS")
-def test_update_dependency_no_url(mock_deps: MagicMock) -> None:
-    """update_dependency returns False if build_url returns empty."""
-    mock_upstream = MagicMock()
-    mock_upstream.build_url.return_value = ""
-    mock_deps.get.return_value = mock_upstream
-
-    data = {}
-    result = update_dependency(data, "xz", "5.6.1")
-    assert result is False
+    assert bom.get_latest_version("python", "3.13") == "3.13.1"
+    comp = bom.get_component("python", "3.13.1")
+    assert comp is not None
+    assert comp.sha256 == "def456"
+    assert comp.license == "PSF-2.0"
+    assert comp.sigstore_identity == "test@python.org"  # Copied
+    assert comp.status == "bugfix"
+    assert comp.eol == "2029-10"
+    # Dependencies should be copied
+    assert bom.get_dependencies("python@3.13.1") == ["xz@5.6.0"]
 
 
 @patch("ci.check_updates.fetch_sha256")
-def test_update_python_version_fetch_error(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+def test_update_python_version_fetch_error(mock_sha256: MagicMock) -> None:
     """update_python_version returns False on fetch error."""
     mock_sha256.side_effect = Exception("Network error")
 
     mock_py = MagicMock()
     mock_py.build_url.return_value = "http://test"
 
-    data = {"python": {"latest": {}, "versions": {}}}
-    result = update_python_version(data, "3.13", "3.13.1", mock_py)
+    bom = make_test_bom()
+    result = update_python_version(bom, "3.13", "3.13.1", mock_py)
     assert result is False
 
 
-@patch("ci.check_updates.fetch_sha256")
-def test_update_python_version_copies_sigstore(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_python_version copies sigstore info from previous."""
-    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
-
+def test_check_python_versions_finds_update() -> None:
+    """check_python_versions finds updates."""
     mock_py = MagicMock()
-    mock_py.build_url.return_value = "http://test"
+    mock_py.fetch_latest.return_value = "3.13.1"
     mock_py.get_status.return_value = "bugfix"
-    mock_py.get_eol.return_value = "2029-10"
 
-    data = {
-        "python": {
-            "latest": {"3.13": "3.13.0"},
-            "versions": {
-                "3.13.0": {
-                    "sigstore": {"identity": "test@python.org"},
-                    "license": "PSF",
-                    "license_url": "http://psf"
-                }
-            }
-        }
-    }
-    result = update_python_version(data, "3.13", "3.13.1", mock_py)
+    bom = make_test_bom()
+    updates = check_python_versions(bom, mock_py)
 
-    assert result is True
-    assert data["python"]["versions"]["3.13.1"]["sigstore"]["identity"] == "test@python.org"
+    assert ("3.13", "3.13.1") in updates
 
 
-@patch("ci.check_updates.fetch_sha256")
+def test_check_python_versions_current() -> None:
+    """check_python_versions returns empty when current."""
+    mock_py = MagicMock()
+    mock_py.fetch_latest.return_value = "3.13.0"  # Same as current
+    mock_py.get_status.return_value = "bugfix"
+
+    bom = make_test_bom()
+    updates = check_python_versions(bom, mock_py)
+
+    assert len(updates) == 0
+
+
+def test_check_python_versions_eol() -> None:
+    """check_python_versions skips EOL versions."""
+    mock_py = MagicMock()
+    mock_py.fetch_latest.return_value = "3.13.1"
+    mock_py.get_status.return_value = "eol"
+
+    bom = make_test_bom()
+    updates = check_python_versions(bom, mock_py)
+
+    assert len(updates) == 0
+
+
+def test_check_python_versions_no_current() -> None:
+    """check_python_versions skips minors with no current version."""
+    mock_py = MagicMock()
+
+    # Create bom with latest set but no actual component
+    bom = cdx.Bom()
+    bom.set_latest("python", "3.13", "3.13.0")  # Set latest but no component
+
+    updates = check_python_versions(bom, mock_py)
+
+    assert len(updates) == 0
+    mock_py.fetch_latest.assert_not_called()  # Should skip before fetching
+
+
 @patch("ci.check_updates.DEPS")
-def test_update_dependency_copies_gpg(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_dependency copies GPG fingerprint from previous."""
-    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
+def test_check_dependencies_finds_update(mock_deps: MagicMock) -> None:
+    """check_dependencies finds updates."""
     mock_upstream = MagicMock()
-    mock_upstream.build_url.return_value = "http://test"
+    mock_upstream.fetch_latest.return_value = "5.6.1"
     mock_deps.get.return_value = mock_upstream
 
-    data = {
-        "xz": {
-            "default": "5.6.0",
-            "versions": {"5.6.0": {"gpg": "ABC123FINGERPRINT"}}
-        }
-    }
-    result = update_dependency(data, "xz", "5.6.1")
+    bom = make_test_bom()
+    updates = check_dependencies(bom)
 
-    assert result is True
-    assert data["xz"]["versions"]["5.6.1"]["gpg"] == "ABC123FINGERPRINT"
+    assert ("xz", "5.6.1") in updates
+
+
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_current(mock_deps: MagicMock) -> None:
+    """check_dependencies returns empty when current."""
+    mock_upstream = MagicMock()
+    mock_upstream.fetch_latest.return_value = "5.6.0"  # Same
+    mock_deps.get.return_value = mock_upstream
+
+    bom = make_test_bom()
+    updates = check_dependencies(bom)
+
+    assert len(updates) == 0
+
+
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_fetch_error(mock_deps: MagicMock) -> None:
+    """check_dependencies handles fetch errors."""
+    mock_upstream = MagicMock()
+    mock_upstream.fetch_latest.side_effect = Exception("Network")
+    mock_deps.get.return_value = mock_upstream
+
+    bom = make_test_bom()
+    updates = check_dependencies(bom)
+
+    assert len(updates) == 0
+
+
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_unknown_upstream(mock_deps: MagicMock) -> None:
+    """check_dependencies handles unknown upstream."""
+    mock_deps.get.return_value = None
+
+    bom = make_test_bom()
+    updates = check_dependencies(bom)
+
+    # xz has no upstream now
+    assert len(updates) == 0
+
+
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_no_default(mock_deps: MagicMock) -> None:
+    """check_dependencies skips deps with no default version."""
+    # Create bom with component but no default set
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="xz", version="5.6.0", url="http://x", sha256="a", license="MIT"
+    ))
+    # Don't set default for xz
+
+    updates = check_dependencies(bom)
+
+    assert len(updates) == 0
+    mock_deps.get.assert_not_called()  # Should skip before looking up upstream
+
+
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_fetch_returns_none(mock_deps: MagicMock) -> None:
+    """check_dependencies handles None from fetch."""
+    mock_upstream = MagicMock()
+    mock_upstream.fetch_latest.return_value = None
+    mock_deps.get.return_value = mock_upstream
+
+    bom = make_test_bom()
+    updates = check_dependencies(bom)
+
+    assert len(updates) == 0
 
 
 @patch("subprocess.run")
@@ -335,82 +319,23 @@ def test_regenerate_readme_failure(mock_run: MagicMock) -> None:
     regenerate_readme()  # Should not raise
 
 
-@patch("ci.check_updates.PythonUpstream")
-def test_check_python_versions_eol(mock_py_class: MagicMock) -> None:
-    """check_python_versions warns about EOL versions."""
-    mock_py = MagicMock()
-    mock_py.fetch_latest.return_value = "3.8.20"
-    mock_py.get_status.return_value = "eol"
-
-    data = {
-        "python": {
-            "latest": {"3.8": "3.8.19"},
-            "versions": {}
-        }
-    }
-    updates = check_python_versions(data, mock_py)
-
-    # EOL versions should not be in updates
-    assert len(updates) == 0
-
-
-@patch("ci.check_updates.DEPS")
-def test_check_dependencies_fetch_error(mock_deps: MagicMock) -> None:
-    """check_dependencies handles fetch errors."""
-    mock_upstream = MagicMock()
-    mock_upstream.fetch_latest.side_effect = Exception("Network")
-    mock_deps.get.return_value = mock_upstream
-
-    data = {"xz": {"default": "5.6.0"}}
-    updates = check_dependencies(data)
-
-    assert len(updates) == 0
-
-
-@patch("ci.check_updates.DEPS")
-def test_check_dependencies_unknown_upstream(mock_deps: MagicMock) -> None:
-    """check_dependencies handles unknown upstream."""
-    mock_deps.get.return_value = None
-
-    data = {"unknown": {"default": "1.0"}}
-    updates = check_dependencies(data)
-
-    assert len(updates) == 0
-
-
-@patch("ci.check_updates.DEPS")
-def test_check_dependencies_fetch_returns_none(mock_deps: MagicMock) -> None:
-    """check_dependencies handles None from fetch."""
-    mock_upstream = MagicMock()
-    mock_upstream.fetch_latest.return_value = None
-    mock_deps.get.return_value = mock_upstream
-
-    data = {"xz": {"default": "5.6.0"}}
-    updates = check_dependencies(data)
-
-    assert len(updates) == 0
-
-
 @patch("ci.check_updates.regenerate_readme")
-@patch("ci.check_updates.save_versions")
+@patch("ci.check_updates.cdx.dump")
 @patch("ci.check_updates.check_dependencies")
 @patch("ci.check_updates.check_python_versions")
-@patch("ci.check_updates.ensure_license_info")
-@patch("ci.check_updates.load_versions")
+@patch("ci.check_updates.cdx.load")
 def test_main_no_updates(
     mock_load: MagicMock,
-    mock_ensure: MagicMock,
     mock_check_py: MagicMock,
     mock_check_deps: MagicMock,
-    mock_save: MagicMock,
+    mock_dump: MagicMock,
     mock_regen: MagicMock,
     monkeypatch: "pytest.MonkeyPatch",
 ) -> None:
     """main() with no updates."""
     from ci.check_updates import main
 
-    mock_load.return_value = {"python": {"latest": {}, "versions": {}}}
-    mock_ensure.return_value = False
+    mock_load.return_value = make_test_bom()
     mock_check_py.return_value = []
     mock_check_deps.return_value = []
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
@@ -418,34 +343,31 @@ def test_main_no_updates(
     result = main()
 
     assert result == 0
-    mock_save.assert_not_called()
+    mock_dump.assert_not_called()
     mock_regen.assert_not_called()
 
 
 @patch("ci.check_updates.regenerate_readme")
-@patch("ci.check_updates.save_versions")
+@patch("ci.check_updates.cdx.dump")
 @patch("ci.check_updates.update_dependency")
 @patch("ci.check_updates.check_dependencies")
 @patch("ci.check_updates.update_python_version")
 @patch("ci.check_updates.check_python_versions")
-@patch("ci.check_updates.ensure_license_info")
-@patch("ci.check_updates.load_versions")
+@patch("ci.check_updates.cdx.load")
 def test_main_with_updates(
     mock_load: MagicMock,
-    mock_ensure: MagicMock,
     mock_check_py: MagicMock,
     mock_update_py: MagicMock,
     mock_check_deps: MagicMock,
     mock_update_dep: MagicMock,
-    mock_save: MagicMock,
+    mock_dump: MagicMock,
     mock_regen: MagicMock,
     monkeypatch: "pytest.MonkeyPatch",
 ) -> None:
     """main() with updates saves and regenerates."""
     from ci.check_updates import main
 
-    mock_load.return_value = {"python": {"latest": {}, "versions": {}}}
-    mock_ensure.return_value = True
+    mock_load.return_value = make_test_bom()
     mock_check_py.return_value = [("3.13", "3.13.2")]
     mock_update_py.return_value = True
     mock_check_deps.return_value = [("xz", "5.6.1")]
@@ -455,17 +377,15 @@ def test_main_with_updates(
     result = main()
 
     assert result == 0
-    mock_save.assert_called_once()
+    mock_dump.assert_called_once()
     mock_regen.assert_called_once()
 
 
 @patch("ci.check_updates.check_dependencies")
 @patch("ci.check_updates.check_python_versions")
-@patch("ci.check_updates.ensure_license_info")
-@patch("ci.check_updates.load_versions")
+@patch("ci.check_updates.cdx.load")
 def test_main_dry_run(
     mock_load: MagicMock,
-    mock_ensure: MagicMock,
     mock_check_py: MagicMock,
     mock_check_deps: MagicMock,
     monkeypatch: "pytest.MonkeyPatch",
@@ -473,98 +393,11 @@ def test_main_dry_run(
     """main() in dry-run doesn't save."""
     from ci.check_updates import main
 
-    mock_load.return_value = {"python": {"latest": {}, "versions": {}}}
-    mock_ensure.return_value = True
-    mock_check_py.return_value = []
+    mock_load.return_value = make_test_bom()
+    mock_check_py.return_value = [("3.13", "3.13.1")]  # Has updates
     mock_check_deps.return_value = []
     monkeypatch.setattr("ci.check_updates.DRY_RUN", True)
 
     result = main()
 
     assert result == 0
-
-
-@patch("ci.check_updates.fetch_sha256")
-@patch("ci.check_updates.DEPS")
-def test_update_dependency_creates_new_dep(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_dependency creates new dep entry if not present."""
-    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
-    mock_upstream = MagicMock()
-    mock_upstream.build_url.return_value = "http://test"
-    mock_deps.get.return_value = mock_upstream
-
-    data = {}  # No xz entry
-    result = update_dependency(data, "xz", "5.6.1")
-
-    assert result is True
-    assert "xz" in data
-    assert data["xz"]["default"] == "5.6.1"
-
-
-@patch("ci.check_updates.fetch_sha256")
-def test_update_python_version_copies_license(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_python_version copies license from default."""
-    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
-    mock_sha256.return_value = "abc123"
-
-    mock_py = MagicMock()
-    mock_py.build_url.return_value = "http://test"
-    mock_py.get_status.return_value = "bugfix"
-    mock_py.get_eol.return_value = "2029-10"
-
-    # get_dep_license uses "default" to find license info
-    data = {
-        "python": {
-            "default": "3.13.0",  # Points to version with license
-            "latest": {"3.13": "3.13.0"},
-            "versions": {
-                "3.13.0": {"license": "PSF-2.0", "license_url": "http://psf"}
-            }
-        }
-    }
-    result = update_python_version(data, "3.13", "3.13.1", mock_py)
-
-    assert result is True
-    assert data["python"]["versions"]["3.13.1"]["license"] == "PSF-2.0"
-
-
-def test_ensure_license_info_skips_no_license() -> None:
-    """ensure_license_info skips deps without license info."""
-    data = {
-        "xz": {
-            "default": "5.6.1",
-            "versions": {
-                "5.6.0": {},  # No license
-                "5.6.1": {}   # No license on default either
-            }
-        }
-    }
-    updated = ensure_license_info(data)
-    assert updated is False
-
-
-@patch("ci.check_updates.DEPS")
-def test_check_dependencies_logs_current(mock_deps: MagicMock) -> None:
-    """check_dependencies logs when dep is current."""
-    mock_upstream = MagicMock()
-    mock_upstream.fetch_latest.return_value = "5.6.0"  # Same as current
-    mock_deps.get.return_value = mock_upstream
-
-    # Only include one dep to test the "current" branch
-    data = {
-        "cosmocc": {"default": "5.6.0"},
-        "bz2": {"default": "5.6.0"},
-        "cacert": {"default": "5.6.0"},
-        "gdbm": {"default": "5.6.0"},
-        "libffi": {"default": "5.6.0"},
-        "ncurses": {"default": "5.6.0"},
-        "openssl": {"default": "5.6.0"},
-        "readline": {"default": "5.6.0"},
-        "sqlite": {"default": "5.6.0"},
-        "xz": {"default": "5.6.0"},
-    }
-    updates = check_dependencies(data)
-
-    # All are current, no updates
-    assert len(updates) == 0

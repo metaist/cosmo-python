@@ -1,7 +1,26 @@
 """Tests for ci/release_notes.py."""
 
-import json
 from pathlib import Path
+
+from ci import cdx
+
+
+def make_test_cdx(tmp_path: Path) -> Path:
+    """Create a test versions.cdx.json file."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.8", url="http://x", sha256="a", license="PSF"
+    ))
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.1", url="http://y", sha256="b", license="PSF"
+    ))
+    bom.set_default("python", "3.13")
+    bom.set_latest("python", "3.12", "3.12.8")
+    bom.set_latest("python", "3.13", "3.13.1")
+
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    return cdx_file
 
 
 def test_main_generates_table(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -12,15 +31,9 @@ def test_main_generates_table(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch")
     (dist / "python-3.12.8-cosmo.com").write_bytes(b"fake")
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
 
-    # Create versions.json
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {
-            "default": "3.13",
-            "latest": {"3.12": "3.12.8", "3.13": "3.13.1"},
-        }
-    }))
-    monkeypatch.setattr("ci.common.VERSIONS_FILE", versions_file)
+    # Create versions.cdx.json
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
 
     # Mock GITHUB_OUTPUT
     output_file = tmp_path / "output"

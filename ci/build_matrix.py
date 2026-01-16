@@ -5,7 +5,7 @@ Usage:
     uv run -m ci.build_matrix <input>
 
 Where <input> is:
-    - "all": all versions from versions.json
+    - "all": all versions from versions.cdx.json
     - "3.12.8": single version
     - "3.12.8, 3.13.1": comma-separated versions
 
@@ -21,7 +21,8 @@ import logging
 import os
 import sys
 
-from .common import load_versions, setup_logging, version_key
+from . import cdx
+from .common import CDX_FILE, setup_logging
 
 log = logging.getLogger("ci.build_matrix")
 
@@ -34,18 +35,18 @@ def main() -> int:
         return 1
 
     input_arg = sys.argv[1]
-    data = load_versions()
+    bom = cdx.load(CDX_FILE)
 
     # Determine versions
     if input_arg == "all":
-        versions = sorted(data["python"]["versions"].keys(), key=version_key)
+        versions = bom.python_versions()
     else:
         # Split by comma or space
         versions = [v.strip() for v in input_arg.replace(",", " ").split() if v.strip()]
 
     # Build matrix JSON
     matrix = {"version": versions}
-    cosmocc = data["cosmocc"]["default"]
+    cosmocc = bom.get_default_version("cosmocc")
 
     # Output for GitHub Actions
     github_output = os.environ.get("GITHUB_OUTPUT")

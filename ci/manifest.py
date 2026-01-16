@@ -4,7 +4,6 @@
 This creates a spanning manifest that includes:
 - All Python versions from the current release
 - All Python versions from previous releases (merged)
-- Disabled versions (from versions.json) are excluded
 
 The manifest serves as a registry of all available versions across releases.
 
@@ -27,7 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .common import VERSIONS_FILE, setup_logging, version_key
+from . import cdx
+from .common import CDX_FILE, setup_logging, version_key
 
 # Directories
 DIST_DIR = Path(os.environ.get("DIST_DIR", "dist"))
@@ -41,11 +41,11 @@ def is_prerelease(v: str) -> bool:
 
 
 def get_cosmocc_version() -> str:
-    """Get cosmocc version from versions.json or environment."""
+    """Get cosmocc version from versions.cdx.json or environment."""
     if "COSMOCC_VERSION" in os.environ:
         return os.environ["COSMOCC_VERSION"]
-    data = json.loads(VERSIONS_FILE.read_text())
-    return str(data.get("cosmocc", {}).get("default", "unknown"))
+    bom = cdx.load(CDX_FILE)
+    return bom.get_default_version("cosmocc") or "unknown"
 
 
 def get_repo() -> str:
@@ -117,11 +117,11 @@ def generate_manifest(
     cosmocc_version = get_cosmocc_version()
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Load disabled versions from versions.json
-    versions_data = json.loads(VERSIONS_FILE.read_text())
-    disabled = versions_data.get("python", {}).get("disabled", {})
-    if disabled:
-        log.warning(f"Disabled versions: {list(disabled.keys())}")
+    # Load disabled versions from versions.cdx.json
+    bom = cdx.load(CDX_FILE)
+    disabled_prefixes = bom.get_disabled("python")
+    if disabled_prefixes:
+        log.warning(f"Disabled version prefixes: {disabled_prefixes}")
 
     # Get previous versions
     old_versions = {}
@@ -132,12 +132,12 @@ def generate_manifest(
     all_versions = {**old_versions, **new_versions}
 
     # Filter out disabled versions
-    disabled_patterns = list(disabled.keys())
-    all_versions = {
-        ver: data
-        for ver, data in all_versions.items()
-        if not any(ver.startswith(pat) for pat in disabled_patterns)
-    }
+    if disabled_prefixes:
+        all_versions = {
+            ver: data
+            for ver, data in all_versions.items()
+            if not any(ver.startswith(prefix) for prefix in disabled_prefixes)
+        }
 
     # Compute latest for each minor version
     minors: dict[str, str] = {}

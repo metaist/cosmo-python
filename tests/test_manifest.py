@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+from ci import cdx
 from ci.manifest import (
     is_prerelease,
     get_cosmocc_version,
@@ -12,6 +13,21 @@ from ci.manifest import (
     collect_new_versions,
     generate_manifest,
 )
+
+
+def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
+    """Create a test versions.cdx.json file."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="cosmocc", version="4.0.0", url="http://x", sha256="a", license="ISC"
+    ))
+    bom.set_default("cosmocc", "4.0.0")
+    if disabled:
+        bom.set_disabled("python", disabled)
+
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    return cdx_file
 
 
 def test_is_prerelease() -> None:
@@ -30,12 +46,11 @@ def test_get_cosmocc_version_from_env(monkeypatch: "pytest.MonkeyPatch") -> None
 
 
 def test_get_cosmocc_version_from_file(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """get_cosmocc_version reads from versions.json."""
+    """get_cosmocc_version reads from versions.cdx.json."""
     monkeypatch.delenv("COSMOCC_VERSION", raising=False)
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({"cosmocc": {"default": "4.0.2"}}))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
-    assert get_cosmocc_version() == "4.0.2"
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    assert get_cosmocc_version() == "4.0.0"
 
 
 def test_get_repo_default() -> None:
@@ -120,12 +135,8 @@ def test_collect_new_versions_uses_existing_checksum(tmp_path: Path, monkeypatch
 
 def test_generate_manifest_basic(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
     """generate_manifest creates proper structure."""
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
 
     new_versions = {
@@ -146,12 +157,8 @@ def test_generate_manifest_basic(tmp_path: Path, monkeypatch: "pytest.MonkeyPatc
 
 def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
     """generate_manifest merges with previous manifest."""
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
 
     prev_manifest = {
@@ -171,12 +178,8 @@ def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.
 
 def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
     """generate_manifest excludes disabled versions."""
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {"3.9": "EOL"}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    cdx_file = make_test_cdx(tmp_path, disabled=["3.9"])
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
 
     new_versions = {
@@ -192,12 +195,8 @@ def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest
 
 def test_generate_manifest_prerelease_default(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
     """generate_manifest picks stable default over prerelease."""
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
 
     new_versions = {
@@ -211,12 +210,8 @@ def test_generate_manifest_prerelease_default(tmp_path: Path, monkeypatch: "pyte
 
 def test_generate_manifest_only_prerelease(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
     """generate_manifest uses prerelease if no stable versions."""
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
 
     new_versions = {
@@ -305,14 +300,10 @@ def test_main_success(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None
     dist.mkdir()
     (dist / "python-3.12.8-cosmo.com").write_bytes(b"fake")
 
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
+    cdx_file = make_test_cdx(tmp_path)
 
     monkeypatch.setattr("ci.manifest.DIST_DIR", dist)
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
     monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])
@@ -335,14 +326,10 @@ def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> N
     prev = tmp_path / "prev-manifest.json"
     prev.write_text(json.dumps({"versions": {"3.12.8": {"url": "old", "release": "v0.9"}}}))
 
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
+    cdx_file = make_test_cdx(tmp_path)
 
     monkeypatch.setattr("ci.manifest.DIST_DIR", dist)
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
     monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0", "--merge", str(prev)])
@@ -363,14 +350,10 @@ def test_main_empty_tag(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> No
     dist.mkdir()
     (dist / "python-3.12.8-cosmo.com").write_bytes(b"fake")
 
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
+    cdx_file = make_test_cdx(tmp_path)
 
     monkeypatch.setattr("ci.manifest.DIST_DIR", dist)
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
     monkeypatch.setattr("sys.argv", ["manifest", ""])
@@ -391,14 +374,10 @@ def test_main_uses_existing_manifest(tmp_path: Path, monkeypatch: "pytest.Monkey
         "versions": {"3.12.8": {"url": "old", "release": "v0.9"}}
     }))
 
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
+    cdx_file = make_test_cdx(tmp_path)
 
     monkeypatch.setattr("ci.manifest.DIST_DIR", dist)
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
     monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])
@@ -421,14 +400,10 @@ def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch
         "versions": {"3.12.8": {"url": "old", "release": "v0.9"}}
     }))
 
-    versions_file = tmp_path / "versions.json"
-    versions_file.write_text(json.dumps({
-        "python": {"disabled": {}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
+    cdx_file = make_test_cdx(tmp_path)
 
     monkeypatch.setattr("ci.manifest.DIST_DIR", dist)
-    monkeypatch.setattr("ci.manifest.VERSIONS_FILE", versions_file)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
     monkeypatch.setattr("sys.argv", ["manifest", "v1.0.0"])

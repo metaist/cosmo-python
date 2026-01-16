@@ -1,10 +1,8 @@
 """Tests for ci/common.py."""
 
-import json
 import logging
-from pathlib import Path
 
-from ci.common import version_key, load_versions, save_versions, setup_logging, VERSIONS_FILE
+from ci.common import version_key, setup_logging, CDX_FILE
 
 
 def test_version_key_two_digit_minor() -> None:
@@ -21,31 +19,10 @@ def test_version_key_patch_double_digits() -> None:
     assert result == ["3.12.1", "3.12.2", "3.12.10"]
 
 
-def test_load_versions(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """load_versions reads versions.json."""
-    test_file = tmp_path / "versions.json"
-    test_file.write_text(json.dumps({
-        "python": {"versions": {"3.13.1": {}}},
-        "cosmocc": {"default": "4.0.0"},
-    }))
-    monkeypatch.setattr("ci.common.VERSIONS_FILE", test_file)
-
-    data = load_versions()
-    assert "python" in data
-    assert "cosmocc" in data
-    assert "versions" in data["python"]
-
-
-def test_save_versions(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """save_versions writes JSON."""
-    test_file = tmp_path / "versions.json"
-    monkeypatch.setattr("ci.common.VERSIONS_FILE", test_file)
-
-    data = {"test": {"default": "1.0", "versions": {}}}
-    save_versions(data)
-
-    result = json.loads(test_file.read_text())
-    assert result == data
+def test_cdx_file_exists() -> None:
+    """CDX_FILE points to versions.cdx.json."""
+    assert CDX_FILE.name == "versions.cdx.json"
+    assert CDX_FILE.exists()
 
 
 def test_setup_logging(capfd: "pytest.CaptureFixture[str]") -> None:
