@@ -101,6 +101,55 @@ run_test "import shutil" "import shutil; shutil.which('ls')"
 run_test "import subprocess" "import subprocess"
 run_test "import threading" "import threading; threading.current_thread()"
 run_test "import multiprocessing" "import multiprocessing"
+run_test "import logging" "import logging; logging.getLogger('test')"
+run_test "import argparse" "import argparse; argparse.ArgumentParser()"
+
+echo ""
+echo "Data formats..."
+
+run_test "import pickle" "import pickle; pickle.dumps({'a': 1})"
+run_test "import xml.etree" "import xml.etree.ElementTree as ET; ET.fromstring('<a/>')"
+run_test "import zipfile" "import zipfile"
+run_test "import tarfile" "import tarfile"
+
+echo ""
+echo "Text processing..."
+
+run_test "import difflib" "import difflib; difflib.SequenceMatcher(None, 'a', 'b')"
+run_test "import textwrap" "import textwrap; textwrap.wrap('hello world', 5)"
+run_test "import unicodedata" "import unicodedata; unicodedata.name('A')"
+
+echo ""
+echo "Testing modules..."
+
+run_test "import unittest" "import unittest"
+run_test "import doctest" "import doctest"
+
+echo ""
+echo "I/O multiplexing..."
+
+run_test "import select" "import select"
+run_test "import selectors" "import selectors; selectors.DefaultSelector()"
+
+echo ""
+echo "Unix modules..."
+
+run_test "import pty" "import pty"
+run_test "import termios" "import termios"
+run_test "import tty" "import tty"
+run_test "import fcntl" "import fcntl"
+run_test "import pwd" "import pwd; pwd.getpwuid(0)"
+run_test "import grp" "import grp"
+run_test "import resource" "import resource; resource.getrlimit(resource.RLIMIT_NOFILE)"
+run_test "import syslog" "import syslog"
+run_test "import signal" "import signal; signal.SIGTERM"
+run_test "import mmap" "import mmap"
+
+echo ""
+echo "Misc modules..."
+
+run_test "import venv" "import venv"
+run_test "import webbrowser" "import webbrowser"
 
 echo ""
 echo "Compression modules (our deps)..."

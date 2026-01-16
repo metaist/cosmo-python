@@ -4,21 +4,21 @@ This document describes known limitations of Cosmopolitan Python compared to sta
 
 ## What Works
 
-Most of the standard library works normally. Here are modules people often ask about:
+Most of the standard library works normally:
 
 | Category | Modules | Status |
 |----------|---------|--------|
-| **Crypto/Network** | `ssl`, `hashlib`, `hmac`, `socket`, `http.server` | ✅ |
-| **Database** | `sqlite3` | ✅ |
-| **Async** | `asyncio`, `threading`, `subprocess`, `select`, `selectors` | ✅ |
-| **Data Formats** | `json`, `csv`, `xml`, `struct`, `pickle` | ✅ |
-| **Compression** | `gzip`, `bz2`, `lzma`, `zlib`, `zipfile`, `tarfile` | ✅ |
-| **Text** | `re`, `difflib`, `textwrap`, `unicodedata` | ✅ |
-| **Testing** | `unittest`, `doctest` | ✅ |
-| **TUI** | `curses`, `readline` | ✅ |
-| **Unix** | `pty`, `termios`, `tty`, `fcntl`, `pwd`, `grp`, `resource`, `syslog`, `signal`, `mmap` | ✅ |
-| **Misc** | `venv`, `webbrowser`, `logging`, `argparse`, `pathlib` | ✅ |
-| **Partial** | `multiprocessing` ([details](#multiprocessing)), `ctypes` ([details](#ctypes)) | ⚠️ |
+| **Crypto/Network** | [ssl], [hashlib], [hmac], [socket], [http.server] | ✅ |
+| **Database** | [sqlite3] | ✅ |
+| **Async** | [asyncio], [threading], [subprocess], [select], [selectors] | ✅ |
+| **Data Formats** | [json], [csv], [xml], [struct], [pickle] | ✅ |
+| **Compression** | [gzip], [bz2], [lzma], [zlib], [zipfile], [tarfile] | ✅ |
+| **Text** | [re], [difflib], [textwrap], [unicodedata] | ✅ |
+| **Testing** | [unittest], [doctest] | ✅ |
+| **TUI** | [curses], [readline] | ✅ |
+| **Unix** | [pty], [termios], [tty], [fcntl], [pwd], [grp], [resource], [syslog], [signal], [mmap] | ✅ |
+| **Misc** | [venv], [webbrowser], [logging], [argparse], [pathlib] | ✅ |
+| **Partial** | [multiprocessing] ([details](#multiprocessing)), [ctypes] ([details](#ctypes)) | ⚠️ |
 
 ---
 
@@ -260,7 +260,7 @@ The following Unix-specific modules are **not included** in the build:
 
 ## Windows-only Modules
 
-The following Windows-specific modules are **not available** when running on non-Windows platforms:
+The following Windows-specific modules are **not included**:
 
 | Module | Purpose |
 |--------|---------|
@@ -269,7 +269,7 @@ The following Windows-specific modules are **not available** when running on non
 | `msvcrt` | MS Visual C runtime |
 | `msilib` | MSI file creation |
 
-These may work when the binary runs on Windows, but we haven't tested extensively.
+**Why:** We build on Linux, so Windows-specific C extensions are never compiled. This is a design choice—Cosmopolitan Python aims to be a single portable binary, not a platform-specific build.
 
 ---
 
@@ -343,3 +343,52 @@ Many limitations stem from [Cosmopolitan libc][jart/cosmopolitan] design choices
 [scrypt]: https://docs.python.org/3/library/hashlib.html#hashlib.scrypt
 [bcrypt]: https://pypi.org/project/bcrypt/
 [openssl.sh]: https://github.com/metaist/cosmo-python/blob/main/scripts/01-deps/openssl.sh
+
+<!-- stdlib module links -->
+[ssl]: https://docs.python.org/3/library/ssl.html
+[hashlib]: https://docs.python.org/3/library/hashlib.html
+[hmac]: https://docs.python.org/3/library/hmac.html
+[socket]: https://docs.python.org/3/library/socket.html
+[http.server]: https://docs.python.org/3/library/http.server.html
+[sqlite3]: https://docs.python.org/3/library/sqlite3.html
+[asyncio]: https://docs.python.org/3/library/asyncio.html
+[threading]: https://docs.python.org/3/library/threading.html
+[subprocess]: https://docs.python.org/3/library/subprocess.html
+[select]: https://docs.python.org/3/library/select.html
+[selectors]: https://docs.python.org/3/library/selectors.html
+[json]: https://docs.python.org/3/library/json.html
+[csv]: https://docs.python.org/3/library/csv.html
+[xml]: https://docs.python.org/3/library/xml.html
+[struct]: https://docs.python.org/3/library/struct.html
+[pickle]: https://docs.python.org/3/library/pickle.html
+[gzip]: https://docs.python.org/3/library/gzip.html
+[bz2]: https://docs.python.org/3/library/bz2.html
+[lzma]: https://docs.python.org/3/library/lzma.html
+[zlib]: https://docs.python.org/3/library/zlib.html
+[zipfile]: https://docs.python.org/3/library/zipfile.html
+[tarfile]: https://docs.python.org/3/library/tarfile.html
+[re]: https://docs.python.org/3/library/re.html
+[difflib]: https://docs.python.org/3/library/difflib.html
+[textwrap]: https://docs.python.org/3/library/textwrap.html
+[unicodedata]: https://docs.python.org/3/library/unicodedata.html
+[unittest]: https://docs.python.org/3/library/unittest.html
+[doctest]: https://docs.python.org/3/library/doctest.html
+[curses]: https://docs.python.org/3/library/curses.html
+[readline]: https://docs.python.org/3/library/readline.html
+[pty]: https://docs.python.org/3/library/pty.html
+[termios]: https://docs.python.org/3/library/termios.html
+[tty]: https://docs.python.org/3/library/tty.html
+[fcntl]: https://docs.python.org/3/library/fcntl.html
+[pwd]: https://docs.python.org/3/library/pwd.html
+[grp]: https://docs.python.org/3/library/grp.html
+[resource]: https://docs.python.org/3/library/resource.html
+[syslog]: https://docs.python.org/3/library/syslog.html
+[signal]: https://docs.python.org/3/library/signal.html
+[mmap]: https://docs.python.org/3/library/mmap.html
+[venv]: https://docs.python.org/3/library/venv.html
+[webbrowser]: https://docs.python.org/3/library/webbrowser.html
+[logging]: https://docs.python.org/3/library/logging.html
+[argparse]: https://docs.python.org/3/library/argparse.html
+[pathlib]: https://docs.python.org/3/library/pathlib.html
+[multiprocessing]: https://docs.python.org/3/library/multiprocessing.html
+[ctypes]: https://docs.python.org/3/library/ctypes.html
