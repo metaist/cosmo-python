@@ -239,6 +239,40 @@ class Bom:
         """Get the dependency refs for a component."""
         return self._dependencies.get(ref, [])
 
+    def build_order(self, ref: str) -> list[tuple[int, str]]:
+        """Get dependencies in build order (topological sort) with parallel levels.
+
+        Returns list of (level, ref) tuples. Items at the same level can be
+        built in parallel; higher levels depend on lower levels completing.
+        """
+        from graphlib import TopologicalSorter
+
+        graph: dict[str, set[str]] = {}
+
+        def add_deps(r: str) -> None:
+            if r in graph:
+                return
+            deps = self.get_dependencies(r)
+            graph[r] = set(deps)
+            for dep in deps:
+                add_deps(dep)
+
+        add_deps(ref)
+
+        # Use iterative approach to get levels
+        ts = TopologicalSorter(graph)
+        ts.prepare()
+        result: list[tuple[int, str]] = []
+        level = 0
+        while ts.is_active():
+            ready = list(ts.get_ready())
+            for item in ready:
+                result.append((level, item))
+                ts.done(item)
+            level += 1
+
+        return result
+
     # Disabled versions
 
     def set_disabled(self, name: str, prefixes: list[str]) -> None:
@@ -568,6 +602,8 @@ def main() -> int:
         python -m ci.cdx sigstore-identity <pkg> <ver>  # Get sigstore identity
         python -m ci.cdx sigstore-issuer <pkg> <ver>    # Get sigstore issuer
         python -m ci.cdx versions                       # List all Python versions
+        python -m ci.cdx build-order <pkg> <ver> [--exclude <name>...]
+                                                        # Get deps in build order
     """
     import sys
 
@@ -640,6 +676,25 @@ def main() -> int:
     if cmd == "versions" and len(args) == 1:
         versions = bom.python_versions()
         print(" ".join(versions))
+        return 0
+
+    if cmd == "build-order" and len(args) >= 3:
+        pkg, version = args[1], args[2]
+        # Parse --exclude options
+        excludes = set()
+        i = 3
+        while i < len(args):
+            if args[i] == "--exclude" and i + 1 < len(args):
+                excludes.add(args[i + 1])
+                i += 2
+            else:
+                i += 1
+        ref = f"{pkg}@{version}"
+        order = bom.build_order(ref)
+        for level, dep in order:
+            name = dep.split("@")[0]
+            if name not in excludes:
+                print(f"{level} {dep}")
         return 0
 
     print(f"Unknown command: {' '.join(args)}", file=sys.stderr)

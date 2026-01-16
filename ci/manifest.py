@@ -212,12 +212,18 @@ def generate_manifest(
         # Set dependencies in manifest
         manifest.set_dependencies(f"cosmo-python@{version}", all_deps)
 
-    # Add all needed dependency components
+    # Add all needed dependency components and their interdependencies
     for dep_ref in sorted(dep_versions_needed):
         name, version = dep_ref.split("@")
         dep_comp = build_bom.get_component(name, version)
         if dep_comp and not manifest.get_component(name, version):
             manifest.add_component(dep_comp)
+        # Copy library interdependencies (e.g., readline -> ncurses)
+        # Skip python - it's just source, cosmo-python has the real deps
+        if name != "python":
+            lib_deps = build_bom.get_dependencies(dep_ref)
+            if lib_deps:
+                manifest.set_dependencies(dep_ref, lib_deps)
 
     # Compute default (highest non-prerelease stable version of cosmo-python)
     all_versions = sorted(c.version for c in manifest.get_components("cosmo-python"))

@@ -315,5 +315,5 @@
         "sqlite@3.51.2",
         "xz@5.8.2"
       ]
-    }]
+    }, { "ref": "readline@8.3", "dependsOn": ["ncurses@6.6"] }]
 }

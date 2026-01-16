@@ -29,13 +29,21 @@ def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
     bom.add_component(cdx.Component(
         name="openssl", version="3.5.4", url="http://ssl", sha256="ssl", license="Apache-2.0"
     ))
+    bom.add_component(cdx.Component(
+        name="readline", version="8.3", url="http://rl", sha256="rl", license="GPL-3.0"
+    ))
+    bom.add_component(cdx.Component(
+        name="ncurses", version="6.6", url="http://nc", sha256="nc", license="X11"
+    ))
     bom.set_default("cosmocc", "4.0.0")
     bom.set_default("python", "3.13.1")
     bom.set_latest("python", "3.12", "3.12.8")
     bom.set_latest("python", "3.13", "3.13.1")
     # Dependencies for python builds (what manifest.py looks up)
-    bom.set_dependencies("python@3.12.8", ["openssl@3.5.4"])
-    bom.set_dependencies("python@3.13.1", ["openssl@3.5.4"])
+    bom.set_dependencies("python@3.12.8", ["openssl@3.5.4", "readline@8.3", "ncurses@6.6"])
+    bom.set_dependencies("python@3.13.1", ["openssl@3.5.4", "readline@8.3", "ncurses@6.6"])
+    # Library interdependency
+    bom.set_dependencies("readline@8.3", ["ncurses@6.6"])
     if disabled:
         bom.set_disabled("python", disabled)
 
@@ -219,6 +227,9 @@ def test_generate_manifest_includes_deps(tmp_path: Path, monkeypatch: "pytest.Mo
     # Check dependency relationship
     deps = result.get_dependencies("cosmo-python@3.13.1")
     assert "openssl@3.5.4" in deps
+    # Check library interdependency is copied
+    readline_deps = result.get_dependencies("readline@8.3")
+    assert "ncurses@6.6" in readline_deps
 
 
 def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:

@@ -6,8 +6,8 @@
 #   2. Sets up cosmocc toolchain
 #   3. Builds all library dependencies
 #
-# Dependencies are built in parallel when GNU parallel is available.
-# ncurses must complete before readline (readline depends on ncurses).
+# Dependencies are built in parallel by level when GNU parallel is available.
+# Build order is determined by versions.cdx.json dependency graph.
 #
 set -euo pipefail
 
@@ -15,40 +15,62 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 source "${ROOT_DIR}/scripts/common.sh"
 
+# Default to building deps for default Python version
+PYTHON_VERSION="${1:-$($CDX_CLI default python)}"
+
 # Setup
 "${ROOT_DIR}/scripts/00-setup/system-deps.sh"
 "${ROOT_DIR}/scripts/00-setup/cosmocc.sh"
 
-# Build dependencies
+# Get build order, excluding non-library deps
+BUILD_ORDER=$($CDX_CLI build-order python "$PYTHON_VERSION" \
+  --exclude python --exclude cosmocc --exclude cacert)
+
+# Build a single dep by name
+build_dep() {
+  local ref="$1"
+  local name="${ref%@*}"  # strip @version
+  local script="${SCRIPT_DIR}/${name}.sh"
+  if [[ -f "$script" ]]; then
+    "$script"
+  else
+    log_info "skipping $name (no build script)"
+  fi
+}
+
+# Build dependencies by level
 if command -v parallel >/dev/null 2>&1; then
   log_info "building dependencies in parallel..."
   
-  # Wave 1: ncurses + all independent deps
-  parallel --line-buffer --halt now,fail=1 ::: \
-    "${SCRIPT_DIR}/ncurses.sh" \
-    "${SCRIPT_DIR}/bz2.sh" \
-    "${SCRIPT_DIR}/gdbm.sh" \
-    "${SCRIPT_DIR}/libffi.sh" \
-    "${SCRIPT_DIR}/openssl.sh" \
-    "${SCRIPT_DIR}/sqlite.sh" \
-    "${SCRIPT_DIR}/xz.sh"
+  last_level=-1
+  level_deps=""
   
-  # Wave 2: readline (needs ncurses)
-  "${SCRIPT_DIR}/readline.sh"
+  while IFS=' ' read -r level ref; do
+    if [[ "$level" != "$last_level" && -n "$level_deps" ]]; then
+      # Build previous level in parallel
+      # shellcheck disable=SC2086
+      parallel --line-buffer --halt now,fail=1 ::: $level_deps
+      level_deps=""
+    fi
+    name="${ref%@*}"
+    script="${SCRIPT_DIR}/${name}.sh"
+    if [[ -f "$script" ]]; then
+      level_deps+=" $script"
+    fi
+    last_level="$level"
+  done <<< "$BUILD_ORDER"
+  
+  # Build final level
+  if [[ -n "$level_deps" ]]; then
+    # shellcheck disable=SC2086
+    parallel --line-buffer --halt now,fail=1 ::: $level_deps
+  fi
 else
   log_info "building dependencies sequentially (install 'parallel' for faster builds)..."
   
-  # ncurses must be built before readline
-  "${SCRIPT_DIR}/ncurses.sh"
-  "${SCRIPT_DIR}/readline.sh"
-  
-  # Remaining deps in any order
-  "${SCRIPT_DIR}/bz2.sh"
-  "${SCRIPT_DIR}/gdbm.sh"
-  "${SCRIPT_DIR}/libffi.sh"
-  "${SCRIPT_DIR}/openssl.sh"
-  "${SCRIPT_DIR}/sqlite.sh"
-  "${SCRIPT_DIR}/xz.sh"
+  while IFS=' ' read -r _ ref; do
+    build_dep "$ref"
+  done <<< "$BUILD_ORDER"
 fi
 
 log_info "all dependencies built successfully"

@@ -768,3 +768,118 @@ def test_cli_sigstore_issuer_not_found(tmp_path: Path, monkeypatch: "pytest.Monk
     monkeypatch.setattr("sys.argv", ["cdx", "sigstore-issuer", "test", "1.0"])
     result = cdx.main()
     assert result == 1
+
+
+def test_build_order() -> None:
+    """build_order returns dependencies with parallel levels."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="libA", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="libB", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["libA@1.0", "libB@1.0"])
+    bom.set_dependencies("libB@1.0", ["libA@1.0"])
+
+    order = bom.build_order("app@1.0")
+    # Returns (level, ref) tuples
+    refs = [ref for _, ref in order]
+    levels = {ref: level for level, ref in order}
+    # libA at level 0, libB at level 1, app at level 2
+    assert levels["libA@1.0"] == 0
+    assert levels["libB@1.0"] == 1
+    assert levels["app@1.0"] == 2
+    # Order still correct
+    assert refs.index("libA@1.0") < refs.index("libB@1.0")
+    assert refs[-1] == "app@1.0"
+
+
+def test_build_order_no_deps() -> None:
+    """build_order returns just the ref at level 0 when no dependencies."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="solo", version="1.0", url="x", sha256="a", license="MIT"))
+
+    order = bom.build_order("solo@1.0")
+    assert order == [(0, "solo@1.0")]
+
+
+def test_build_order_parallel() -> None:
+    """build_order groups independent deps at same level."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="libA", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="libB", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["libA@1.0", "libB@1.0"])
+    # libA and libB have no deps - can build in parallel
+
+    order = bom.build_order("app@1.0")
+    levels = {ref: level for level, ref in order}
+    # Both libs at level 0 (parallel)
+    assert levels["libA@1.0"] == 0
+    assert levels["libB@1.0"] == 0
+    # app at level 1
+    assert levels["app@1.0"] == 1
+
+
+def test_cli_build_order(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI build-order command outputs level and ref."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="lib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["lib@1.0"])
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "build-order", "app", "1.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue().strip().split("\n")
+    assert output == ["0 lib@1.0", "1 app@1.0"]
+
+
+def test_cli_build_order_exclude(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI build-order --exclude filters out packages."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="lib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="skip", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["lib@1.0", "skip@1.0"])
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "build-order", "app", "1.0", "--exclude", "skip"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue().strip().split("\n")
+    assert "skip@1.0" not in output[0]
+    assert "lib@1.0" in output[0]
+
+
+def test_cli_build_order_ignores_unknown_args(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI build-order ignores unknown arguments."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "build-order", "app", "1.0", "--unknown", "arg"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue().strip()
+    assert "app@1.0" in output
