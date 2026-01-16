@@ -48,9 +48,10 @@ def setup_logging() -> None:
 def version_key(v: str) -> list[tuple[int, int | str]]:
     """Sort versions by semver, handling pre-release tags.
 
-    Examples:
-        3.10.1 < 3.10.2 < 3.11.0
-        3.14.0a1 < 3.14.0b1 < 3.14.0rc1 < 3.14.0
+    >>> sorted(["3.10.2", "3.10.1", "3.9.0"], key=version_key)
+    ['3.9.0', '3.10.1', '3.10.2']
+    >>> sorted(["3.14.0a2", "3.14.0a1", "3.14.0b1"], key=version_key)
+    ['3.14.0a1', '3.14.0a2', '3.14.0b1']
     """
     parts = v.replace("a", ".a.").replace("b", ".b.").replace("rc", ".rc.").split(".")
     result: list[tuple[int, int | str]] = []

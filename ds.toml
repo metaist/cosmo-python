@@ -46,6 +46,15 @@ mypy = "uvx mypy --strict ci"
 test-scripts.help = "validate build script structure and syntax"
 test-scripts.shell = "./scripts/test-scripts.sh"
 
+test.help = "run unit tests with coverage"
+test.shell = """
+  uvx --with pytest-cov pytest \
+    --doctest-modules \
+    --cov=ci \
+    --cov-report=term-missing \
+    tests/ ci/
+"""
+
 smoke.help = "run smoke tests on a binary"
 smoke.shell = "./scripts/02-python/smoke.sh $@"
 
@@ -67,8 +76,8 @@ manifest.help = "generate manifest.json for a release"
 manifest.shell = "uv run -m ci.manifest $@"
 
 # Development
-dev.help = "quick validation: lint + types + test-scripts"
-dev.composite = ["lint", "types", "test-scripts"]
+dev.help = "sanity check: lint, types, tests"
+dev.composite = ["lint", "types", "test", "test-scripts"]
 
 cog.help = "regenerate dynamic content in README.md"
 cog.shell = "uvx --from cogapp cog -r README.md"

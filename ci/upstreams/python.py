@@ -11,7 +11,7 @@ from .http import fetch_json
 _ENDOFLIFE_CACHE: list[dict[str, Any]] = []
 
 
-def _fetch_endoflife_data() -> list[dict[str, Any]]:
+def _fetch_endoflife_data() -> list[dict[str, Any]]:  # pragma: no cover
     """Fetch Python lifecycle data from endoflife.date API."""
     global _ENDOFLIFE_CACHE
     if not _ENDOFLIFE_CACHE:

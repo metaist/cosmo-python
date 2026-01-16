@@ -78,6 +78,11 @@
     "hashlib",
     "hmac",
     "ensurepip",
-    "tukaani"
+    "tukaani",
+    "doctests",
+    "capfd",
+    "caextract",
+    "delenv",
+    "regen"
   ]
 }
