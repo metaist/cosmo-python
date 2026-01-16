@@ -18,7 +18,7 @@ XZ_DIR="${WORK_DIR}/xz-${XZ_VERSION}"
 
 # Validate version exists
 if [ "$XZ_SHA256" = "null" ] || [ -z "$XZ_SHA256" ]; then
-  log_error "xz ${XZ_VERSION} not found in versions.json"
+  log_error "xz ${XZ_VERSION} not found in versions.cdx.json"
   exit 1
 fi
 

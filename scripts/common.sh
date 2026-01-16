@@ -153,7 +153,9 @@ WORK_DIR="${WORK_DIR:-${REPO_ROOT}/work}"
 DIST_DIR="${DIST_DIR:-${REPO_ROOT}/dist}"
 COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
 DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
-VERSIONS_FILE="${VERSIONS_FILE:-${REPO_ROOT}/versions.json}"
+
+# Version data CLI (uses versions.cdx.json via ci/cdx.py)
+CDX_CLI="uv run -m ci.cdx"
 
 # Setup cosmocc compiler
 # Usage: setup_cosmocc (call after sourcing common.sh)
@@ -176,30 +178,20 @@ ensure_dirs() {
 }
 
 # Get the default version for a package
-# Usage: get_pkg_default python   -> "3.12"
-# Usage: get_pkg_default openssl  -> "1.1.1u"
+# Usage: get_pkg_default python   -> "3.13"
+# Usage: get_pkg_default openssl  -> "3.5.4"
 get_pkg_default() {
   local pkg="$1"
-  jq -r ".${pkg}.default" "${VERSIONS_FILE}"
-}
-
-# Get a specific version's field for a package
-# Usage: get_pkg_version_field python 3.12.8 sha256  -> "5978435c..."
-# Usage: get_pkg_version_field openssl 1.1.1u sha256 -> "fafe2720..."
-get_pkg_version_field() {
-  local pkg="$1"
-  local version="$2"
-  local field="$3"
-  jq -r ".${pkg}.versions.\"${version}\".${field}" "${VERSIONS_FILE}"
+  $CDX_CLI default "$pkg"
 }
 
 # Get the SHA256 for a specific version of a package
 # Usage: get_pkg_sha256 python 3.12.8   -> "5978435c..."
-# Usage: get_pkg_sha256 openssl 1.1.1u  -> "fafe2720..."
+# Usage: get_pkg_sha256 openssl 3.5.4   -> "967311f8..."
 get_pkg_sha256() {
   local pkg="$1"
   local version="$2"
-  get_pkg_version_field "$pkg" "$version" sha256
+  $CDX_CLI sha256 "$pkg" "$version"
 }
 
 # Get URL for a specific version of a package
@@ -207,18 +199,18 @@ get_pkg_sha256() {
 get_pkg_url() {
   local pkg="$1"
   local version="$2"
-  get_pkg_version_field "$pkg" "$version" url
+  $CDX_CLI url "$pkg" "$version"
 }
 
 # Get the default version for a dependency (convenience wrapper)
-# Usage: get_dep_version openssl  -> "1.1.1u"
+# Usage: get_dep_version openssl  -> "3.5.4"
 get_dep_version() {
   local dep="$1"
   get_pkg_default "$dep"
 }
 
 # Get SHA256 for default version of a dependency (convenience wrapper)
-# Usage: get_dep_sha256 openssl  -> "fafe2720..."
+# Usage: get_dep_sha256 openssl  -> "967311f8..."
 get_dep_sha256() {
   local dep="$1"
   local version
@@ -238,10 +230,10 @@ sqlite_autoconf() {
 }
 
 # Get Python latest version from minor
-# Usage: get_python_latest 3.12  -> "3.12.8"
+# Usage: get_python_latest 3.12  -> "3.12.12"
 get_python_latest() {
   local minor="$1"
-  jq -r ".python.latest.\"${minor}\"" "${VERSIONS_FILE}"
+  $CDX_CLI latest python "$minor"
 }
 
 # Get Python SHA256 for a full version
@@ -322,7 +314,7 @@ parse_dep_args() {
         echo "Build ${dep_name} dependency for Cosmopolitan Python."
         echo ""
         echo "Arguments:"
-        echo "  VERSION    Version to build (default: from versions.json)"
+        echo "  VERSION    Version to build (default: from versions.cdx.json)"
         echo "  --clean    Remove existing build artifacts before building"
         echo ""
         echo "Examples:"
@@ -344,7 +336,7 @@ parse_dep_args() {
     shift
   done
   
-  # Default to versions.json if no version specified
+  # Default to versions.cdx.json if no version specified
   if [ -z "$DEP_VERSION" ]; then
     DEP_VERSION=$(get_dep_version "$dep_name")
   fi
@@ -405,14 +397,12 @@ run_configure() {
 # Path to our keyring (at repo root)
 GPG_KEYRING="${GPG_KEYRING:-${REPO_ROOT}/keys.asc}"
 
-# Get GPG fingerprint for a package version from versions.json
+# Get GPG fingerprint for a package version from versions.cdx.json
 # Usage: get_gpg_fingerprint "xz" "5.8.2" -> fingerprint or empty
 get_gpg_fingerprint() {
   local pkg="$1"
   local version="$2"
-  local fp
-  fp=$(jq -r ".${pkg}.versions.\"${version}\".gpg // empty" "$VERSIONS_FILE")
-  echo "$fp"
+  $CDX_CLI gpg "$pkg" "$version" 2>/dev/null || true
 }
 
 # Verify GPG signature of a file
@@ -455,7 +445,7 @@ verify_gpg_signature() {
       log_error "GPG signature valid but from UNEXPECTED KEY for $desc"
       log_error "  expected: $expected_fp"
       log_error "  actual:   $actual_fp"
-      log_error "this may indicate key rotation - verify and update versions.json"
+      log_error "this may indicate key rotation - verify and update versions.cdx.json"
       result=1
     else
       log_info "GPG signature verified for $desc"
@@ -502,7 +492,7 @@ download_signature() {
 
 # Download, verify SHA256, and optionally verify GPG signature
 # Usage: download_verify_gpg "pkg" "version" "url" "output_file" "description"
-# Reads expected SHA256 and GPG fingerprint from versions.json
+# Reads expected SHA256 and GPG fingerprint from versions.cdx.json
 download_verify_gpg() {
   local pkg="$1"
   local version="$2"
@@ -516,7 +506,7 @@ download_verify_gpg() {
   # Download main file
   download_and_verify "$url" "$output" "$expected_sha256" "$desc"
 
-  # Check if this version has GPG fingerprint in versions.json
+  # Check if this version has GPG fingerprint in versions.cdx.json
   local expected_fp
   expected_fp=$(get_gpg_fingerprint "$pkg" "$version")
   

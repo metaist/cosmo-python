@@ -166,7 +166,7 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 
 ### Upstream Sources
 
-All upstream sources are SHA256 verified against known-good hashes in [`versions.json`][versions-json]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
+All upstream sources are SHA256 verified against known-good hashes in [`versions.cdx.json`][versions-cdx]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
 
 <!--[[[cog
 cog.outl("| Dependency | Version | Source | Integrity | Signature | License |")
@@ -223,7 +223,7 @@ Upstream dependency licenses are shown in the [Upstream Sources](#upstream-sourc
 <!-- project links -->
 [cosmo]: https://github.com/jart/cosmopolitan
 [manifest]: https://github.com/metaist/cosmo-python/releases/latest/download/manifest.json
-[versions-json]: https://github.com/metaist/cosmo-python/blob/main/versions.json
+[versions-cdx]: https://github.com/metaist/cosmo-python/blob/main/versions.cdx.json
 
 <!-- workflows -->
 [check-updates]: .github/workflows/check-updates.yaml

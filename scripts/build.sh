@@ -7,7 +7,7 @@
 # Usage:
 #   ./scripts/build.sh <python_version>           # Build single version
 #   ./scripts/build.sh <version1> <version2> ...  # Build multiple versions
-#   ./scripts/build.sh --all                      # Build all versions from versions.json
+#   ./scripts/build.sh --all                      # Build all versions
 #
 # Examples:
 #   ./scripts/build.sh 3.12.8
@@ -34,17 +34,14 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ "$1" = "--all" ]; then
-  if [ ! -f "$VERSIONS_FILE" ]; then
-    log_error "versions.json not found at $VERSIONS_FILE"
+  all_versions=$($CDX_CLI versions)
+  
+  if [ -z "$all_versions" ]; then
+    log_error "no versions found in versions.cdx.json"
     exit 1
   fi
   
-  mapfile -t VERSIONS < <(jq -r '.python.versions | keys[]' "$VERSIONS_FILE")
-  
-  if [ ${#VERSIONS[@]} -eq 0 ]; then
-    log_error "no versions found in versions.json"
-    exit 1
-  fi
+  read -ra VERSIONS <<< "$all_versions"
   log_info "building all versions: ${VERSIONS[*]}"
 else
   VERSIONS=("$@")

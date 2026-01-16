@@ -464,3 +464,290 @@ def test_real_versions_cdx_json() -> None:
     assert "python" in names
     assert "openssl" in names
     assert "sqlite" in names
+
+
+# -----------------------------------------------------------------------------
+# CLI tests
+# -----------------------------------------------------------------------------
+
+
+def test_cli_default(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI default command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://x", sha256="a", license="PSF"
+    ))
+    bom.set_default("python", "3.13")
+    bom.set_latest("python", "3.13", "3.13.0")
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "default", "python"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "3.13"
+
+
+def test_cli_latest(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI latest command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.5", url="http://x", sha256="a", license="PSF"
+    ))
+    bom.set_latest("python", "3.13", "3.13.5")
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "latest", "python", "3.13"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "3.13.5"
+
+
+def test_cli_sha256(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI sha256 command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="xz", version="5.6.0", url="http://x", sha256="abc123def", license="MIT"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sha256", "xz", "5.6.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "abc123def"
+
+
+def test_cli_url(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI url command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="xz", version="5.6.0", url="http://example.com/xz.tar.gz", sha256="a", license="MIT"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "url", "xz", "5.6.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "http://example.com/xz.tar.gz"
+
+
+def test_cli_gpg(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI gpg command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="xz", version="5.6.0", url="http://x", sha256="a", license="MIT", gpg="FINGERPRINT123"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "gpg", "xz", "5.6.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "FINGERPRINT123"
+
+
+def test_cli_sigstore_identity(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI sigstore-identity command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://x", sha256="a", license="PSF",
+        sigstore_identity="test@python.org", sigstore_issuer="https://accounts.google.com"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sigstore-identity", "python", "3.13.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "test@python.org"
+
+
+def test_cli_sigstore_issuer(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI sigstore-issuer command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://x", sha256="a", license="PSF",
+        sigstore_identity="test@python.org", sigstore_issuer="https://accounts.google.com"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sigstore-issuer", "python", "3.13.0"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    assert captured.getvalue().strip() == "https://accounts.google.com"
+
+
+def test_cli_versions(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI versions command."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.1", url="http://x", sha256="a", license="PSF"
+    ))
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://y", sha256="b", license="PSF"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "versions"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue().strip()
+    assert "3.12.1" in output
+    assert "3.13.0" in output
+
+
+def test_cli_no_args(monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI with no args returns error."""
+    monkeypatch.setattr("sys.argv", ["cdx"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_unknown_command(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI with unknown command returns error."""
+    bom = cdx.Bom()
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "unknown"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI returns error when component not found."""
+    bom = cdx.Bom()
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sha256", "nonexistent", "1.0"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_default_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI default returns error when not set."""
+    bom = cdx.Bom()
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "default", "nonexistent"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_latest_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI latest returns error when not set."""
+    bom = cdx.Bom()
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "latest", "python", "3.99"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_url_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI url returns error when not found."""
+    bom = cdx.Bom()
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "url", "nonexistent", "1.0"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_gpg_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI gpg returns error when not set."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="test", version="1.0", url="http://x", sha256="a", license="MIT"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "gpg", "test", "1.0"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_sigstore_identity_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI sigstore-identity returns error when not set."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="test", version="1.0", url="http://x", sha256="a", license="MIT"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sigstore-identity", "test", "1.0"])
+    result = cdx.main()
+    assert result == 1
+
+
+def test_cli_sigstore_issuer_not_found(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI sigstore-issuer returns error when not set."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="test", version="1.0", url="http://x", sha256="a", license="MIT"
+    ))
+    cdx_file = tmp_path / "versions.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "sigstore-issuer", "test", "1.0"])
+    result = cdx.main()
+    assert result == 1

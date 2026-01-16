@@ -6,7 +6,7 @@
 # This checks:
 #   - All scripts have valid bash syntax
 #   - common.sh sources correctly and logging works
-#   - versions.json parsing works
+#   - versions.cdx.json parsing works
 #   - Required scripts exist
 #
 set -euo pipefail
@@ -74,18 +74,17 @@ else
 fi
 
 echo ""
-echo "Checking versions.json parsing..."
-if [ -f "${REPO_ROOT}/versions.json" ]; then
-  # Flattened structure: .python.versions has version keys
-  versions=$(jq -r '.python.versions | keys[]' versions.json 2>/dev/null | tr '\n' ' ')
+echo "Checking versions.cdx.json parsing..."
+if [ -f "${REPO_ROOT}/versions.cdx.json" ]; then
+  versions=$(uv run -m ci.cdx versions 2>/dev/null)
   
   if [ -n "$versions" ]; then
     pass "parsed versions: $versions"
   else
-    fail "no versions parsed from versions.json"
+    fail "no versions parsed from versions.cdx.json"
   fi
 else
-  fail "versions.json not found"
+  fail "versions.cdx.json not found"
 fi
 
 echo ""

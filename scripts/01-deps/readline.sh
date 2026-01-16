@@ -21,7 +21,7 @@ READLINE_DIR="${WORK_DIR}/readline-${READLINE_VERSION}"
 
 # Validate version exists
 if [ "$READLINE_SHA256" = "null" ] || [ -z "$READLINE_SHA256" ]; then
-  log_error "readline ${READLINE_VERSION} not found in versions.json"
+  log_error "readline ${READLINE_VERSION} not found in versions.cdx.json"
   exit 1
 fi
 
