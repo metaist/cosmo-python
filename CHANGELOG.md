@@ -24,6 +24,9 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#49] check-updates uses endoflife.date API for status/eol
 - [#49] check-updates uses `ds cog` for README regeneration
 - [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
+- [#60] `versions.json` replaced by `versions.cdx.json` (CycloneDX 1.5 format)
+- [#60] release `manifest.json` replaced by `manifest.cdx.json` (CycloneDX SBOM)
+- [#60] built binaries are `cosmo-python` in manifest (depends on upstream `python` + libs)
 
 **Added**
 
@@ -35,6 +38,14 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#48] per-version signing metadata (`sigstore`, `gpg`) in `versions.json`
 - [#51] license tracking (`license`, `license_url`) in `versions.json`
 - [#51] License column in README upstream sources table
+- [#60] `ci/cdx.py` - CycloneDX BOM parsing and generation
+- [#60] `ci/json_fmt.py` - semantic JSON formatter (entropy-aware compaction)
+- [#60] manifest includes full dependency graph (python source + libraries)
+
+**Removed**
+
+- [#60] `versions.json` (replaced by `versions.cdx.json`)
+- [#60] `ci/normalize.py` (replaced by `ci/cdx.py` and `ci/json_fmt.py`)
 
 ---
 
@@ -68,6 +79,9 @@ These are changes that are on `main` that are not yet in `prod`.
 [#47]: https://github.com/metaist/cosmo-python/issues/47
 [#48]: https://github.com/metaist/cosmo-python/issues/48
 [#49]: https://github.com/metaist/cosmo-python/issues/49
+[#51]: https://github.com/metaist/cosmo-python/issues/51
+[#60]: https://github.com/metaist/cosmo-python/issues/60
+[#13]: https://github.com/metaist/cosmo-python/issues/13
 [20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
 
 ## [20260115-134426] - 2026-01-15
