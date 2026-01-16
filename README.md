@@ -40,16 +40,6 @@ chmod +x python-3.13.11-cosmo.com
 ```
 <!--[[[end]]]-->
 
-Or use the [manifest][manifest] to get the default version dynamically:
-
-```bash
-curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json -o manifest.cdx.json
-VERSION=$(jq -r '.metadata.properties[] | select(.name=="cosmo:default:python") | .value' manifest.cdx.json)
-curl -LO "https://github.com/metaist/cosmo-python/releases/latest/download/python-${VERSION}-cosmo.com"
-chmod +x python-${VERSION}-cosmo.com
-./python-${VERSION}-cosmo.com --version
-```
-
 ## Releases
 
 We use date-based releases (`YYYYMMDD-HHMMSS`) that are created through a semi-automated pipeline:
@@ -102,11 +92,42 @@ sha256sum -c checksums.txt --ignore-missing
 ```
 <!--[[[end]]]-->
 
-The [manifest][manifest] also includes SHA256 hashes for programmatic verification.
+### Release Manifest
 
-### Manifest Format
+The [manifest][manifest] is a [CycloneDX 1.5](https://cyclonedx.org/) SBOM tracking all versions across releases.
 
-The [manifest][manifest] is a [CycloneDX 1.5](https://cyclonedx.org/) SBOM that tracks all versions across releases. It includes custom `cosmo:*` properties for version discovery and build attestation.
+**Metadata properties:**
+| Property | Description |
+|----------|-------------|
+| `cosmo:default:python` | Default Python version (e.g., `3.13.11`) |
+| `cosmo:latest:python:3.x` | Latest patch for a minor version |
+
+**Component properties (`cosmo-python` binaries):**
+| Property | Description |
+|----------|-------------|
+| `cosmo:attestation:repo` | GitHub repo for `gh attestation verify` |
+| `cosmo:release` | Release tag this binary was built in |
+
+**Component properties (upstream sources):**
+| Property | Description |
+|----------|-------------|
+| `cosmo:eol` | End of life date (`YYYY-MM`) |
+| `cosmo:status` | Release status (`bugfix`, `security`) |
+| `cosmo:gpg` | GPG fingerprint for verification |
+| `cosmo:sigstore:identity` | Sigstore signer identity |
+| `cosmo:sigstore:issuer` | Sigstore OIDC issuer |
+
+**Programmatic download:**
+
+```bash
+curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json -o manifest.cdx.json
+VERSION=$(jq -r '.metadata.properties[] | select(.name=="cosmo:default:python") | .value' manifest.cdx.json)
+curl -Lo python.com $(jq -r --arg v "$VERSION" '.components[] | select(."bom-ref"=="cosmo-python@\($v)") | .externalReferences[0].url' manifest.cdx.json)
+chmod +x python.com
+./python.com --version
+```
+
+The manifest also includes SHA256 hashes in each component's `hashes` array.
 
 For details on how binaries are built and source verification, see [Building](#building).
 
