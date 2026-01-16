@@ -116,6 +116,7 @@
     "xdrlib",
     "mailcap",
     "sunau",
-    "idlelib"
+    "idlelib",
+    "ghijkl"
   ]
 }

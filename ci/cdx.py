@@ -12,58 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
-def compact_json(
-    obj: Any, indent: int = 2, max_line: int = 100, _level: int = 0
-) -> str:
-    """Format JSON with smart compaction.
-
-    - Simple values inline
-    - Short objects/arrays on one line if they fit within max_line
-    - Longer structures get multi-line formatting
-
-    >>> compact_json({})
-    '{}'
-    >>> compact_json([])
-    '[]'
-    >>> compact_json({"a": 1})
-    '{"a": 1}'
-    >>> compact_json([{"name": "x", "value": "y"}])
-    '[{"name": "x", "value": "y"}]'
-    """
-    prefix = " " * (indent * _level)
-    child_prefix = " " * (indent * (_level + 1))
-
-    if isinstance(obj, dict):
-        if not obj:
-            return "{}"
-        # Try compact - serialize and check length
-        compact = json.dumps(obj, separators=(", ", ": "))
-        if len(prefix) + len(compact) <= max_line:
-            return compact
-        # Multi-line
-        items = []
-        for k, v in obj.items():
-            formatted_v = compact_json(v, indent, max_line, _level + 1)
-            items.append(f'{child_prefix}"{k}": {formatted_v}')
-        return "{\n" + ",\n".join(items) + "\n" + prefix + "}"
-
-    elif isinstance(obj, list):
-        if not obj:
-            return "[]"
-        # Try compact
-        compact = json.dumps(obj, separators=(", ", ": "))
-        if len(prefix) + len(compact) <= max_line:
-            return compact
-        # Multi-line - format each item
-        items = [
-            child_prefix + compact_json(item, indent, max_line, _level + 1)
-            for item in obj
-        ]
-        return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
-
-    else:
-        return json.dumps(obj)
+from ci.json_fmt import dumps as json_dumps
 
 
 # Display names for components (only entries that differ from name)
@@ -233,12 +182,17 @@ class Bom:
         return self.get_component(name, version)
 
     def all_components(self) -> list[Component]:
-        """Get all components in the BOM, sorted: python first, then deps alpha."""
+        """Get all components in the BOM, sorted: cosmo-python, python, then alpha."""
         from ci.common import version_key
 
         def sort_key(c: Component) -> tuple[int, str, list[tuple[int, int | str]]]:
-            # python first (0), everything else alpha (1)
-            order = 0 if c.name == "python" else 1
+            # cosmo-python first (0), python second (1), everything else alpha (2)
+            if c.name == "cosmo-python":
+                order = 0
+            elif c.name == "python":
+                order = 1
+            else:
+                order = 2
             return (order, c.name, version_key(c.version))
 
         result: list[Component] = []
@@ -577,7 +531,12 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
     ) -> tuple[int, str, list[tuple[int, int | str]]]:
         ref = item[0]
         name, version = ref.split("@", 1)
-        order = 0 if name == "python" else 1
+        if name == "cosmo-python":
+            order = 0
+        elif name == "python":
+            order = 1
+        else:
+            order = 2
         return (order, name, version_key(version))
 
     deps_list: list[dict[str, Any]] = []
@@ -587,7 +546,7 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
         result["dependencies"] = deps_list
 
     if path:
-        Path(path).write_text(compact_json(result) + "\n")
+        Path(path).write_text(json_dumps(result) + "\n")
 
     return result
 

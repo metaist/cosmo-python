@@ -178,9 +178,9 @@ def generate_manifest(
         # Get source component for license info
         source_comp = build_bom.get_component("python", version)
 
-        # Create binary component
+        # Create binary component (cosmo-python, not python)
         comp = cdx.Component(
-            name="python",
+            name="cosmo-python",
             version=version,
             url=binary_info["url"],
             sha256=binary_info["sha256"],
@@ -193,21 +193,24 @@ def generate_manifest(
         manifest.add_component(comp)
 
         # Track release tag per component
-        manifest._component_releases[f"python@{version}"] = release_tag
+        manifest._component_releases[f"cosmo-python@{version}"] = release_tag
 
         # Update latest for this minor
         minor = ".".join(version.split(".")[:2])
+        # Update latest for this minor (use "python" key for properties)
         current_latest = manifest.get_latest_version("python", minor)
         if not current_latest or version_key(version) > version_key(current_latest):
             manifest.set_latest("python", minor, version)
 
-        # Collect dependencies from build config
+        # Collect dependencies from build config (includes python source + libs)
         deps = build_bom.get_dependencies(f"python@{version}")
-        for dep_ref in deps:
+        # Add upstream python source as dependency
+        all_deps = [f"python@{version}"] + list(deps)
+        for dep_ref in all_deps:
             dep_versions_needed.add(dep_ref)
 
         # Set dependencies in manifest
-        manifest.set_dependencies(f"python@{version}", deps)
+        manifest.set_dependencies(f"cosmo-python@{version}", all_deps)
 
     # Add all needed dependency components
     for dep_ref in sorted(dep_versions_needed):
@@ -216,13 +219,13 @@ def generate_manifest(
         if dep_comp and not manifest.get_component(name, version):
             manifest.add_component(dep_comp)
 
-    # Compute default (highest non-prerelease stable version)
-    all_python_versions = manifest.python_versions()
-    stable_versions = [v for v in all_python_versions if not is_prerelease(v)]
+    # Compute default (highest non-prerelease stable version of cosmo-python)
+    all_versions = sorted(c.version for c in manifest.get_components("cosmo-python"))
+    stable_versions = [v for v in all_versions if not is_prerelease(v)]
     if stable_versions:
         default_version = sorted(stable_versions, key=version_key)[-1]
-    elif all_python_versions:
-        default_version = sorted(all_python_versions, key=version_key)[-1]
+    elif all_versions:
+        default_version = sorted(all_versions, key=version_key)[-1]
     else:
         default_version = ""
 
@@ -237,21 +240,20 @@ def print_summary(manifest: cdx.Bom) -> None:
     print()
     log.info("Manifest summary:")
     print(f"  Release: {manifest._release}")
-    print(f"  Python versions: {len(manifest.python_versions())}")
+    cosmo_versions = sorted(c.version for c in manifest.get_components("cosmo-python"))
+    print(f"  Python versions: {len(cosmo_versions)}")
 
-    default_minor = manifest.get_default_version("python")
-    if default_minor:
-        default_version = manifest.get_latest_version("python", default_minor)
-        print(f"  Default: {default_version}")
+    default_version = manifest.get_default_version("python")
+    print(f"  Default: {default_version}")
 
     print()
     print("  Available versions:")
-    for version in manifest.python_versions():
-        release = manifest._component_releases.get(f"python@{version}", "unknown")
+    for version in cosmo_versions:
+        release = manifest._component_releases.get(f"cosmo-python@{version}", "unknown")
         print(f"    {version} -> {release}")
 
-    # Show dependencies
-    dep_names = [n for n in manifest.component_names() if n != "python"]
+    # Show dependencies (everything except cosmo-python)
+    dep_names = [n for n in manifest.component_names() if n != "cosmo-python"]
     if dep_names:
         print()
         print("  Dependencies included:")

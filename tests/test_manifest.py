@@ -30,9 +30,10 @@ def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
         name="openssl", version="3.5.4", url="http://ssl", sha256="ssl", license="Apache-2.0"
     ))
     bom.set_default("cosmocc", "4.0.0")
-    bom.set_default("python", "3.13")
+    bom.set_default("python", "3.13.1")
     bom.set_latest("python", "3.12", "3.12.8")
     bom.set_latest("python", "3.13", "3.13.1")
+    # Dependencies for python builds (what manifest.py looks up)
     bom.set_dependencies("python@3.12.8", ["openssl@3.5.4"])
     bom.set_dependencies("python@3.13.1", ["openssl@3.5.4"])
     if disabled:
@@ -82,10 +83,10 @@ def test_get_repo_from_env(monkeypatch: "pytest.MonkeyPatch") -> None:
 @patch("urllib.request.urlopen")
 def test_fetch_previous_manifest_url(mock_urlopen: MagicMock, tmp_path: Path) -> None:
     """fetch_previous_manifest fetches from URL."""
-    # Create a minimal CycloneDX BOM to return
+    # Create a minimal CycloneDX BOM to return (manifest has cosmo-python)
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
-        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
     ))
     cdx_data = cdx.dump(bom)
 
@@ -115,14 +116,14 @@ def test_fetch_previous_manifest_local(tmp_path: Path) -> None:
     """fetch_previous_manifest reads local file."""
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
-        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
     ))
     manifest = tmp_path / "manifest.cdx.json"
     cdx.dump(bom, manifest)
 
     result = fetch_previous_manifest(str(manifest))
     assert result is not None
-    assert result.get_component("python", "3.12.8") is not None
+    assert result.get_component("cosmo-python", "3.12.8") is not None
 
 
 def test_fetch_previous_manifest_local_missing(tmp_path: Path) -> None:
@@ -194,8 +195,8 @@ def test_generate_manifest_basic(tmp_path: Path, monkeypatch: "pytest.MonkeyPatc
     assert result.get_default_version("python") == "3.13.1"
     assert result.get_latest_version("python", "3.12") == "3.12.8"
     assert result.get_latest_version("python", "3.13") == "3.13.1"
-    assert result.get_component("python", "3.12.8") is not None
-    assert result.get_component("python", "3.13.1") is not None
+    assert result.get_component("cosmo-python", "3.12.8") is not None
+    assert result.get_component("cosmo-python", "3.13.1") is not None
     # Check cosmocc is included
     assert result.get_component("cosmocc", "4.0.0") is not None
 
@@ -216,7 +217,7 @@ def test_generate_manifest_includes_deps(tmp_path: Path, monkeypatch: "pytest.Mo
     # Check openssl dependency is included
     assert result.get_component("openssl", "3.5.4") is not None
     # Check dependency relationship
-    deps = result.get_dependencies("python@3.13.1")
+    deps = result.get_dependencies("cosmo-python@3.13.1")
     assert "openssl@3.5.4" in deps
 
 
@@ -227,12 +228,12 @@ def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.
     monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
     monkeypatch.setenv("REPO", "test/repo")
 
-    # Create previous manifest
+    # Create previous manifest (has cosmo-python components)
     prev_bom = cdx.Bom()
     prev_bom.add_component(cdx.Component(
-        name="python", version="3.11.9", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.11.9", url="http://old", sha256="old", license="PSF-2.0"
     ))
-    prev_bom._component_releases["python@3.11.9"] = "20260101-000000"
+    prev_bom._component_releases["cosmo-python@3.11.9"] = "20260101-000000"
 
     new_binaries = {
         "3.12.8": {"url": "http://new", "sha256": "new", "filename": "new.com"},
@@ -240,8 +241,8 @@ def test_generate_manifest_merges_previous(tmp_path: Path, monkeypatch: "pytest.
 
     result = generate_manifest("20260115-134426", new_binaries, prev_bom)
 
-    assert result.get_component("python", "3.11.9") is not None  # from previous
-    assert result.get_component("python", "3.12.8") is not None  # from new
+    assert result.get_component("cosmo-python", "3.11.9") is not None  # from previous
+    assert result.get_component("cosmo-python", "3.12.8") is not None  # from new
 
 
 def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -258,8 +259,8 @@ def test_generate_manifest_filters_disabled(tmp_path: Path, monkeypatch: "pytest
 
     result = generate_manifest("20260115-134426", new_binaries)
 
-    assert result.get_component("python", "3.9.18") is None
-    assert result.get_component("python", "3.12.8") is not None
+    assert result.get_component("cosmo-python", "3.9.18") is None
+    assert result.get_component("cosmo-python", "3.12.8") is not None
 
 
 def test_generate_manifest_prerelease_default(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -320,7 +321,7 @@ def test_generate_manifest_attestation_repo(tmp_path: Path, monkeypatch: "pytest
     }
 
     result = generate_manifest("20260115-134426", new_binaries)
-    comp = result.get_component("python", "3.13.1")
+    comp = result.get_component("cosmo-python", "3.13.1")
     assert comp is not None
     assert comp.attestation_repo == "test/repo"
 
@@ -338,7 +339,7 @@ def test_print_summary(tmp_path: Path, capsys: "pytest.CaptureFixture[str]") -> 
     ))
     bom.set_default("python", "3.13")
     bom.set_latest("python", "3.13", "3.13.1")
-    bom._component_releases["python@3.13.1"] = "20260115-134426"
+    bom._component_releases["cosmo-python@3.13.1"] = "20260115-134426"
 
     print_summary(bom)
 
@@ -426,10 +427,10 @@ def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> N
     dist.mkdir()
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
 
-    # Previous manifest
+    # Previous manifest (has cosmo-python components)
     prev_bom = cdx.Bom()
     prev_bom.add_component(cdx.Component(
-        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
     ))
     prev = tmp_path / "prev-manifest.cdx.json"
     cdx.dump(prev_bom, prev)
@@ -446,8 +447,8 @@ def test_main_with_merge(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> N
 
     assert result == 0
     manifest = cdx.load(dist / "manifest.cdx.json")
-    assert manifest.get_component("python", "3.12.8") is not None  # from previous
-    assert manifest.get_component("python", "3.13.1") is not None  # from new
+    assert manifest.get_component("cosmo-python", "3.12.8") is not None  # from previous
+    assert manifest.get_component("cosmo-python", "3.13.1") is not None  # from new
 
 
 def test_main_empty_tag(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -479,10 +480,10 @@ def test_main_uses_existing_manifest(tmp_path: Path, monkeypatch: "pytest.Monkey
     dist.mkdir()
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
 
-    # Create existing manifest
+    # Create existing manifest (has cosmo-python components)
     existing_bom = cdx.Bom()
     existing_bom.add_component(cdx.Component(
-        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
     ))
     cdx.dump(existing_bom, dist / "manifest.cdx.json")
 
@@ -498,7 +499,7 @@ def test_main_uses_existing_manifest(tmp_path: Path, monkeypatch: "pytest.Monkey
 
     assert result == 0
     manifest = cdx.load(dist / "manifest.cdx.json")
-    assert manifest.get_component("python", "3.12.8") is not None  # from existing
+    assert manifest.get_component("cosmo-python", "3.12.8") is not None  # from existing
 
 
 def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch", capsys: "pytest.CaptureFixture[str]") -> None:
@@ -510,7 +511,7 @@ def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch
     # Create existing manifest so we have versions to work with
     existing_bom = cdx.Bom()
     existing_bom.add_component(cdx.Component(
-        name="python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
+        name="cosmo-python", version="3.12.8", url="http://old", sha256="old", license="PSF-2.0"
     ))
     cdx.dump(existing_bom, dist / "manifest.cdx.json")
 
