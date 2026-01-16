@@ -24,7 +24,14 @@ lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check"]
 
 shellcheck.help = "lint shell scripts"
 # Excluded: SC1091 (dynamic source), SC2164 (cd || exit), SC2086 (unquoted), SC2103/SC2129 (style)
-shellcheck.shell = "find scripts -name '*.sh' -exec npx --yes shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +"
+# Use system shellcheck if available (apt-get install shellcheck), fall back to npx
+shellcheck.shell = """
+if command -v shellcheck >/dev/null 2>&1; then
+  find scripts -name '*.sh' -exec shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +
+else
+  find scripts -name '*.sh' -exec npx --yes shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +
+fi
+"""
 
 ruff-format = "uvx ruff format ${@:-ci}"
 ruff-lint = "uvx ruff check --fix ${@:-ci}"
