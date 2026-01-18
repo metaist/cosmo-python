@@ -75,3 +75,19 @@ def test_main_no_args(monkeypatch: "pytest.MonkeyPatch", capsys: "pytest.Capture
     result = main()
 
     assert result == 1
+
+
+def test_main_no_github_output(tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch") -> None:
+    """main() works without GITHUB_OUTPUT set."""
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("ci.build_matrix.CDX_FILE", cdx_file)
+
+    # Don't set GITHUB_OUTPUT
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr("sys.argv", ["build_matrix", "3.13.0"])
+
+    from ci.build_matrix import main
+    result = main()
+
+    assert result == 0

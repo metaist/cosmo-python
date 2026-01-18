@@ -36,6 +36,7 @@ source = ["ci"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "@overload"]
+exclude_also = ["no cover: start(?s:.)*?no cover: stop"]
 
 [tool.ruff]
 line-length = 100

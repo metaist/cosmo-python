@@ -457,6 +457,39 @@ def test_main_with_updates(
     mock_regen.assert_called_once()
 
 
+@patch("ci.check_updates.regenerate_readme")
+@patch("ci.check_updates.cdx.dump")
+@patch("ci.check_updates.update_dependency")
+@patch("ci.check_updates.check_dependencies")
+@patch("ci.check_updates.update_python_version")
+@patch("ci.check_updates.check_python_versions")
+@patch("ci.check_updates.cdx.load")
+def test_main_with_failed_updates(
+    mock_load: MagicMock,
+    mock_check_py: MagicMock,
+    mock_update_py: MagicMock,
+    mock_check_deps: MagicMock,
+    mock_update_dep: MagicMock,
+    mock_dump: MagicMock,
+    mock_regen: MagicMock,
+    monkeypatch: "pytest.MonkeyPatch",
+) -> None:
+    """main() handles failed updates gracefully."""
+    from ci.check_updates import main
+
+    mock_load.return_value = make_test_bom()
+    mock_check_py.return_value = [("3.13", "3.13.2")]
+    mock_update_py.return_value = False  # Update fails
+    mock_check_deps.return_value = [("xz", "5.6.1")]
+    mock_update_dep.return_value = False  # Update fails
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+
+    result = main()
+
+    assert result == 0
+    mock_dump.assert_not_called()  # No successful updates
+
+
 @patch("ci.check_updates.check_dependencies")
 @patch("ci.check_updates.check_python_versions")
 @patch("ci.check_updates.cdx.load")

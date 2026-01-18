@@ -539,3 +539,54 @@ def test_main_warns_no_binaries(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch
     assert result == 0
     out, _ = capsys.readouterr()
     assert "No binaries found" in out
+
+
+def test_generate_manifest_without_cosmocc(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest works when cosmocc version not in upstream."""
+    # Create upstream without the requested cosmocc version
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.1", url="http://py", sha256="p", license="PSF-2.0"
+    ))
+    bom.set_default("python", "3.13.1")
+    bom.set_latest("python", "3.13", "3.13.1")
+    cdx_file = tmp_path / "upstream.cdx.json"
+    cdx.dump(bom, cdx_file)
+
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    monkeypatch.setenv("COSMOCC_VERSION", "9.9.9")  # Not in upstream
+    monkeypatch.setenv("REPO", "test/repo")
+
+    from ci.manifest import generate_manifest
+
+    new_binaries = {
+        "3.13.1": {"url": "http://b", "sha256": "bbb", "filename": "b.com"},
+    }
+
+    result = generate_manifest("20260115-134426", new_binaries)
+
+    # Should work, just no cosmocc component
+    assert result.get_component("cosmocc", "9.9.9") is None
+    assert result.get_component("cosmo-python", "3.13.1") is not None
+
+
+def test_generate_manifest_version_not_newer(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """generate_manifest doesn't update latest when adding older version after newer."""
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)
+    monkeypatch.setenv("COSMOCC_VERSION", "4.0.0")
+    monkeypatch.setenv("REPO", "test/repo")
+
+    from ci.manifest import generate_manifest
+
+    # Build both 3.13.1 (newer) and 3.13.0 (older) - iteration order matters
+    # Using dict that has newer version first
+    new_binaries = {
+        "3.13.1": {"url": "http://new", "sha256": "new", "filename": "new.com"},
+        "3.13.0": {"url": "http://old", "sha256": "old", "filename": "old.com"},
+    }
+
+    result = generate_manifest("20260115-134426", new_binaries)
+
+    # latest should be 3.13.1, not overwritten by 3.13.0
+    assert result.get_latest_version("python", "3.13") == "3.13.1"

@@ -154,7 +154,7 @@ def _format_dict(d: dict[str, Any], indent: int, max_line: int, level: int, in_a
                 if _list_semantic_len(v) + len(prefix) > max_line:  # pragma: no cover
                     can_compact = False  # pragma: no cover
                     break  # pragma: no cover
-        if can_compact:
+        if can_compact:  # pragma: no branch - defensive checks above are pragma'd
             items = [f'"{k}": {_compact_value(v)}' for k, v in d.items()]
             return "{ " + ", ".join(items) + " }"
 

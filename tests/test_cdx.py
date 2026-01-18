@@ -914,3 +914,288 @@ def test_upstream_table_python_version_range() -> None:
 
     table = bom.upstream_table()
     assert "3.12–3.13" in table
+
+
+def test_load_with_non_sha256_hash(tmp_path: Path) -> None:
+    """load handles components with non-SHA256 hashes."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "hashes": [
+                {"alg": "MD5", "content": "abc"},  # Not SHA-256
+                {"alg": "SHA-256", "content": "def123"},  # This one
+            ],
+            "licenses": [{"license": {"id": "MIT"}}],
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    comp = bom.get_component("test", "1.0")
+    assert comp is not None
+    assert comp.sha256 == "def123"
+
+
+def test_load_with_non_distribution_ref(tmp_path: Path) -> None:
+    """load handles components with non-distribution external refs."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "externalReferences": [
+                {"type": "website", "url": "http://example.com"},  # Not distribution
+                {"type": "distribution", "url": "http://download.com/test.tar.gz"},
+            ],
+            "licenses": [{"license": {"id": "MIT"}}],
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    comp = bom.get_component("test", "1.0")
+    assert comp is not None
+    assert comp.url == "http://download.com/test.tar.gz"
+
+
+def test_load_with_license_name(tmp_path: Path) -> None:
+    """load handles licenses with name instead of id."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "licenses": [{"license": {"name": "Custom License"}}],
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    comp = bom.get_component("test", "1.0")
+    assert comp is not None
+    assert comp.license == "Custom License"
+
+
+def test_load_with_non_cosmo_property(tmp_path: Path) -> None:
+    """load ignores properties without cosmo: prefix."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "licenses": [{"license": {"id": "MIT"}}],
+            "properties": [
+                {"name": "other:prop", "value": "ignored"},
+                {"name": "cosmo:gpg", "value": "ABC123"},
+            ],
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    comp = bom.get_component("test", "1.0")
+    assert comp is not None
+    assert comp.gpg == "ABC123"
+
+
+def test_load_with_unknown_metadata_property(tmp_path: Path) -> None:
+    """load ignores unknown metadata properties."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "properties": [
+                {"name": "cosmo:unknown:prop", "value": "ignored"},
+                {"name": "cosmo:default:python", "value": "3.13.0"},
+            ],
+        },
+        "components": [{
+            "type": "library",
+            "name": "python",
+            "version": "3.13.0",
+            "licenses": [{"license": {"id": "PSF-2.0"}}],
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    assert bom.get_default_version("python") == "3.13.0"
+
+
+def test_load_component_without_release_property(tmp_path: Path) -> None:
+    """load handles components without cosmo:release property."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "licenses": [{"license": {"id": "MIT"}}],
+            "properties": [{"name": "cosmo:gpg", "value": "ABC"}],  # Not cosmo:release
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    assert bom.get_component("test", "1.0") is not None
+
+
+def test_dump_with_empty_disabled(tmp_path: Path) -> None:
+    """dump handles empty disabled prefixes."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="test", version="1.0", url="http://x", sha256="a", license="MIT"
+    ))
+    bom.set_default("test", "1.0")
+    bom._disabled["test"] = []  # Empty list
+
+    result = cdx.dump(bom)
+    # Should not include cosmo:disabled:test in properties
+    props = result["metadata"]["properties"]
+    disabled_props = [p for p in props if p["name"].startswith("cosmo:disabled:")]
+    assert len(disabled_props) == 0
+
+
+def test_dump_without_dependencies(tmp_path: Path) -> None:
+    """dump handles BOM without dependencies."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="test", version="1.0", url="http://x", sha256="a", license="MIT"
+    ))
+    bom.set_default("test", "1.0")
+    # No dependencies set
+
+    result = cdx.dump(bom)
+    assert "dependencies" not in result
+
+
+def test_load_component_without_license(tmp_path: Path) -> None:
+    """load handles components without license."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            # No licenses array
+        }],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    comp = bom.get_component("test", "1.0")
+    assert comp is not None
+    assert comp.license == ""
+
+
+def test_load_invalid_latest_property(tmp_path: Path) -> None:
+    """load handles invalid cosmo:latest: format (missing colon)."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "properties": [
+                {"name": "cosmo:latest:python", "value": "3.13.0"},  # Missing :3.13
+            ],
+        },
+        "components": [],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    # Should not crash, just ignore invalid property
+    assert bom.get_latest_version("python", "3.13") is None
+
+
+def test_load_empty_disabled_prefixes(tmp_path: Path) -> None:
+    """load handles empty disabled prefixes."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "timestamp": "2026-01-01T00:00:00Z",
+            "properties": [
+                {"name": "cosmo:disabled:python", "value": ""},  # Empty value
+            ],
+        },
+        "components": [],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    assert bom.get_disabled("python") == []
+
+
+def test_load_dependency_with_empty_ref(tmp_path: Path) -> None:
+    """load ignores dependencies with empty ref."""
+    data = {
+        "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"timestamp": "2026-01-01T00:00:00Z"},
+        "components": [{
+            "type": "library",
+            "name": "test",
+            "version": "1.0",
+            "licenses": [{"license": {"id": "MIT"}}],
+        }],
+        "dependencies": [
+            {"ref": "", "dependsOn": ["other@1.0"]},  # Empty ref
+            {"ref": "test@1.0", "dependsOn": []},
+        ],
+    }
+    cdx_file = tmp_path / "test.cdx.json"
+    cdx_file.write_text(json.dumps(data))
+
+    bom = cdx.load(cdx_file)
+    # Empty ref should be ignored
+    assert bom.get_dependencies("") == []
+    assert bom.get_dependencies("test@1.0") == []

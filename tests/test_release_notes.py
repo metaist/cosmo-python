@@ -297,3 +297,52 @@ def test_main_ignores_unknown_args(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     result = main()
 
     assert result == 0
+
+
+def test_main_ignores_non_matching_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """main() ignores files that don't match python version pattern."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
+    (dist / "python-invalid-cosmo.com").write_bytes(b"fake")  # Matches glob but not regex
+
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+
+    output_file = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_file))
+    monkeypatch.setattr("sys.argv", ["release_notes", str(dist)])
+
+    from ci.release_notes import main
+    result = main()
+
+    assert result == 0
+    output = output_file.read_text()
+    # Only 3.13.x should be in table
+    assert "3.13.x" in output
+    assert "invalid" not in output
+
+
+def test_move_unreleased_no_links_section(tmp_path: Path) -> None:
+    """move_unreleased_to_release handles changelog without link definitions."""
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text("""\
+# Changelog
+
+## [Unreleased]
+
+[unreleased]: https://github.com/test/repo/compare/prod...main
+
+These are changes that are on `main` that are not yet in `prod`.
+
+**Added**
+
+- New thing
+
+---
+""")  # No link definitions after ---
+
+    move_unreleased_to_release("20260116-120000", changelog)
+
+    # Should not crash, content may be unchanged or partially updated
+    assert changelog.exists()

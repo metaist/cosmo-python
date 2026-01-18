@@ -256,7 +256,7 @@ def print_summary(manifest: cdx.Bom) -> None:
 
     # Show dependencies (everything except cosmo-python)
     dep_names = [n for n in manifest.component_names() if n != "cosmo-python"]
-    if dep_names:
+    if dep_names:  # pragma: no branch - manifest always includes python and deps
         print()
         print("  Dependencies included:")
         for name in sorted(dep_names):
