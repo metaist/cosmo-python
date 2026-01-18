@@ -17,6 +17,7 @@ import sys
 from . import cdx
 from .common import CDX_FILE, setup_logging, version_key
 from .upstreams import DEPS, PythonUpstream
+from .upstreams import openssl as openssl_upstream
 from .upstreams.http import fetch_sha256
 
 DRY_RUN = "--dry-run" in sys.argv
@@ -51,6 +52,10 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
     # Get current default to copy metadata
     current = bom.get_default_component(dep)
 
+    # Get EOL/status for OpenSSL
+    eol = openssl_upstream.get_eol(new_version) if dep == "openssl" else None
+    status = openssl_upstream.get_status(new_version) if dep == "openssl" else None
+
     # Build new component
     comp = cdx.Component(
         name=dep,
@@ -62,6 +67,8 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
         gpg=current.gpg if current else None,
         purl=current.purl if current else None,
         component_type=current.component_type if current else "library",
+        eol=eol,
+        status=status,
     )
 
     if comp.gpg:
@@ -186,11 +193,19 @@ def check_dependencies(bom: cdx.Bom) -> list[tuple[str, str]]:
             log.warning(f"{name}: {current} (failed to check)")
             continue
 
+        # Get status for OpenSSL
+        status_str = ""
+        if name == "openssl":
+            status = openssl_upstream.get_status(latest)
+            if status == "eol":
+                log.warning(f"{name}: {latest} is EOL - consider upgrading")
+            status_str = f" ({status})" if status != "unknown" else ""
+
         if latest != current:
-            log.info(f"{name}: {current} -> {latest}")
+            log.info(f"{name}: {current} -> {latest}{status_str}")
             updates.append((name, latest))
         else:
-            log.info(f"{name}: {current} (current)")
+            log.info(f"{name}: {current}{status_str} (current)")
 
     return updates
 

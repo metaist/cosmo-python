@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from ci.upstreams.github import GitHubDep
 from ci.upstreams.gnu import GnuDep
 from ci.upstreams.misc import SqliteDep, Bzip2Dep, CacertDep
+from ci.upstreams import openssl as openssl_upstream
 from ci.upstreams.python import PythonUpstream
 
 
@@ -335,3 +336,49 @@ def test_python_fetch_latest_no_results(mock_fetch: MagicMock) -> None:
     mock_fetch.return_value = {"results": []}
     py = PythonUpstream()
     assert py.fetch_latest("3.13") is None
+
+
+# --- OpenSSL ---
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_eol(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_eol returns YYYY-MM format."""
+    mock_fetch.return_value = {"3.5": ("2030-04-08", "lts")}
+    assert openssl_upstream.get_eol("3.5.4") == "2030-04"
+    assert openssl_upstream.get_eol("3.5") == "2030-04"
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_eol_unknown(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_eol returns empty for unknown version."""
+    mock_fetch.return_value = {}
+    assert openssl_upstream.get_eol("9.9.9") == ""
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_status_lts(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_status returns lts for LTS versions."""
+    mock_fetch.return_value = {"3.5": ("2030-04-08", "lts")}
+    assert openssl_upstream.get_status("3.5.4") == "lts"
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_status_supported(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_status returns supported for non-LTS active versions."""
+    mock_fetch.return_value = {"3.4": ("2026-10-22", "supported")}
+    assert openssl_upstream.get_status("3.4.0") == "supported"
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_status_eol(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_status returns eol for EOL versions."""
+    mock_fetch.return_value = {"3.1": ("2025-03-14", "eol")}
+    assert openssl_upstream.get_status("3.1.0") == "eol"
+
+
+@patch("ci.upstreams.openssl._fetch_eol_data")
+def test_openssl_get_status_unknown(mock_fetch: MagicMock) -> None:
+    """OpenSSL get_status returns unknown for unknown version."""
+    mock_fetch.return_value = {}
+    assert openssl_upstream.get_status("9.9.9") == "unknown"
