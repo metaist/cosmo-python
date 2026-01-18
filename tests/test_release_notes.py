@@ -208,6 +208,7 @@ def test_main_generates_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     # Create upstream.cdx.json
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("ci.release_notes.CDX_FILE", cdx_file)
 
     # Mock GITHUB_OUTPUT
     output_file = tmp_path / "output"

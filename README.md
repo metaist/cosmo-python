@@ -34,9 +34,9 @@ cog.outl("```")
 Download and run:
 
 ```bash
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.13.11-cosmo.com
-chmod +x python-3.13.11-cosmo.com
-./python-3.13.11-cosmo.com --version
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.14.2-cosmo.com
+chmod +x python-3.14.2-cosmo.com
+./python-3.14.2-cosmo.com --version
 ```
 <!--[[[end]]]-->
 
@@ -70,7 +70,7 @@ cog.outl("```")
 Release artifacts include [Sigstore](https://sigstore.dev/) build attestations proving they were built by this repo's GitHub Actions (not uploaded manually). Verify with:
 
 ```bash
-gh attestation verify python-3.13.11-cosmo.com --repo metaist/cosmo-python
+gh attestation verify python-3.14.2-cosmo.com --repo metaist/cosmo-python
 ```
 <!--[[[end]]]-->
 
@@ -87,7 +87,7 @@ Each release includes `checksums.txt` with SHA256 hashes:
 
 ```bash
 curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/checksums.txt
-curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.13.11-cosmo.com
+curl -LO https://github.com/metaist/cosmo-python/releases/latest/download/python-3.14.2-cosmo.com
 sha256sum -c checksums.txt --ignore-missing
 ```
 <!--[[[end]]]-->
@@ -144,7 +144,7 @@ cog.outl("./scripts/build.sh --all  # build all versions")
 cog.outl("```")
 ]]]-->
 ```bash
-./scripts/build.sh 3.13.11  # build specific version
+./scripts/build.sh 3.14.2  # build specific version
 ./scripts/build.sh --all  # build all versions
 ```
 <!--[[[end]]]-->
@@ -169,7 +169,7 @@ cog.outl("```")
 Example:
 
 ```bash
-WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
+WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.14.2
 ```
 <!--[[[end]]]-->
 
@@ -182,7 +182,7 @@ cog.outl(bom.upstream_table())
 ]]]-->
 | Dependency | Version | Integrity | Signature | License |
 |------------|---------|-----------|-----------|---------|
-| [Python](https://www.python.org/ftp/python/3.13.11/Python-3.13.11.tgz) | 3.10–3.14 | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
+| [Python](https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz) | 3.10–3.14 | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
 | [bzip2](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | 1.0.8 | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
 | [CA certs](https://curl.se/ca/cacert-2025-12-02.pem) | 2025-12-02 | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
 | [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
