@@ -8,8 +8,8 @@ Standalone versioned [Cosmopolitan][cosmo] Python builds.
 
 - **Single portable binary**: runs on Linux, macOS, Windows, FreeBSD, OpenBSD, NetBSD
 - **Multiple Python versions**: 3.10 through 3.14 available
-- **Automated pipeline**: [weekly update checks][check-updates], validated builds, [attested releases](#build-attestations)
-- **Transparent builds**: all sources [verified](#upstream-sources) (SHA256, GPG, Sigstore)
+- **Verified supply chain**: all [upstream sources](#supply-chain) integrity-checked (SHA256, GPG, Sigstore)
+- **Attested releases**: [weekly update checks][check-updates], validated builds, [verifiable artifacts](#verifying-downloads)
 - **~45MB self-contained**: no installation, no dependencies, no container
 
 See [LIMITATIONS.md](LIMITATIONS.md) for known differences from standard CPython.
@@ -40,9 +40,31 @@ chmod +x python-3.14.2-cosmo.com
 ```
 <!--[[[end]]]-->
 
+## Supply Chain
+
+All upstream sources are SHA256 verified against known-good hashes in [`upstream.cdx.json`][upstream-cdx]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
+
+<!--[[[cog
+cog.outl(bom.upstream_table())
+]]]-->
+| Dependency | Version | Integrity | Signature | License |
+|------------|---------|-----------|-----------|---------|
+| [Python](https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz) | 3.10–3.14 | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
+| [bzip2](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | 1.0.8 | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
+| [CA certs](https://curl.se/ca/cacert-2025-12-02.pem) | 2025-12-02 | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
+| [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
+| [gdbm](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | 1.26 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
+| [libffi](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | 3.5.2 | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
+| [ncurses](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | 6.6 | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
+| [OpenSSL](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | 3.5.4 | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
+| [readline](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | 8.3 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
+| [sqlite](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | 3.51.2 | SHA256 | — | [Public Domain](https://www.sqlite.org/copyright.html) |
+| [xz/liblzma](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | 5.8.2 | SHA256 | GPG | [Public Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
+<!--[[[end]]]-->
+
 ## Releases
 
-We use date-based releases (`YYYYMMDD-HHMMSS`) that are created through a semi-automated pipeline:
+We use date-based releases (`YYYYMMDD-HHMMSS`) created through a semi-automated pipeline:
 
 1. **[check-updates.yaml][check-updates]** runs weekly to detect new Python/dependency versions and creates a PR
 2. **[pr-build.yaml][pr-build]** validates the PR by building all Python versions
@@ -96,10 +118,23 @@ sha256sum -c checksums.txt --ignore-missing
 
 The [manifest][manifest] is a [CycloneDX 1.5](https://cyclonedx.org/) SBOM tracking all versions across releases.
 
+**Programmatic download:**
+
+```bash
+curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json -o manifest.cdx.json
+VERSION=$(jq -r '.metadata.properties[] | select(.name=="cosmo:default:python") | .value' manifest.cdx.json)
+curl -Lo python.com $(jq -r --arg v "$VERSION" '.components[] | select(."bom-ref"=="cosmo-python@\($v)") | .externalReferences[0].url' manifest.cdx.json)
+chmod +x python.com
+./python.com --version
+```
+
+<details>
+<summary><strong>Manifest properties reference</strong></summary>
+
 **Metadata properties:**
 | Property | Description |
 |----------|-------------|
-| `cosmo:default:python` | Default Python version (e.g., `3.13.11`) |
+| `cosmo:default:python` | Default Python version (e.g., `3.14.2`) |
 | `cosmo:latest:python:3.x` | Latest patch for a minor version |
 
 **Component properties (`cosmo-python` binaries):**
@@ -117,25 +152,9 @@ The [manifest][manifest] is a [CycloneDX 1.5](https://cyclonedx.org/) SBOM track
 | `cosmo:sigstore:identity` | Sigstore signer identity |
 | `cosmo:sigstore:issuer` | Sigstore OIDC issuer |
 
-**Programmatic download:**
-
-```bash
-curl -sL https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json -o manifest.cdx.json
-VERSION=$(jq -r '.metadata.properties[] | select(.name=="cosmo:default:python") | .value' manifest.cdx.json)
-curl -Lo python.com $(jq -r --arg v "$VERSION" '.components[] | select(."bom-ref"=="cosmo-python@\($v)") | .externalReferences[0].url' manifest.cdx.json)
-chmod +x python.com
-./python.com --version
-```
-
-The manifest also includes SHA256 hashes in each component's `hashes` array.
-
-For details on how binaries are built and source verification, see [Building](#building).
-
----
+</details>
 
 ## Building
-
-### Quick Start
 
 <!--[[[cog
 cog.outl("```bash")
@@ -149,7 +168,8 @@ cog.outl("```")
 ```
 <!--[[[end]]]-->
 
-### Environment Variables
+<details>
+<summary><strong>Environment variables</strong></summary>
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -173,29 +193,7 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.14.2
 ```
 <!--[[[end]]]-->
 
-### Upstream Sources
-
-All upstream sources are SHA256 verified against known-good hashes in [`upstream.cdx.json`][upstream-cdx]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
-
-<!--[[[cog
-cog.outl(bom.upstream_table())
-]]]-->
-| Dependency | Version | Integrity | Signature | License |
-|------------|---------|-----------|-----------|---------|
-| [Python](https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz) | 3.10–3.14 | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
-| [bzip2](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | 1.0.8 | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
-| [CA certs](https://curl.se/ca/cacert-2025-12-02.pem) | 2025-12-02 | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
-| [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
-| [gdbm](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | 1.26 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
-| [libffi](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | 3.5.2 | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
-| [ncurses](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | 6.6 | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
-| [OpenSSL](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | 3.5.4 | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
-| [readline](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | 8.3 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
-| [sqlite](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | 3.51.2 | SHA256 | — | [Public Domain](https://www.sqlite.org/copyright.html) |
-| [xz/liblzma](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | 5.8.2 | SHA256 | GPG | [Public Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
-<!--[[[end]]]-->
-
----
+</details>
 
 ## Acknowledgments
 
@@ -213,7 +211,7 @@ This project builds upon the excellent work of:
 
 [MIT License](LICENSE.md)
 
-Upstream dependency licenses are shown in the [Upstream Sources](#upstream-sources) table.
+Upstream dependency licenses are shown in the [Supply Chain](#supply-chain) table.
 
 <!-- badges -->
 [ci-badge]: https://github.com/metaist/cosmo-python/actions/workflows/ci.yaml/badge.svg
