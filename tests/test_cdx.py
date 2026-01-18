@@ -43,6 +43,10 @@ def test_component_source_domain_strips_prefix() -> None:
     c2 = cdx.Component(name="b", version="1", url="https://www.example.com/file.tar.gz", sha256="a", license="MIT")
     assert c2.source_domain == "example.com"
 
+    # Domain without www/ftp prefix - should not be modified
+    c3 = cdx.Component(name="c", version="1", url="https://github.com/file.tar.gz", sha256="a", license="MIT")
+    assert c3.source_domain == "github.com"
+
 
 def test_component_license_link_no_url() -> None:
     """Test license_link without URL returns just the license."""
@@ -139,6 +143,23 @@ def test_bom_all_components() -> None:
     assert c2 in all_comps
 
 
+def test_bom_all_components_sorted() -> None:
+    """Test all_components sorts: cosmo-python first, python second, then alpha."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="zlib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="python", version="3.13.1", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="cosmo-python", version="3.13.1", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache"))
+
+    all_comps = bom.all_components()
+    names = [c.name for c in all_comps]
+    # cosmo-python first, python second, then alphabetical (openssl, zlib)
+    assert names[0] == "cosmo-python"
+    assert names[1] == "python"
+    assert names[2] == "openssl"
+    assert names[3] == "zlib"
+
+
 def test_bom_component_names() -> None:
     """Test getting component names."""
     bom = cdx.Bom()
@@ -189,6 +210,20 @@ def test_bom_dependencies() -> None:
 
     assert bom.get_dependencies("python@3.13.11") == ["openssl@3.5.4", "sqlite@3.51.2"]
     assert bom.get_dependencies("missing@1.0") == []
+
+
+def test_bom_is_disabled() -> None:
+    """Test is_disabled checks version prefix."""
+    bom = cdx.Bom()
+    bom.set_disabled("python", ["3.9"])
+
+    # Version starting with disabled prefix
+    assert bom.is_disabled("python", "3.9.1") is True
+    assert bom.is_disabled("python", "3.9.18") is True
+    # Version not matching prefix
+    assert bom.is_disabled("python", "3.10.1") is False
+    # Package with no disabled prefixes
+    assert bom.is_disabled("openssl", "3.0.0") is False
 
 
 def test_bom_python_versions() -> None:
@@ -294,6 +329,21 @@ def test_load_path_object() -> None:
         bom = cdx.load(Path(f.name))
     assert bom.all_components() == []
     Path(f.name).unlink()
+
+
+def test_dump_without_meta_component() -> None:
+    """Test dump creates default meta_component when not loaded from file."""
+    bom = cdx.Bom(timestamp="2024-01-01T00:00:00Z")
+    # Don't load from file - _meta_component is empty dict
+    bom.add_component(cdx.Component(name="test", version="1.0", url="x", sha256="a", license="MIT"))
+
+    result = cdx.dump(bom)
+
+    # Should have default metadata component
+    meta_comp = result["metadata"]["component"]
+    assert meta_comp["type"] == "application"
+    assert meta_comp["name"] == "cosmo-python"
+    assert "publisher" not in meta_comp  # Not set when empty
 
 
 def test_dump() -> None:
@@ -795,6 +845,110 @@ def test_build_order_no_deps() -> None:
 
     order = bom.build_order("solo@1.0")
     assert order == [(0, "solo@1.0")]
+
+
+def test_toposorted_names_no_python() -> None:
+    """toposorted_names falls back to alphabetical when no python."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="zebra", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="alpha", version="1.0", url="x", sha256="a", license="MIT"))
+    # No python, no defaults set
+    names = bom.toposorted_names()
+    assert names == ["alpha", "zebra"]
+
+
+def test_toposorted_names_cosmo_python_in_extras() -> None:
+    """toposorted_names puts cosmo-python first when not in dep graph."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.1", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="cosmo-python", version="3.13.1", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache"))
+    bom.set_default("python", "3.13.1")
+    # python has deps, but cosmo-python is not in dep graph (extras)
+    bom.set_dependencies("python@3.13.1", ["openssl@3.0.0"])
+
+    names = bom.toposorted_names()
+    # cosmo-python should be first (it's the product)
+    assert names[0] == "cosmo-python"
+    # python should be after its deps
+    assert names.index("python") > names.index("openssl")
+
+
+def test_toposorted_names_forward_order() -> None:
+    """toposorted_names with reverse=False gives build order (deps first)."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.1", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache"))
+    bom.set_default("python", "3.13.1")
+    bom.set_dependencies("python@3.13.1", ["openssl@3.0.0"])
+
+    names = bom.toposorted_names(reverse=False)
+    # Forward order: deps first, then python
+    assert names.index("openssl") < names.index("python")
+
+
+def test_toposorted_names_uses_cosmo_python_root() -> None:
+    """toposorted_names uses cosmo-python as root when present with deps."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.1", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="cosmo-python", version="3.13.1", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache"))
+    bom.set_default("python", "3.13.1")
+    # cosmo-python has deps (manifest scenario)
+    bom.set_dependencies("cosmo-python@3.13.1", ["python@3.13.1"])
+    bom.set_dependencies("python@3.13.1", ["openssl@3.0.0"])
+
+    names = bom.toposorted_names()
+    # All should be present
+    assert "cosmo-python" in names
+    assert "python" in names
+    assert "openssl" in names
+
+
+def test_toposorted_names_uses_python_root() -> None:
+    """toposorted_names uses python as root when no cosmo-python (upstream scenario)."""
+    bom = cdx.Bom()
+    # No cosmo-python - just python and deps
+    bom.add_component(cdx.Component(name="python", version="3.13.1", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="openssl", version="3.0.0", url="x", sha256="a", license="Apache"))
+    bom.add_component(cdx.Component(name="sqlite", version="3.51.0", url="x", sha256="a", license="Public"))
+    bom.set_default("python", "3.13.1")
+    bom.set_dependencies("python@3.13.1", ["openssl@3.0.0", "sqlite@3.51.0"])
+
+    names = bom.toposorted_names()
+    # python should be first (reverse order), deps after
+    assert names[0] == "python"
+    assert "openssl" in names
+    assert "sqlite" in names
+
+
+def test_toposorted_names_with_explicit_root() -> None:
+    """toposorted_names with explicit root skips auto-detection."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="lib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["lib@1.0"])
+
+    names = bom.toposorted_names(root="app@1.0")
+    assert "app" in names
+    assert "lib" in names
+
+
+def test_toposorted_names_cosmo_python_not_in_graph() -> None:
+    """toposorted_names puts cosmo-python first even when not in dep graph."""
+    bom = cdx.Bom()
+    # cosmo-python exists but won't be in the traversal
+    bom.add_component(cdx.Component(name="cosmo-python", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="app", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="lib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.set_dependencies("app@1.0", ["lib@1.0"])
+
+    # Explicit root that doesn't include cosmo-python
+    names = bom.toposorted_names(root="app@1.0")
+    # cosmo-python should be inserted first (it's the product)
+    assert names[0] == "cosmo-python"
+    assert "app" in names
+    assert "lib" in names
 
 
 def test_build_order_parallel() -> None:

@@ -33,6 +33,10 @@ class GnuDep:
         """Build download URL for version."""
         return f"https://ftp.gnu.org/gnu/{self.project}/{self.project}-{version}.tar.gz"
 
+    def build_purl(self, version: str) -> str:
+        """Build Package URL for version."""
+        return f"pkg:generic/{self.project}@{version}"
+
 
 GNU_DEPS: dict[str, GnuDep] = {
     "ncurses": GnuDep(project="ncurses"),

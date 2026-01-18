@@ -55,7 +55,11 @@ def generate_deps_table(bom: cdx.Bom) -> str:
     return bom.upstream_table()
 
 
-def move_unreleased_to_release(release_tag: str, changelog_path: Path = CHANGELOG_PATH) -> None:
+def move_unreleased_to_release(
+    release_tag: str,
+    changelog_path: Path = CHANGELOG_PATH,
+    repo: str = "metaist/cosmo-python",
+) -> None:
     """Move Unreleased content to a dated release section.
 
     Modifies the changelog in place:
@@ -101,9 +105,7 @@ def move_unreleased_to_release(release_tag: str, changelog_path: Path = CHANGELO
     links_match = re.search(r"\n---\n\n(\[.+?\]:.*)", content, re.DOTALL)
     if links_match:
         # Insert release link before issue links
-        release_link = (
-            f"[{release_tag}]: https://github.com/metaist/cosmo-python/releases/tag/{release_tag}\n"
-        )
+        release_link = f"[{release_tag}]: https://github.com/{repo}/releases/tag/{release_tag}\n"
 
         # Find the right place to insert (after other release links, before issue links)
         links_section = links_match.group(1)
@@ -138,6 +140,7 @@ def main() -> int:
     dist_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("dist")
     release_tag = ""
     update_changelog = False
+    repo = "metaist/cosmo-python"
 
     # Parse args
     args = sys.argv[2:]
@@ -145,6 +148,9 @@ def main() -> int:
     while i < len(args):
         if args[i] == "--release-tag" and i + 1 < len(args):
             release_tag = args[i + 1]
+            i += 2
+        elif args[i] == "--repo" and i + 1 < len(args):
+            repo = args[i + 1]
             i += 2
         elif args[i] == "--update-changelog":
             update_changelog = True
@@ -188,7 +194,7 @@ def main() -> int:
 
     # Update changelog if requested
     if update_changelog and release_tag:
-        move_unreleased_to_release(release_tag, CHANGELOG_PATH)
+        move_unreleased_to_release(release_tag, CHANGELOG_PATH, repo)
         log.info(f"Updated CHANGELOG.md for release {release_tag}")
 
     # Output for GitHub Actions

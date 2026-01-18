@@ -122,6 +122,17 @@ def test_move_unreleased_to_release(tmp_path: Path) -> None:
     assert "[20260116-120000]: https://github.com/metaist/cosmo-python/releases/tag/20260116-120000" in content
 
 
+def test_move_unreleased_to_release_custom_repo(tmp_path: Path) -> None:
+    """move_unreleased_to_release uses custom repo for link."""
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(SAMPLE_CHANGELOG)
+
+    move_unreleased_to_release("20260116-120000", changelog, repo="other/repo")
+
+    content = changelog.read_text()
+    assert "[20260116-120000]: https://github.com/other/repo/releases/tag/20260116-120000" in content
+
+
 def test_move_unreleased_no_file(tmp_path: Path) -> None:
     """move_unreleased_to_release does nothing if file doesn't exist."""
     changelog = tmp_path / "nonexistent.md"
@@ -279,6 +290,34 @@ def test_main_update_changelog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert result == 0
     content = changelog.read_text()
     assert "## [20260116-150000]" in content
+
+
+def test_main_with_repo_arg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """main() with --repo uses custom repo for changelog link."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
+
+    cdx_file = make_test_cdx(tmp_path)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(SAMPLE_CHANGELOG)
+    monkeypatch.setattr("ci.release_notes.CHANGELOG_PATH", changelog)
+
+    monkeypatch.setattr("sys.argv", [
+        "release_notes", str(dist),
+        "--release-tag", "20260116-150000",
+        "--repo", "custom/repo",
+        "--update-changelog"
+    ])
+
+    from ci.release_notes import main
+    result = main()
+
+    assert result == 0
+    content = changelog.read_text()
+    assert "https://github.com/custom/repo/releases/tag/20260116-150000" in content
 
 
 def test_main_ignores_unknown_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

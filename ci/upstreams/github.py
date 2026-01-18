@@ -37,6 +37,11 @@ class GitHubDep:
             f"/releases/download/{tag}/{self.artifact}-{version}{self.ext}"
         )
 
+    def build_purl(self, version: str) -> str:
+        """Build Package URL for version."""
+        tag = f"{self.prefix}{version}"
+        return f"pkg:github/{self.owner}/{self.repo}@{tag}"
+
 
 GITHUB_DEPS: dict[str, GitHubDep] = {
     "cosmocc": GitHubDep(

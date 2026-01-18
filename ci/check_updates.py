@@ -56,7 +56,9 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
     eol = openssl_upstream.get_eol(new_version) if dep == "openssl" else None
     status = openssl_upstream.get_status(new_version) if dep == "openssl" else None
 
-    # Build new component
+    # Build new component with regenerated PURL
+    purl = upstream.build_purl(new_version)
+
     comp = cdx.Component(
         name=dep,
         version=new_version,
@@ -65,7 +67,7 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
         license=current.license if current else "",
         license_url=current.license_url if current else None,
         gpg=current.gpg if current else None,
-        purl=current.purl if current else None,
+        purl=purl,
         component_type=current.component_type if current else "library",
         eol=eol,
         status=status,

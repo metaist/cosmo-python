@@ -123,6 +123,7 @@ jobs:
         run: |
           uv run -m ci.release_notes dist \
             --release-tag "${{ steps.tag.outputs.release_tag }}" \
+            --repo "${{ github.repository }}" \
             --update-changelog
 
       - name: Attest build provenance

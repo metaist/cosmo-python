@@ -15,6 +15,7 @@ class Upstream(Protocol):
 
     def fetch_latest(self) -> str | None: ...  # pragma: no cover
     def build_url(self, version: str) -> str: ...  # pragma: no cover
+    def build_purl(self, version: str) -> str | None: ...  # pragma: no cover
 
 
 # Registry of all non-Python dependencies

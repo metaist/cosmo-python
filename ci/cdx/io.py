@@ -80,8 +80,9 @@ def load(path: Path | str) -> Bom:
     metadata = data.get("metadata", {})
     bom.timestamp = metadata.get("timestamp")
 
-    # Parse release version from metadata.component.version
+    # Store metadata.component (preserves type, name, publisher, etc.)
     meta_component = metadata.get("component", {})
+    bom._meta_component = dict(meta_component)
     bom._release = meta_component.get("version")
 
     # Parse metadata properties for defaults, latest, and disabled
@@ -200,12 +201,15 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
         pkg, minor = key.split(":", 1)
         meta_props.append({"name": f"cosmo:latest:{pkg}:{minor}", "value": version})
 
-    # Build metadata component
-    meta_component: dict[str, Any] = {
-        "type": "application",
-        "name": "cosmo-python",
-        "publisher": "metaist",
-    }
+    # Build metadata component from stored data (preserves type, name, publisher)
+    meta_component: dict[str, Any] = (
+        dict(bom._meta_component)
+        if bom._meta_component
+        else {
+            "type": "application",
+            "name": "cosmo-python",
+        }
+    )
     if bom._release:
         meta_component["version"] = bom._release
 
@@ -219,7 +223,7 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
 
     # Add components in order (all versions of each name together)
     for name in ordered_names:
-        if name in seen_names:
+        if name in seen_names:  # pragma: no cover - defensive: toposorted_names returns unique
             continue
         seen_names.add(name)
         for c in sorted(bom.get_components(name), key=lambda x: version_key(x.version)):
@@ -229,7 +233,7 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
     # Add any remaining components not in toposort (shouldn't happen normally)
     for c in bom.all_components():
         name = c.name
-        if name not in seen_names:
+        if name not in seen_names:  # pragma: no cover - defensive: toposort includes all
             seen_names.add(name)
             release = bom._component_releases.get(c.bom_ref)
             components.append(_component_to_cdx(c, release))

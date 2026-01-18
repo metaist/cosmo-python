@@ -42,6 +42,10 @@ class SqliteDep:
         year = date.today().year
         return f"https://www.sqlite.org/{year}/sqlite-autoconf-{autoconf}.tar.gz"
 
+    def build_purl(self, version: str) -> str:
+        """Build Package URL for version."""
+        return f"pkg:generic/sqlite@{version}"
+
 
 class Bzip2Dep:
     """bzip2 dependency."""
@@ -63,6 +67,10 @@ class Bzip2Dep:
     def build_url(self, version: str) -> str:
         """Build download URL for version."""
         return f"https://sourceware.org/pub/bzip2/bzip2-{version}.tar.gz"
+
+    def build_purl(self, version: str) -> str:
+        """Build Package URL for version."""
+        return f"pkg:generic/bzip2@{version}"
 
 
 class CacertDep:
@@ -86,9 +94,13 @@ class CacertDep:
         """Build download URL for version."""
         return f"https://curl.se/ca/cacert-{version}.pem"
 
+    def build_purl(self, version: str) -> str:
+        """Build Package URL for version."""
+        return f"pkg:generic/ca-certificates@{version}"
+
 
 MISC_DEPS: dict[str, SqliteDep | Bzip2Dep | CacertDep] = {
     "sqlite": SqliteDep(),
-    "bz2": Bzip2Dep(),
+    "bzip2": Bzip2Dep(),
     "cacert": CacertDep(),
 }

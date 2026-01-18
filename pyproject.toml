@@ -114,7 +114,7 @@ test-scripts.help = "validate build script structure and syntax"
 test-scripts.shell = "./scripts/test-scripts.sh"
 
 smoke.help = "run smoke tests on a binary"
-smoke.shell = "./scripts/02-python/smoke.sh $@"
+smoke.shell = "./scripts/smoke.sh $@"
 
 smoke-all.help = "run smoke tests on all binaries in dist/"
 smoke-all.shell = """
@@ -122,7 +122,7 @@ smoke-all.shell = """
   for bin in dist/python-*-cosmo.com; do
     if [ -f "$bin" ]; then
       echo "Testing: $bin";
-      ./scripts/02-python/smoke.sh "$bin" || failed=1;
+      ./scripts/smoke.sh "$bin" || failed=1;
       echo;
     fi;
   done;

@@ -370,6 +370,51 @@ def test_check_dependencies_fetch_returns_none(mock_deps: MagicMock) -> None:
     assert len(updates) == 0
 
 
+@patch("ci.check_updates.openssl_upstream")
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_openssl_eol(mock_deps: MagicMock, mock_openssl: MagicMock) -> None:
+    """check_dependencies warns about EOL OpenSSL."""
+    mock_upstream = MagicMock()
+    mock_upstream.fetch_latest.return_value = "3.2.0"
+    mock_deps.get.return_value = mock_upstream
+    mock_openssl.get_status.return_value = "eol"
+
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="openssl", version="3.1.0", url="x", sha256="a", license="Apache-2.0"
+    ))
+    bom.set_default("openssl", "3.1.0")
+
+    updates = check_dependencies(bom)
+
+    assert ("openssl", "3.2.0") in updates
+    mock_openssl.get_status.assert_called_once_with("3.2.0")
+
+
+@patch("ci.check_updates.openssl_upstream")
+@patch("ci.check_updates.DEPS")
+def test_check_dependencies_openssl_status_displayed(
+    mock_deps: MagicMock, mock_openssl: MagicMock
+) -> None:
+    """check_dependencies shows OpenSSL status."""
+    mock_upstream = MagicMock()
+    mock_upstream.fetch_latest.return_value = "3.5.0"  # Same version
+    mock_deps.get.return_value = mock_upstream
+    mock_openssl.get_status.return_value = "lts"
+
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="openssl", version="3.5.0", url="x", sha256="a", license="Apache-2.0"
+    ))
+    bom.set_default("openssl", "3.5.0")
+
+    updates = check_dependencies(bom)
+
+    # No update (same version) but status was checked
+    assert len(updates) == 0
+    mock_openssl.get_status.assert_called_once_with("3.5.0")
+
+
 @patch("subprocess.run")
 def test_regenerate_readme_success(mock_run: MagicMock) -> None:
     """regenerate_readme calls uvx."""

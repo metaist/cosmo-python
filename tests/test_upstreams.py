@@ -58,6 +58,24 @@ def test_github_dep_fetch_latest_no_prefix_match(mock_gh_api: MagicMock) -> None
     assert dep.fetch_latest() == "release-1.0.0"
 
 
+def test_github_dep_build_purl_default() -> None:
+    """GitHub dep builds PURL with v prefix."""
+    dep = GitHubDep(owner="libffi", repo="libffi")
+    assert dep.build_purl("3.5.2") == "pkg:github/libffi/libffi@v3.5.2"
+
+
+def test_github_dep_build_purl_custom_prefix() -> None:
+    """GitHub dep builds PURL with custom prefix."""
+    dep = GitHubDep(owner="openssl", repo="openssl", prefix="openssl-")
+    assert dep.build_purl("3.5.4") == "pkg:github/openssl/openssl@openssl-3.5.4"
+
+
+def test_github_dep_build_purl_no_prefix() -> None:
+    """GitHub dep builds PURL without prefix."""
+    dep = GitHubDep(owner="jart", repo="cosmopolitan", prefix="")
+    assert dep.build_purl("4.0.2") == "pkg:github/jart/cosmopolitan@4.0.2"
+
+
 # --- GNU ---
 
 
@@ -66,6 +84,12 @@ def test_gnu_dep_build_url() -> None:
     dep = GnuDep(project="ncurses")
     url = dep.build_url("6.6")
     assert url == "https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz"
+
+
+def test_gnu_dep_build_purl() -> None:
+    """GNU dep builds generic PURL."""
+    dep = GnuDep(project="readline")
+    assert dep.build_purl("8.3") == "pkg:generic/readline@8.3"
 
 
 @patch("urllib.request.urlopen")
@@ -108,6 +132,12 @@ def test_sqlite_dep_build_url_with_sub() -> None:
     dep = SqliteDep()
     url = dep.build_url("3.51.2.1")
     assert "sqlite-autoconf-3510201.tar.gz" in url
+
+
+def test_sqlite_dep_build_purl() -> None:
+    """SQLite dep builds generic PURL."""
+    dep = SqliteDep()
+    assert dep.build_purl("3.51.2") == "pkg:generic/sqlite@3.51.2"
 
 
 @patch("urllib.request.urlopen")
@@ -158,6 +188,12 @@ def test_bzip2_dep_build_url() -> None:
     assert url == "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"
 
 
+def test_bzip2_dep_build_purl() -> None:
+    """Bzip2 dep builds generic PURL."""
+    dep = Bzip2Dep()
+    assert dep.build_purl("1.0.8") == "pkg:generic/bzip2@1.0.8"
+
+
 @patch("urllib.request.urlopen")
 def test_bzip2_dep_fetch_latest_failure(mock_urlopen: MagicMock) -> None:
     """Bzip2 dep returns None on error."""
@@ -190,6 +226,12 @@ def test_cacert_dep_build_url() -> None:
     dep = CacertDep()
     url = dep.build_url("2025-12-02")
     assert url == "https://curl.se/ca/cacert-2025-12-02.pem"
+
+
+def test_cacert_dep_build_purl() -> None:
+    """Cacert dep builds generic PURL."""
+    dep = CacertDep()
+    assert dep.build_purl("2025-12-02") == "pkg:generic/ca-certificates@2025-12-02"
 
 
 @patch("urllib.request.urlopen")
@@ -382,3 +424,87 @@ def test_openssl_get_status_unknown(mock_fetch: MagicMock) -> None:
     """OpenSSL get_status returns unknown for unknown version."""
     mock_fetch.return_value = {}
     assert openssl_upstream.get_status("9.9.9") == "unknown"
+
+
+@patch("urllib.request.urlopen")
+def test_openssl_fetch_eol_data(mock_urlopen: MagicMock) -> None:
+    """_fetch_eol_data parses OpenSSL release strategy page."""
+    # Clear cache for this test
+    openssl_upstream._EOL_CACHE.clear()
+
+    html = b"""
+    <p>Version 3.5 will be supported until 2030-04-08 (LTS)</p>
+    <p>Version 3.4 will be supported until 2026-10-22</p>
+    <p>Version 3.0 will be supported until 2026-09-07 (LTS)</p>
+    """
+    mock_response = MagicMock()
+    mock_response.read.return_value = html
+    mock_response.__enter__.return_value = mock_response
+    mock_urlopen.return_value = mock_response
+
+    # Call the internal function directly
+    from ci.upstreams.openssl import _fetch_eol_data
+    result = _fetch_eol_data()
+
+    assert "3.5" in result
+    assert result["3.5"][0] == "2030-04-08"
+    assert result["3.5"][1] == "lts"
+    assert "3.4" in result
+    assert result["3.4"][1] == "supported"
+
+    # Clean up cache
+    openssl_upstream._EOL_CACHE.clear()
+
+
+@patch("urllib.request.urlopen")
+def test_openssl_fetch_eol_data_cached(mock_urlopen: MagicMock) -> None:
+    """_fetch_eol_data returns cached data on second call."""
+    # Set up cache
+    openssl_upstream._EOL_CACHE["3.5"] = ("2030-04-08", "lts")
+
+    from ci.upstreams.openssl import _fetch_eol_data
+    result = _fetch_eol_data()
+
+    # Should return cached data without network call
+    assert result == {"3.5": ("2030-04-08", "lts")}
+    mock_urlopen.assert_not_called()
+
+    # Clean up cache
+    openssl_upstream._EOL_CACHE.clear()
+
+
+@patch("urllib.request.urlopen")
+def test_openssl_fetch_eol_data_eol_status(mock_urlopen: MagicMock) -> None:
+    """_fetch_eol_data marks past EOL dates as eol status."""
+    openssl_upstream._EOL_CACHE.clear()
+
+    # Date in the past
+    html = b"""
+    <p>Version 3.1 will be supported until 2020-01-01</p>
+    """
+    mock_response = MagicMock()
+    mock_response.read.return_value = html
+    mock_response.__enter__.return_value = mock_response
+    mock_urlopen.return_value = mock_response
+
+    from ci.upstreams.openssl import _fetch_eol_data
+    result = _fetch_eol_data()
+
+    assert result["3.1"][1] == "eol"
+
+    openssl_upstream._EOL_CACHE.clear()
+
+
+def test_openssl_get_eol_single_part_version() -> None:
+    """get_eol handles single-part version."""
+    with patch("ci.upstreams.openssl._fetch_eol_data") as mock:
+        mock.return_value = {"3": ("2030-04-08", "lts")}
+        # Single part - uses as-is
+        assert openssl_upstream.get_eol("3") == "2030-04"
+
+
+def test_openssl_get_status_single_part_version() -> None:
+    """get_status handles single-part version."""
+    with patch("ci.upstreams.openssl._fetch_eol_data") as mock:
+        mock.return_value = {"3": ("2030-04-08", "lts")}
+        assert openssl_upstream.get_status("3") == "lts"

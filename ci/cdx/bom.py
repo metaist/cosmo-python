@@ -40,6 +40,7 @@ class Bom:
 
     # Metadata
     timestamp: str | None = None
+    _meta_component: dict[str, str] = field(default_factory=dict)  # from metadata.component
     _release: str | None = None  # Release tag for manifest
     _version: int = 1  # BOM revision number
 
@@ -67,11 +68,11 @@ class Bom:
         return self.get_component(name, version)
 
     def all_components(self) -> list[Component]:
-        """Get all components in the BOM, sorted: cosmo-python, python, then alpha."""
+        """Get all components in the BOM, sorted: cosmo-python, python, then alphabetically."""
         from ci.common import version_key
 
         def sort_key(c: Component) -> tuple[int, str, list[tuple[int, int | str]]]:
-            # cosmo-python first (0), python second (1), everything else alpha (2)
+            # cosmo-python first (0), python second (1), everything else alphabetically (2)
             if c.name == "cosmo-python":
                 order = 0
             elif c.name == "python":
