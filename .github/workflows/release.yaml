@@ -118,9 +118,12 @@ jobs:
           sha256sum manifest.cdx.json python-*.com > checksums.txt
           cat checksums.txt
 
-      - name: Generate version table
+      - name: Generate release notes
         id: versions
-        run: uv run -m ci.release_notes dist
+        run: |
+          uv run -m ci.release_notes dist \
+            --release-tag "${{ steps.tag.outputs.release_tag }}" \
+            --update-changelog
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v3
@@ -139,6 +142,19 @@ jobs:
             dist/manifest.cdx.json
             dist/python-*.com
 
+      - name: Commit changelog updates
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changelog changes"
+          else
+            git add CHANGELOG.md
+            git commit -m "update: CHANGELOG.md for release ${{ steps.tag.outputs.release_tag }}"
+            git push
+          fi
+
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         env:
@@ -150,6 +166,14 @@ jobs:
 
             ${{ steps.versions.outputs.version_table }}
 
+            ### What's Changed
+
+            ${{ steps.versions.outputs.changelog }}
+
+            ### Dependencies
+
+            ${{ steps.versions.outputs.deps_table }}
+
             ### Usage
 
             ```bash
@@ -159,14 +183,6 @@ jobs:
             # Make executable and run
             chmod +x python-${{ steps.versions.outputs.default_version }}-cosmo.com
             ./python-${{ steps.versions.outputs.default_version }}-cosmo.com --version
-            ```
-
-            ### Programmatic Access
-
-            Fetch `manifest.cdx.json` to discover all available versions:
-
-            ```bash
-            curl -sL https://github.com/${{ github.repository }}/releases/latest/download/manifest.cdx.json | jq .
             ```
 
             ### Verification
