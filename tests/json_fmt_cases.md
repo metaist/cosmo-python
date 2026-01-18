@@ -377,6 +377,8 @@ When objects need multiple lines, each object expands independently.
 ]
 ```
 
+### Compact object after expanded
+
 When a compact object follows an expanded object, it goes on its own line.
 
 **Input:**
@@ -392,6 +394,26 @@ When a compact object follows an expanded object, it goes on its own line.
     "description": "This is a much longer description that will cause the object to expand"
   },
   { "name": "second" }
+]
+```
+
+### Expanded object after compact
+
+When an expanded object follows a compact object, it also goes on its own line.
+
+**Input:**
+```json
+[{"name": "first"}, {"name": "second", "description": "This is a much longer description that will cause the object to expand"}]
+```
+
+**Expected:**
+```json
+[
+  { "name": "first" },
+  {
+    "name": "second",
+    "description": "This is a much longer description that will cause the object to expand"
+  }
 ]
 ```
 

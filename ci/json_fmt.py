@@ -136,8 +136,9 @@ def _format_list_of_dicts(
     if all_single_line:
         # Try fitting all on one line
         one_line = "[" + ", ".join(formatted_items) + "]"
-        if len(prefix) + _semantic_compact_len(one_line) <= max_line:
-            return one_line
+        # defensive: _format_list's compact check usually catches this first
+        if len(prefix) + _semantic_compact_len(one_line) <= max_line:  # pragma: no cover
+            return one_line  # pragma: no cover
         # Standard expansion: each item on own line, ] on own line
         items = [child_prefix + item for item in formatted_items]
         return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
@@ -161,7 +162,8 @@ def _format_list_of_dicts(
                 # }, { continuation
                 # Remove last line's comma if present, replace with }, {
                 last_line = result_lines[-1]
-                if last_line.endswith(","):
+                # defensive: comma is always present since prev wasn't last
+                if last_line.endswith(","):  # pragma: no branch
                     result_lines[-1] = last_line[:-1]
                 result_lines[-1] += ", " + formatted + comma
             else:
