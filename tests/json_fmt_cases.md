@@ -449,7 +449,21 @@ Nested structures with URLs also benefit from semantic length.
 { "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }
 ```
 
-<!-- TODO: trailing collapse for deeply nested structures - see issue #68 -->
+### Deeply nested with hash
+
+High-entropy value plus all closing brackets count as short together.
+This 55-bracket structure stays on one line because the hash + trailing
+`}]]]...]]]` all collapse.
+
+**Input:**
+```json
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{"a": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec"}]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+```
+
+**Expected:**
+```json
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{ "a": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec" }]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+```
 
 ---
 
