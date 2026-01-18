@@ -1,8 +1,53 @@
-# ds.toml - development scripts for cosmo-python
-# Run with: ds <task> (https://github.com/metaist/ds)
+[project]
+name = "cosmo-python"
+version = "0.0.0"
+description = "Build tools for Cosmopolitan Python"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Metaist LLC", email = "metaist@metaist.com" }]
 
-[scripts]
+[project.urls]
+Homepage = "https://github.com/metaist/cosmo-python"
+Repository = "https://github.com/metaist/cosmo-python.git"
+Changelog = "https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md"
 
+[dependency-groups]
+dev = [
+  "cogapp",
+  "ds-run",
+  "mypy",
+  "pip",  # for mypy
+  "pyright",
+  "pytest-cov",
+  "pytest",
+  "ruff",
+  "ty",
+  "yamllint",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "ci"]
+addopts = "--doctest-modules --cov=ci --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
+source = ["ci"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "@overload"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+
+[tool.mypy]
+strict = true
+disable_error_code = "unused-ignore"
+
+[tool.ds.scripts]
 # Build
 build.help = "build a single Python version"
 build.shell = "./scripts/build.sh $@"
@@ -12,6 +57,10 @@ build-all.shell = "./scripts/build.sh --all"
 
 clean.help = "remove build artifacts"
 clean.shell = """
+  rm -rf .coverage;
+  rm -rf .mypy_cache;
+  rm -rf .pytest_cache;
+  rm -rf .ruff_cache;
   rm -rf work/;
   rm -rf dist/;
   rm -rf ci/__pycache__;
@@ -19,12 +68,12 @@ clean.shell = """
 """
 
 # Lint
-lint.help = "lint shell, python, yaml, spelling, and schemas"
+lint.help = "lint shell, python, yaml, spelling"
 lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check", "cdx-schema"]
 
 shellcheck.help = "lint shell scripts"
 # Excluded: SC1091 (dynamic source), SC2164 (cd || exit), SC2086 (unquoted), SC2103/SC2129 (style)
-# Use system shellcheck if available (apt-get install shellcheck), fall back to npx
+# Use system shellcheck if available, fall back to npx
 shellcheck.shell = """
 if command -v shellcheck >/dev/null 2>&1; then
   find scripts -name '*.sh' -exec shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +
@@ -40,30 +89,28 @@ cspell.help = "check spelling"
 cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.{py,md}'"
 
 yamllint.help = "lint yaml files"
-yamllint.shell = "uvx yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
+yamllint.shell = "uv run yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
 
 cdx-schema.help = "validate upstream.cdx.json against CycloneDX schema"
 cdx-schema.shell = "uvx check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.5.schema.json upstream.cdx.json"
 
+cog-check.help = "check if README.md needs regeneration"
+cog-check.shell = "uv run cog --check README.md"
+
 # Type Check
 types.help = "run type checkers on Python code"
 types.composite = ["ty", "pyright", "mypy"]
+
 ty = "uvx ty check ci"
 pyright = "npx --yes pyright ci"
-mypy = "uvx mypy --strict ci"
+mypy = "uv run mypy ci"
 
 # Test
+test.help = "run unit tests with coverage"
+test.shell = "uv run pytest"
+
 test-scripts.help = "validate build script structure and syntax"
 test-scripts.shell = "./scripts/test-scripts.sh"
-
-test.help = "run unit tests with coverage"
-test.shell = """
-  uvx --with pytest-cov pytest \
-    --doctest-modules \
-    --cov=ci \
-    --cov-report=term-missing \
-    tests/ ci/
-"""
 
 smoke.help = "run smoke tests on a binary"
 smoke.shell = "./scripts/02-python/smoke.sh $@"
@@ -81,20 +128,16 @@ smoke-all.shell = """
   exit $failed
 """
 
+# Development
+dev.help = "lint, type-check, and unit tests"
+dev.composite = ["lint", "types", "test", "test-scripts"]
+
+cog.help = "regenerate dynamic content in README.md"
+cog.shell = "uv run cog -r README.md"
+
 # Release
 manifest.help = "generate manifest.cdx.json for a release"
 manifest.shell = "uv run -m ci.manifest $@"
 
-# Development
-dev.help = "sanity check: lint, types, tests"
-dev.composite = ["lint", "types", "test", "test-scripts"]
-
-cog.help = "regenerate dynamic content in README.md"
-cog.shell = "uvx --from cogapp cog -r README.md"
-
-cog-check.help = "check if README.md needs regeneration"
-cog-check.shell = "uvx --from cogapp cog --check README.md"
-
-# Release
 recent.help = "show commits since last tag"
 recent.shell = "git log --oneline --color $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD"

@@ -82,9 +82,7 @@ def _item_semantic_len(formatted: str) -> int:
     return len(formatted)
 
 
-def _dict_semantic_len(
-    d: dict[str, Any], prefix_len: int, is_last_in_parent: bool = True
-) -> int:
+def _dict_semantic_len(d: dict[str, Any], prefix_len: int, is_last_in_parent: bool = True) -> int:
     """Calculate semantic length of a dict for one-line check."""
     if not d:
         return 2  # "{}"
@@ -131,9 +129,7 @@ def _compact_value(v: Any) -> str:
         return json.dumps(v)
 
 
-def _format_dict(
-    d: dict[str, Any], indent: int, max_line: int, level: int, in_array: bool
-) -> str:
+def _format_dict(d: dict[str, Any], indent: int, max_line: int, level: int, in_array: bool) -> str:
     """Format a dict, possibly compacted."""
     if not d:
         return "{}"
@@ -196,9 +192,7 @@ def _format_list(lst: list[Any], indent: int, max_line: int, level: int) -> str:
         # Format each object
         formatted_items = []
         for item in lst:
-            formatted_items.append(
-                _format_dict(item, indent, max_line, level + 1, in_array=True)
-            )
+            formatted_items.append(_format_dict(item, indent, max_line, level + 1, in_array=True))
 
         # Check if all items are single-line and fit together
         all_single_line = all("\n" not in item for item in formatted_items)
@@ -232,9 +226,7 @@ def _format_list(lst: list[Any], indent: int, max_line: int, level: int) -> str:
             return result + "]"
 
     # Regular multi-line list
-    items = [
-        child_prefix + _format_value(item, indent, max_line, level + 1) for item in lst
-    ]
+    items = [child_prefix + _format_value(item, indent, max_line, level + 1) for item in lst]
     return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
 
 

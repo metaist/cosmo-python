@@ -49,6 +49,14 @@ def test_github_dep_fetch_latest_custom_prefix(mock_gh_api: MagicMock) -> None:
     assert dep.fetch_latest() == "3.5.4"
 
 
+@patch("ci.upstreams.github.gh_api")
+def test_github_dep_fetch_latest_no_prefix_match(mock_gh_api: MagicMock) -> None:
+    """GitHub dep returns full tag when prefix doesn't match."""
+    mock_gh_api.return_value = {"tag_name": "release-1.0.0"}  # Doesn't start with 'v'
+    dep = GitHubDep(owner="test", repo="test", prefix="v")  # Expects 'v' prefix
+    assert dep.fetch_latest() == "release-1.0.0"
+
+
 # --- GNU ---
 
 
@@ -263,15 +271,31 @@ def test_python_get_eol(mock_eol: MagicMock) -> None:
 
 @patch("ci.upstreams.python._fetch_endoflife_data")
 def test_python_get_eol_unknown(mock_eol: MagicMock) -> None:
-    """Python EOL returns empty for unknown version."""
+    """Python EOL returns empty for unknown version (empty data)."""
     mock_eol.return_value = []
     py = PythonUpstream()
     assert py.get_eol("3.99") == ""
 
 
 @patch("ci.upstreams.python._fetch_endoflife_data")
+def test_python_get_eol_not_found(mock_eol: MagicMock) -> None:
+    """Python EOL returns empty when minor not in data."""
+    mock_eol.return_value = [{"cycle": "3.13", "eol": "2029-10-31"}]  # Data exists but not 3.99
+    py = PythonUpstream()
+    assert py.get_eol("3.99") == ""
+
+
+@patch("ci.upstreams.python._fetch_endoflife_data")
+def test_python_get_status_not_found(mock_eol: MagicMock) -> None:
+    """Python status returns unknown when minor not in data."""
+    mock_eol.return_value = [{"cycle": "3.13", "releaseDate": "2024-10-01", "support": "2030-01-01", "eol": "2029-10-01"}]
+    py = PythonUpstream()
+    assert py.get_status("3.99") == "unknown"
+
+
+@patch("ci.upstreams.python._fetch_endoflife_data")
 def test_python_get_status_unknown(mock_eol: MagicMock) -> None:
-    """Python status returns unknown for unknown version."""
+    """Python status returns unknown for unknown version (empty data)."""
     mock_eol.return_value = []
     py = PythonUpstream()
     assert py.get_status("3.99") == "unknown"

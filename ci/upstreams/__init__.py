@@ -13,8 +13,8 @@ from .python import PythonUpstream
 class Upstream(Protocol):
     """Protocol for upstream dependencies."""
 
-    def fetch_latest(self) -> str | None: ...
-    def build_url(self, version: str) -> str: ...
+    def fetch_latest(self) -> str | None: ...  # pragma: no cover
+    def build_url(self, version: str) -> str: ...  # pragma: no cover
 
 
 # Registry of all non-Python dependencies

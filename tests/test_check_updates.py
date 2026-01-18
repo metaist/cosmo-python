@@ -94,6 +94,33 @@ def test_update_dependency_no_url(mock_deps: MagicMock) -> None:
 
 @patch("ci.check_updates.fetch_sha256")
 @patch("ci.check_updates.DEPS")
+def test_update_dependency_no_gpg_no_license(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_dependency works when old component has no gpg/license."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+    mock_upstream = MagicMock()
+    mock_upstream.build_url.return_value = "http://libffi/3.5.tar.gz"
+    mock_deps.get.return_value = mock_upstream
+
+    # Create bom with component that has no gpg or license
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="libffi", version="3.4.0", url="http://libffi/3.4.tar.gz",
+        sha256="old", license="", component_type="library"
+    ))
+    bom.set_default("libffi", "3.4.0")
+
+    result = update_dependency(bom, "libffi", "3.5.0")
+
+    assert result is True
+    comp = bom.get_component("libffi", "3.5.0")
+    assert comp is not None
+    assert comp.gpg is None
+    assert comp.license == ""
+
+
+@patch("ci.check_updates.fetch_sha256")
+@patch("ci.check_updates.DEPS")
 def test_update_dependency_fetch_error(mock_deps: MagicMock, mock_sha256: MagicMock) -> None:
     """update_dependency returns False on fetch error."""
     mock_sha256.side_effect = OSError("Network error")
@@ -149,6 +176,55 @@ def test_update_python_version_success(mock_sha256: MagicMock, monkeypatch: "pyt
     assert comp.eol == "2029-10"
     # Dependencies should be copied
     assert bom.get_dependencies("python@3.13.1") == ["xz@5.6.0"]
+
+
+@patch("ci.check_updates.fetch_sha256")
+def test_update_python_version_no_sigstore(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_python_version works when no sigstore on old version."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+
+    mock_py = MagicMock()
+    mock_py.build_url.return_value = "http://py/Python-3.12.1.tgz"
+    mock_py.get_status.return_value = "security"
+    mock_py.get_eol.return_value = "2028-10"
+
+    # Create bom with python that has no sigstore
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.0", url="http://py/3.12.0.tgz",
+        sha256="old", license="PSF-2.0", component_type="application"
+    ))
+    bom.set_default("python", "3.12")
+    bom.set_latest("python", "3.12", "3.12.0")
+
+    result = update_python_version(bom, "3.12", "3.12.1", mock_py)
+
+    assert result is True
+    comp = bom.get_component("python", "3.12.1")
+    assert comp is not None
+    assert comp.sigstore_identity is None
+
+
+@patch("ci.check_updates.fetch_sha256")
+def test_update_python_version_new_minor(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_python_version works for brand new minor version."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+
+    mock_py = MagicMock()
+    mock_py.build_url.return_value = "http://py/Python-3.14.0.tgz"
+    mock_py.get_status.return_value = "prerelease"
+    mock_py.get_eol.return_value = "2030-10"
+
+    bom = make_test_bom()  # Has 3.13 but not 3.14
+    result = update_python_version(bom, "3.14", "3.14.0", mock_py)
+
+    assert result is True
+    comp = bom.get_component("python", "3.14.0")
+    assert comp is not None
+    # No deps copied (new minor has no current version)
+    assert bom.get_dependencies("python@3.14.0") == []
 
 
 @patch("ci.check_updates.fetch_sha256")

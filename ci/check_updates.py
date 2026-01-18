@@ -19,7 +19,6 @@ from .common import CDX_FILE, setup_logging, version_key
 from .upstreams import DEPS, PythonUpstream
 from .upstreams.http import fetch_sha256
 
-
 DRY_RUN = "--dry-run" in sys.argv
 
 log = logging.getLogger("ci.check_updates")
@@ -110,9 +109,7 @@ def update_python_version(
         url=url,
         sha256=sha256,
         license=current.license if current else "PSF-2.0",
-        license_url=current.license_url
-        if current
-        else "https://docs.python.org/3/license.html",
+        license_url=current.license_url if current else "https://docs.python.org/3/license.html",
         sigstore_identity=current.sigstore_identity if current else None,
         sigstore_issuer=current.sigstore_issuer if current else None,
         eol=eol,
@@ -136,9 +133,7 @@ def update_python_version(
     return True
 
 
-def check_python_versions(
-    bom: cdx.Bom, python: PythonUpstream
-) -> list[tuple[str, str]]:
+def check_python_versions(bom: cdx.Bom, python: PythonUpstream) -> list[tuple[str, str]]:
     """Check for Python updates, return list of (minor, new_version) tuples."""
     updates = []
     for minor in sorted(bom.python_minors(), key=version_key):

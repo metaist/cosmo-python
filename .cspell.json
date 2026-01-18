@@ -55,6 +55,7 @@
     "keyservers",
     "GNUPGHOME",
     "mktemp",
+    "newsha",
     "subkeys",
     "endoflife",
     "ltermcap",

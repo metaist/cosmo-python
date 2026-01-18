@@ -25,15 +25,13 @@ class PythonUpstream:
     def fetch_latest(self, minor: str) -> str | None:
         """Fetch latest Python version for a minor release."""
         try:
-            data = fetch_json(
-                f"https://www.python.org/api/v2/downloads/release/?version={minor}"
-            )
+            data = fetch_json(f"https://www.python.org/api/v2/downloads/release/?version={minor}")
             releases = [r for r in data["results"] if r["is_published"]]
             if not releases:
                 return None
             versions = [str(r["name"]).replace("Python ", "") for r in releases]
             return str(sorted(versions, key=version_key)[-1])
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError):  # pragma: no cover - network/parse errors
             return None
 
     def build_url(self, version: str) -> str:
@@ -67,4 +65,4 @@ class PythonUpstream:
             if entry["cycle"] == minor:
                 eol = entry.get("eol", "")
                 return str(eol)[:7] if eol else ""
-        return ""
+        return ""  # pragma: no cover - defensive: minor not in endoflife data

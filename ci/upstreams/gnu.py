@@ -25,9 +25,9 @@ class GnuDep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions), key=version_key)[-1])
-        except OSError:
+        except OSError:  # pragma: no cover - network errors
             pass
-        return None
+        return None  # pragma: no cover - defensive: regex found no versions
 
     def build_url(self, version: str) -> str:
         """Build download URL for version."""

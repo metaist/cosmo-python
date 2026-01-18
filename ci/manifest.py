@@ -65,9 +65,7 @@ def fetch_previous_manifest(url_or_path: str) -> cdx.Bom | None:
                 # Write to temp file and load
                 import tempfile
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as tmp:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
                     tmp.write(resp.read().decode())
                     tmp_path = tmp.name
                 bom = cdx.load(tmp_path)
@@ -98,9 +96,7 @@ def collect_new_binaries(release_tag: str) -> dict[str, dict[str, str]]:
     for artifact in sorted(DIST_DIR.glob("python-*-cosmo.com")):
         filename = artifact.name
         # Extract version from filename: python-3.12.8-cosmo.com
-        match = re.match(
-            r"python-(\d+\.\d+\.\d+[ab]?\d*(?:rc\d+)?)-cosmo\.com", filename
-        )
+        match = re.match(r"python-(\d+\.\d+\.\d+[ab]?\d*(?:rc\d+)?)-cosmo\.com", filename)
         if not match:
             continue
         version = match.group(1)

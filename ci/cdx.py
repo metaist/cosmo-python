@@ -14,7 +14,6 @@ from typing import Any
 
 from ci.json_fmt import dumps as json_dumps
 
-
 # Display names for components (only entries that differ from name)
 DISPLAY_NAMES: dict[str, str] = {
     "python": "Python",
@@ -29,7 +28,10 @@ DISPLAY_NAMES: dict[str, str] = {
 class Component:
     """A software component (package/library/application).
 
-    >>> c = Component(name="python", version="3.13.11", url="https://python.org/ftp/python/3.13.11/Python-3.13.11.tgz", sha256="abc123", license="PSF-2.0")
+    >>> c = Component(
+    ...     name="python", version="3.13.11",
+    ...     url="https://python.org/ftp/python/3.13.11/Python-3.13.11.tgz",
+    ...     sha256="abc123", license="PSF-2.0")
     >>> c.bom_ref
     'python@3.13.11'
     >>> c.display_name
@@ -41,7 +43,10 @@ class Component:
     >>> c.has_gpg
     False
 
-    >>> c2 = Component(name="sqlite", version="3.0", url="https://www.sqlite.org/file.tar.gz", sha256="x", license="Public Domain", license_url="https://sqlite.org/copyright.html")
+    >>> c2 = Component(
+    ...     name="sqlite", version="3.0", url="https://www.sqlite.org/file.tar.gz",
+    ...     sha256="x", license="Public Domain",
+    ...     license_url="https://sqlite.org/copyright.html")
     >>> c2.display_name
     'sqlite'
     >>> c2.source_domain
@@ -49,7 +54,9 @@ class Component:
     >>> c2.license_link
     '[Public Domain](https://sqlite.org/copyright.html)'
 
-    >>> c3 = Component(name="test", version="1.0", url="https://ftp.gnu.org/test.tar.gz", sha256="x", license="MIT")
+    >>> c3 = Component(
+    ...     name="test", version="1.0", url="https://ftp.gnu.org/test.tar.gz",
+    ...     sha256="x", license="MIT")
     >>> c3.source_domain
     'gnu.org'
     >>> c3.license_link
@@ -146,9 +153,7 @@ class Bom:
     _defaults: dict[str, str] = field(default_factory=dict)
     _latest: dict[str, str] = field(default_factory=dict)  # "python:3.13" -> "3.13.11"
     _dependencies: dict[str, list[str]] = field(default_factory=dict)
-    _disabled: dict[str, list[str]] = field(
-        default_factory=dict
-    )  # package -> [version prefixes]
+    _disabled: dict[str, list[str]] = field(default_factory=dict)  # package -> [version prefixes]
     _component_releases: dict[str, str] = field(
         default_factory=dict
     )  # "python@3.13.11" -> "20260115-134426"
@@ -512,19 +517,13 @@ def _component_to_cdx(comp: Component, release: str | None = None) -> dict[str, 
     if comp.status:
         properties.append({"name": "cosmo:status", "value": comp.status})
     if comp.sigstore_identity:
-        properties.append(
-            {"name": "cosmo:sigstore:identity", "value": comp.sigstore_identity}
-        )
+        properties.append({"name": "cosmo:sigstore:identity", "value": comp.sigstore_identity})
     if comp.sigstore_issuer:
-        properties.append(
-            {"name": "cosmo:sigstore:issuer", "value": comp.sigstore_issuer}
-        )
+        properties.append({"name": "cosmo:sigstore:issuer", "value": comp.sigstore_issuer})
     if comp.gpg:
         properties.append({"name": "cosmo:gpg", "value": comp.gpg})
     if comp.attestation_repo:
-        properties.append(
-            {"name": "cosmo:attestation:repo", "value": comp.attestation_repo}
-        )
+        properties.append({"name": "cosmo:attestation:repo", "value": comp.attestation_repo})
     if release:
         properties.append({"name": "cosmo:release", "value": release})
 
@@ -546,9 +545,7 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
     # Add disabled
     for pkg, prefixes in sorted(bom._disabled.items()):
         if prefixes:
-            meta_props.append(
-                {"name": f"cosmo:disabled:{pkg}", "value": ",".join(prefixes)}
-            )
+            meta_props.append({"name": f"cosmo:disabled:{pkg}", "value": ",".join(prefixes)})
 
     # Add latest
     for key, version in sorted(bom._latest.items()):
@@ -576,8 +573,7 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
         "specVersion": "1.5",
         "version": bom._version,
         "metadata": {
-            "timestamp": bom.timestamp
-            or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": bom.timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "component": meta_component,
             "properties": meta_props,
         },

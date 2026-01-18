@@ -29,9 +29,9 @@ class SqliteDep:
                 if sub > 0:
                     return f"{major}.{minor}.{patch}.{sub}"
                 return f"{major}.{minor}.{patch}"
-        except (OSError, ValueError, IndexError):
+        except (OSError, ValueError, IndexError):  # pragma: no cover
             pass
-        return None
+        return None  # pragma: no cover - defensive: regex/parse failed
 
     def build_url(self, version: str) -> str:
         """Build download URL for version."""
@@ -56,9 +56,9 @@ class Bzip2Dep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions), key=version_key)[-1])
-        except OSError:
+        except OSError:  # pragma: no cover - network errors
             pass
-        return None
+        return None  # pragma: no cover - defensive: regex found no versions
 
     def build_url(self, version: str) -> str:
         """Build download URL for version."""
@@ -78,9 +78,9 @@ class CacertDep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions))[-1])
-        except OSError:
+        except OSError:  # pragma: no cover - network errors
             pass
-        return None
+        return None  # pragma: no cover - defensive: regex found no versions
 
     def build_url(self, version: str) -> str:
         """Build download URL for version."""

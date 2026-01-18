@@ -55,9 +55,7 @@ def generate_deps_table(bom: cdx.Bom) -> str:
     return bom.upstream_table()
 
 
-def move_unreleased_to_release(
-    release_tag: str, changelog_path: Path = CHANGELOG_PATH
-) -> None:
+def move_unreleased_to_release(release_tag: str, changelog_path: Path = CHANGELOG_PATH) -> None:
     """Move Unreleased content to a dated release section.
 
     Modifies the changelog in place:
@@ -103,7 +101,9 @@ def move_unreleased_to_release(
     links_match = re.search(r"\n---\n\n(\[.+?\]:.*)", content, re.DOTALL)
     if links_match:
         # Insert release link before issue links
-        release_link = f"[{release_tag}]: https://github.com/metaist/cosmo-python/releases/tag/{release_tag}\n"
+        release_link = (
+            f"[{release_tag}]: https://github.com/metaist/cosmo-python/releases/tag/{release_tag}\n"
+        )
 
         # Find the right place to insert (after other release links, before issue links)
         links_section = links_match.group(1)
