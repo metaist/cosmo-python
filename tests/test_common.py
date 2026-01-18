@@ -20,8 +20,8 @@ def test_version_key_patch_double_digits() -> None:
 
 
 def test_cdx_file_exists() -> None:
-    """CDX_FILE points to versions.cdx.json."""
-    assert CDX_FILE.name == "versions.cdx.json"
+    """CDX_FILE points to upstream.cdx.json."""
+    assert CDX_FILE.name == "upstream.cdx.json"
     assert CDX_FILE.exists()
 
 

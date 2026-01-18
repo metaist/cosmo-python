@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Paths - relative to repo root (this file is at ci/common.py)
 REPO_ROOT = Path(__file__).parent.parent
-CDX_FILE = REPO_ROOT / "versions.cdx.json"
+CDX_FILE = REPO_ROOT / "upstream.cdx.json"
 
 # ANSI colors
 GREEN = "\033[92m"

@@ -113,7 +113,7 @@ git push origin main
 
 The `check-updates.yaml` workflow runs weekly to detect new versions:
 
-1. It creates a PR with updated `versions.cdx.json` and `README.md`
+1. It creates a PR with updated `upstream.cdx.json` and `README.md`
 2. CI builds all Python versions to verify compatibility
 3. A maintainer reviews and merges the PR
 4. A maintainer triggers the release workflow
@@ -129,11 +129,11 @@ To check for updates manually:
 
 When a new Python minor version is released (e.g., 3.15):
 
-1. Add version to `versions.cdx.json` with SHA256 and sigstore info
+1. Add version to `upstream.cdx.json` with SHA256 and sigstore info
 2. Create `scripts/02-python/3.15/` directory if patches needed
 3. Test build: `./scripts/build.sh 3.15.0`
 4. Run smoke tests: `./scripts/02-python/smoke.sh dist/python-3.15.0-cosmo.com`
-5. Update `python.latest` in `versions.cdx.json`
+5. Update `python.latest` in `upstream.cdx.json`
 
 ## Adding GPG Keys for New Upstream Maintainers
 
@@ -142,4 +142,4 @@ If an upstream project rotates their signing key:
 1. Fetch the new key: `gpg --keyserver keyserver.ubuntu.com --recv-keys <fingerprint>`
 2. Verify the key via official project channels
 3. Export to `keys.asc`: `gpg --armor --export <fingerprints...> > keys.asc`
-4. Update `versions.cdx.json` with the new fingerprint for the version
+4. Update `upstream.cdx.json` with the new fingerprint for the version

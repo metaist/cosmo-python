@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Check for dependency updates and update versions.cdx.json + README.md.
+"""Check for dependency updates and update upstream.cdx.json + README.md.
 
 Usage: uv run -m ci.check_updates [--dry-run]
 
 Checks all upstreams (see ci/upstreams/) for newer versions, updates
-versions.cdx.json with new versions and SHA256 hashes, and regenerates
+upstream.cdx.json with new versions and SHA256 hashes, and regenerates
 README.md with cog.
 """
 
@@ -46,7 +46,7 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
         return False
 
     if DRY_RUN:
-        log.info("  (dry-run) Would update versions.cdx.json")
+        log.info("  (dry-run) Would update upstream.cdx.json")
         return True
 
     # Get current default to copy metadata
@@ -92,7 +92,7 @@ def update_python_version(
         return False
 
     if DRY_RUN:
-        log.info("  (dry-run) Would update versions.cdx.json")
+        log.info("  (dry-run) Would update upstream.cdx.json")
         return True
 
     # Get current version to copy metadata
@@ -254,7 +254,7 @@ def main() -> int:
         if not DRY_RUN:
             print()
             log.info("Files modified:")
-            print("  - versions.cdx.json")
+            print("  - upstream.cdx.json")
             print("  - README.md")
     else:
         log.info("All dependencies are up to date.")

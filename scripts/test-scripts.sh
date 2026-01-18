@@ -6,7 +6,7 @@
 # This checks:
 #   - All scripts have valid bash syntax
 #   - common.sh sources correctly and logging works
-#   - versions.cdx.json parsing works
+#   - upstream.cdx.json parsing works
 #   - Required scripts exist
 #
 set -euo pipefail
@@ -74,17 +74,17 @@ else
 fi
 
 echo ""
-echo "Checking versions.cdx.json parsing..."
-if [ -f "${REPO_ROOT}/versions.cdx.json" ]; then
+echo "Checking upstream.cdx.json parsing..."
+if [ -f "${REPO_ROOT}/upstream.cdx.json" ]; then
   versions=$(uv run -m ci.cdx versions 2>/dev/null)
   
   if [ -n "$versions" ]; then
     pass "parsed versions: $versions"
   else
-    fail "no versions parsed from versions.cdx.json"
+    fail "no versions parsed from upstream.cdx.json"
   fi
 else
-  fail "versions.cdx.json not found"
+  fail "upstream.cdx.json not found"
 fi
 
 echo ""

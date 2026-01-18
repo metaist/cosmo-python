@@ -154,7 +154,7 @@ DIST_DIR="${DIST_DIR:-${REPO_ROOT}/dist}"
 COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
 DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
 
-# Version data CLI (uses versions.cdx.json via ci/cdx.py)
+# Version data CLI (uses upstream.cdx.json via ci/cdx.py)
 CDX_CLI="uv run -m ci.cdx"
 
 # Setup cosmocc compiler
@@ -314,7 +314,7 @@ parse_dep_args() {
         echo "Build ${dep_name} dependency for Cosmopolitan Python."
         echo ""
         echo "Arguments:"
-        echo "  VERSION    Version to build (default: from versions.cdx.json)"
+        echo "  VERSION    Version to build (default: from upstream.cdx.json)"
         echo "  --clean    Remove existing build artifacts before building"
         echo ""
         echo "Examples:"
@@ -336,7 +336,7 @@ parse_dep_args() {
     shift
   done
   
-  # Default to versions.cdx.json if no version specified
+  # Default to upstream.cdx.json if no version specified
   if [ -z "$DEP_VERSION" ]; then
     DEP_VERSION=$(get_dep_version "$dep_name")
   fi
@@ -397,7 +397,7 @@ run_configure() {
 # Path to our keyring (at repo root)
 GPG_KEYRING="${GPG_KEYRING:-${REPO_ROOT}/keys.asc}"
 
-# Get GPG fingerprint for a package version from versions.cdx.json
+# Get GPG fingerprint for a package version from upstream.cdx.json
 # Usage: get_gpg_fingerprint "xz" "5.8.2" -> fingerprint or empty
 get_gpg_fingerprint() {
   local pkg="$1"
@@ -445,7 +445,7 @@ verify_gpg_signature() {
       log_error "GPG signature valid but from UNEXPECTED KEY for $desc"
       log_error "  expected: $expected_fp"
       log_error "  actual:   $actual_fp"
-      log_error "this may indicate key rotation - verify and update versions.cdx.json"
+      log_error "this may indicate key rotation - verify and update upstream.cdx.json"
       result=1
     else
       log_info "GPG signature verified for $desc"
@@ -492,7 +492,7 @@ download_signature() {
 
 # Download, verify SHA256, and optionally verify GPG signature
 # Usage: download_verify_gpg "pkg" "version" "url" "output_file" "description"
-# Reads expected SHA256 and GPG fingerprint from versions.cdx.json
+# Reads expected SHA256 and GPG fingerprint from upstream.cdx.json
 download_verify_gpg() {
   local pkg="$1"
   local version="$2"
@@ -506,7 +506,7 @@ download_verify_gpg() {
   # Download main file
   download_and_verify "$url" "$output" "$expected_sha256" "$desc"
 
-  # Check if this version has GPG fingerprint in versions.cdx.json
+  # Check if this version has GPG fingerprint in upstream.cdx.json
   local expected_fp
   expected_fp=$(get_gpg_fingerprint "$pkg" "$version")
   

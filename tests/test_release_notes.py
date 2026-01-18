@@ -6,7 +6,7 @@ from ci import cdx
 
 
 def make_test_cdx(tmp_path: Path) -> Path:
-    """Create a test versions.cdx.json file."""
+    """Create a test upstream.cdx.json file."""
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
         name="python", version="3.12.8", url="http://x", sha256="a", license="PSF"
@@ -18,7 +18,7 @@ def make_test_cdx(tmp_path: Path) -> Path:
     bom.set_latest("python", "3.12", "3.12.8")
     bom.set_latest("python", "3.13", "3.13.1")
 
-    cdx_file = tmp_path / "versions.cdx.json"
+    cdx_file = tmp_path / "upstream.cdx.json"
     cdx.dump(bom, cdx_file)
     return cdx_file
 
@@ -31,7 +31,7 @@ def test_main_generates_table(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch")
     (dist / "python-3.12.8-cosmo.com").write_bytes(b"fake")
     (dist / "python-3.13.1-cosmo.com").write_bytes(b"fake")
 
-    # Create versions.cdx.json
+    # Create upstream.cdx.json
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
 

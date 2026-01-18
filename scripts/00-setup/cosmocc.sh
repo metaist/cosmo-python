@@ -2,7 +2,7 @@
 # Download and setup the Cosmopolitan C compiler toolchain
 source "$(dirname "$0")/../common.sh"
 
-# Get version, checksum, and URL from versions.cdx.json
+# Get version, checksum, and URL from upstream.cdx.json
 COSMOCC_VERSION="${COSMOCC_VERSION:-$(get_dep_version cosmocc)}"
 COSMOCC_SHA256="$(get_dep_sha256 cosmocc)"
 COSMOCC_URL="$(get_pkg_url cosmocc "$COSMOCC_VERSION")"

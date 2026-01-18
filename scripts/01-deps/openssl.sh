@@ -46,7 +46,7 @@ fi
 
 # Validate version exists
 if [ "$OPENSSL_SHA256" = "null" ] || [ -z "$OPENSSL_SHA256" ]; then
-  log_error "openssl ${OPENSSL_VERSION} not found in versions.cdx.json"
+  log_error "openssl ${OPENSSL_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 

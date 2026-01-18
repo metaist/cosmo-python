@@ -3,7 +3,7 @@
 #
 # Steps:
 # 1. Download Python source tarball
-# 2. Verify SHA256 checksum (from versions.cdx.json)
+# 2. Verify SHA256 checksum (from upstream.cdx.json)
 # 3. Verify Sigstore signature (optional, if uvx available)
 # 4. Extract source
 #
@@ -19,12 +19,12 @@ if [ -z "$PYTHON_VERSION" ]; then
   exit 1
 fi
 
-# Get expected SHA256 from versions.cdx.json (using full version)
+# Get expected SHA256 from upstream.cdx.json (using full version)
 PYTHON_SHA256="$(get_python_sha256 "$PYTHON_VERSION")"
 
-# Verify version exists in versions.cdx.json
+# Verify version exists in upstream.cdx.json
 if [ -z "$PYTHON_SHA256" ]; then
-  log_error "Python ${PYTHON_VERSION} not found in versions.cdx.json"
+  log_error "Python ${PYTHON_VERSION} not found in upstream.cdx.json"
   log_error "available versions:"
   $CDX_CLI versions | tr ' ' '\n' | sed 's/^/  /'
   exit 1
@@ -34,7 +34,7 @@ PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_
 SIGSTORE_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz.sigstore"
 SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
 
-# Get sigstore verification info from versions.cdx.json
+# Get sigstore verification info from upstream.cdx.json
 PYTHON_RELEASE_IDENTITY="$($CDX_CLI sigstore-identity python "$PYTHON_VERSION" 2>/dev/null || true)"
 PYTHON_RELEASE_ISSUER="$($CDX_CLI sigstore-issuer python "$PYTHON_VERSION" 2>/dev/null || true)"
 
@@ -55,7 +55,7 @@ SIGSTORE_BUNDLE="${TARBALL}.sigstore"
 # Download and verify checksum
 download_and_verify "${PYTHON_URL}" "${TARBALL}" "${PYTHON_SHA256}" "Python ${PYTHON_VERSION}"
 
-# Sigstore verification (if configured in versions.cdx.json)
+# Sigstore verification (if configured in upstream.cdx.json)
 if [ "${SKIP_SIGSTORE:-}" = "1" ]; then
   log_warn "SKIP_SIGSTORE=1 set - skipping sigstore verification"
 elif [ -z "$PYTHON_RELEASE_IDENTITY" ] || [ -z "$PYTHON_RELEASE_ISSUER" ]; then

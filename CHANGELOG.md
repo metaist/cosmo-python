@@ -24,7 +24,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#49] check-updates uses endoflife.date API for status/eol
 - [#49] check-updates uses `ds cog` for README regeneration
 - [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
-- [#60] `versions.json` replaced by `versions.cdx.json` (CycloneDX 1.5 format)
+- [#60] `versions.json` replaced by `upstream.cdx.json` (CycloneDX 1.5 format)
 - [#60] release `manifest.json` replaced by `manifest.cdx.json` (CycloneDX SBOM)
 - [#60] built binaries are `cosmo-python` in manifest (depends on upstream `python` + libs)
 
@@ -44,7 +44,7 @@ These are changes that are on `main` that are not yet in `prod`.
 
 **Removed**
 
-- [#60] `versions.json` (replaced by `versions.cdx.json`)
+- [#60] `versions.json` (replaced by `upstream.cdx.json`)
 - [#60] `ci/normalize.py` (replaced by `ci/cdx.py` and `ci/json_fmt.py`)
 
 ---

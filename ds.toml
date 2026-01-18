@@ -42,8 +42,8 @@ cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.{py,md}'"
 yamllint.help = "lint yaml files"
 yamllint.shell = "uvx yamllint -d '{extends: relaxed, rules: {line-length: disable}}' .github/workflows/"
 
-cdx-schema.help = "validate versions.cdx.json against CycloneDX schema"
-cdx-schema.shell = "uvx check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.5.schema.json versions.cdx.json"
+cdx-schema.help = "validate upstream.cdx.json against CycloneDX schema"
+cdx-schema.shell = "uvx check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.5.schema.json upstream.cdx.json"
 
 # Type Check
 types.help = "run type checkers on Python code"

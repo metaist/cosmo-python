@@ -21,7 +21,7 @@ NCURSES_DIR="${WORK_DIR}/ncurses-${NCURSES_VERSION}"
 
 # Validate version exists
 if [ "$NCURSES_SHA256" = "null" ] || [ -z "$NCURSES_SHA256" ]; then
-  log_error "ncurses ${NCURSES_VERSION} not found in versions.cdx.json"
+  log_error "ncurses ${NCURSES_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 

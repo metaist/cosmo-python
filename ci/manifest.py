@@ -44,7 +44,7 @@ def is_prerelease(v: str) -> bool:
 
 
 def get_cosmocc_version() -> str:
-    """Get cosmocc version from versions.cdx.json or environment."""
+    """Get cosmocc version from upstream.cdx.json or environment."""
     if "COSMOCC_VERSION" in os.environ:
         return os.environ["COSMOCC_VERSION"]
     bom = cdx.load(CDX_FILE)

@@ -5,7 +5,7 @@ Usage:
     uv run -m ci.build_matrix <input>
 
 Where <input> is:
-    - "all": all versions from versions.cdx.json
+    - "all": all versions from upstream.cdx.json
     - "3.12.8": single version
     - "3.12.8, 3.13.1": comma-separated versions
 

@@ -30,7 +30,7 @@ LIBFFI_SRC="${WORK_DIR}/libffi-${LIBFFI_VERSION}"
 
 # Validate version exists
 if [ "$LIBFFI_SHA256" = "null" ] || [ -z "$LIBFFI_SHA256" ]; then
-  log_error "libffi ${LIBFFI_VERSION} not found in versions.cdx.json"
+  log_error "libffi ${LIBFFI_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 

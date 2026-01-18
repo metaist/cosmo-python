@@ -4,7 +4,7 @@ from ci import cdx
 
 
 def make_test_cdx(tmp_path: "Path") -> "Path":
-    """Create a test versions.cdx.json file."""
+    """Create a test upstream.cdx.json file."""
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
         name="python", version="3.12.1", url="http://x", sha256="a", license="PSF"
@@ -20,13 +20,13 @@ def make_test_cdx(tmp_path: "Path") -> "Path":
     bom.set_latest("python", "3.13", "3.13.0")
     bom.set_default("cosmocc", "4.0.0")
 
-    cdx_file = tmp_path / "versions.cdx.json"
+    cdx_file = tmp_path / "upstream.cdx.json"
     cdx.dump(bom, cdx_file)
     return cdx_file
 
 
 def test_main_all_versions(tmp_path: "Path", monkeypatch: "pytest.MonkeyPatch") -> None:
-    """main() with 'all' gets versions from versions.cdx.json."""
+    """main() with 'all' gets versions from upstream.cdx.json."""
     cdx_file = make_test_cdx(tmp_path)
     # Patch both locations where CDX_FILE might be imported
     monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)

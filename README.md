@@ -20,7 +20,7 @@ See [LIMITATIONS.md](LIMITATIONS.md) for known differences from standard CPython
 import sys; sys.path.insert(0, ".")
 from ci import cdx
 
-bom = cdx.load("versions.cdx.json")
+bom = cdx.load("upstream.cdx.json")
 default_python = bom.get_default_component("python")
 default_version = default_python.version
 cog.outl(f"Download and run:")
@@ -175,7 +175,7 @@ WORK_DIR=/tmp/build DIST_DIR=./output ./scripts/build.sh 3.13.11
 
 ### Upstream Sources
 
-All upstream sources are SHA256 verified against known-good hashes in [`versions.cdx.json`][versions-cdx]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
+All upstream sources are SHA256 verified against known-good hashes in [`upstream.cdx.json`][upstream-cdx]. Sources that provide signatures (GPG or [Sigstore]) are also cryptographically verified. Only official sources are used (no mirrors except GNU FTP).
 
 <!--[[[cog
 cog.outl("| Dependency | Version | Source | Integrity | Signature | License |")
@@ -232,7 +232,7 @@ Upstream dependency licenses are shown in the [Upstream Sources](#upstream-sourc
 <!-- project links -->
 [cosmo]: https://github.com/jart/cosmopolitan
 [manifest]: https://github.com/metaist/cosmo-python/releases/latest/download/manifest.cdx.json
-[versions-cdx]: https://github.com/metaist/cosmo-python/blob/main/versions.cdx.json
+[upstream-cdx]: https://github.com/metaist/cosmo-python/blob/main/upstream.cdx.json
 
 <!-- workflows -->
 [check-updates]: .github/workflows/check-updates.yaml

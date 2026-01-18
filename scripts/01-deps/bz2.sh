@@ -18,7 +18,7 @@ BZ2_DIR="${WORK_DIR}/bzip2-${BZ2_VERSION}"
 
 # Validate version exists
 if [ "$BZ2_SHA256" = "null" ] || [ -z "$BZ2_SHA256" ]; then
-  log_error "bz2 ${BZ2_VERSION} not found in versions.cdx.json"
+  log_error "bz2 ${BZ2_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 

@@ -37,7 +37,7 @@ if [ "$1" = "--all" ]; then
   all_versions=$($CDX_CLI versions)
   
   if [ -z "$all_versions" ]; then
-    log_error "no versions found in versions.cdx.json"
+    log_error "no versions found in upstream.cdx.json"
     exit 1
   fi
   

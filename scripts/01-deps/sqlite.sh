@@ -22,7 +22,7 @@ SQLITE_DIR="${WORK_DIR}/sqlite-autoconf-${SQLITE_AUTOCONF}"
 
 # Validate version exists
 if [ "$SQLITE_SHA256" = "null" ] || [ -z "$SQLITE_SHA256" ]; then
-  log_error "sqlite ${SQLITE_VERSION} not found in versions.cdx.json"
+  log_error "sqlite ${SQLITE_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 

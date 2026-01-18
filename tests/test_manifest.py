@@ -15,7 +15,7 @@ from ci.manifest import (
 
 
 def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
-    """Create a test versions.cdx.json file with Python and dependencies."""
+    """Create a test upstream.cdx.json file with Python and dependencies."""
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
         name="cosmocc", version="4.0.0", url="http://x", sha256="a", license="ISC"
@@ -47,7 +47,7 @@ def make_test_cdx(tmp_path: Path, disabled: list[str] | None = None) -> Path:
     if disabled:
         bom.set_disabled("python", disabled)
 
-    cdx_file = tmp_path / "versions.cdx.json"
+    cdx_file = tmp_path / "upstream.cdx.json"
     cdx.dump(bom, cdx_file)
     return cdx_file
 
@@ -68,7 +68,7 @@ def test_get_cosmocc_version_from_env(monkeypatch: "pytest.MonkeyPatch") -> None
 
 
 def test_get_cosmocc_version_from_file(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """get_cosmocc_version reads from versions.cdx.json."""
+    """get_cosmocc_version reads from upstream.cdx.json."""
     monkeypatch.delenv("COSMOCC_VERSION", raising=False)
     cdx_file = make_test_cdx(tmp_path)
     monkeypatch.setattr("ci.manifest.CDX_FILE", cdx_file)

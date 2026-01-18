@@ -7,7 +7,7 @@
 #   3. Builds all library dependencies
 #
 # Dependencies are built in parallel by level when GNU parallel is available.
-# Build order is determined by versions.cdx.json dependency graph.
+# Build order is determined by upstream.cdx.json dependency graph.
 #
 set -euo pipefail
 

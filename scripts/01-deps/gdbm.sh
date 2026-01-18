@@ -18,7 +18,7 @@ GDBM_DIR="${WORK_DIR}/gdbm-${GDBM_VERSION}"
 
 # Validate version exists
 if [ "$GDBM_SHA256" = "null" ] || [ -z "$GDBM_SHA256" ]; then
-  log_error "gdbm ${GDBM_VERSION} not found in versions.cdx.json"
+  log_error "gdbm ${GDBM_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 
