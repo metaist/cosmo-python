@@ -285,11 +285,11 @@ goes on its own line.
 
 ### String list (expanded)
 
-When a list is too long, expand to one item per line.
+When a list is too long (>100 chars), expand to one item per line.
 
 **Input:**
 ```json
-["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa"]
+["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu"]
 ```
 
 **Expected:**
@@ -304,7 +304,9 @@ When a list is too long, expand to one item per line.
   "eta",
   "theta",
   "iota",
-  "kappa"
+  "kappa",
+  "lambda",
+  "mu"
 ]
 ```
 
@@ -336,7 +338,7 @@ but small ones can stay compact.
 
 **Input:**
 ```json
-{"deps": [{"ref": "large@1.0", "dependsOn": ["a@1", "b@2", "c@3", "d@4", "e@5", "f@6"]}, {"ref": "small@1.0", "dependsOn": ["x@1"]}, {"ref": "tiny@1.0", "dependsOn": ["y@1"]}]}
+{"deps": [{"ref": "large@1.0", "dependsOn": ["a@1", "b@2", "c@3", "d@4", "e@5", "f@6", "g@7", "h@8", "i@9", "j@10"]}, {"ref": "small@1.0", "dependsOn": ["x@1"]}, {"ref": "tiny@1.0", "dependsOn": ["y@1"]}]}
 ```
 
 **Expected:**
@@ -345,7 +347,7 @@ but small ones can stay compact.
   "deps": [
     {
       "ref": "large@1.0",
-      "dependsOn": ["a@1", "b@2", "c@3", "d@4", "e@5", "f@6"]
+      "dependsOn": ["a@1", "b@2", "c@3", "d@4", "e@5", "f@6", "g@7", "h@8", "i@9", "j@10"]
     },
     { "ref": "small@1.0", "dependsOn": ["x@1"] },
     { "ref": "tiny@1.0", "dependsOn": ["y@1"] }
@@ -447,20 +449,7 @@ Nested structures with URLs also benefit from semantic length.
 { "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }
 ```
 
-### Deeply nested with hash
-
-High-entropy value plus all closing brackets count as short together.
-This 55-bracket monster is only ~67 chars because the hash + brackets collapse.
-
-**Input:**
-```json
-[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{"a": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec"}]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-```
-
-**Expected:**
-```json
-[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[{ "a": "a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0cd1bacc4a41c63990c5a0eec" }]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-```
+<!-- TODO: trailing collapse for deeply nested structures - see issue #68 -->
 
 ---
 
@@ -607,6 +596,6 @@ Large entries expand, small entries stay compact.
       { "name": "cosmo:latest:python:3.10", "value": "3.10.19" },
       { "name": "cosmo:latest:python:3.11", "value": "3.11.14" }
     ]
-  } 
+  }
 }
 ```

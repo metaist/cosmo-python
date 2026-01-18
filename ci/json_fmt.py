@@ -1,7 +1,7 @@
 """Semantic JSON formatter.
 
-Formats JSON with smart compaction based on semantic entropy - low-entropy
-values (hashes, URLs) are compressed visually since you skip over them anyway.
+Formats JSON with smart compaction based on semantic entropy - high-entropy
+values (hashes, URLs) are treated as shorter since you scan/skip over them.
 """
 
 from __future__ import annotations
@@ -9,6 +9,9 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+
+# High-entropy values count as this many chars for line-length decisions
+HIGH_ENTROPY_LEN = 5
 
 
 def _is_hex(s: str) -> bool:
@@ -21,27 +24,25 @@ def _is_url(s: str) -> bool:
     return s.startswith("http://") or s.startswith("https://")
 
 
+def _is_high_entropy(s: str) -> bool:
+    """Check if string is high-entropy (hash, URL, etc.)."""
+    return _is_hex(s) or _is_url(s)
+
+
+def _json_str(v: Any) -> str:
+    """Serialize value to JSON, preserving unicode."""
+    return json.dumps(v, ensure_ascii=False)
+
+
 def _semantic_len(s: str, is_last: bool) -> int:
     """Calculate semantic length of a string value.
 
-    Low-entropy values (hashes, URLs) count less when they're the last value
-    in a dict, since your eye doesn't need to scan past them.
+    High-entropy values (hashes, URLs) count less when they're the last value
+    in a structure, since trailing brackets collapse with them.
     """
-    if not is_last:
-        return len(json.dumps(s))
-
-    if _is_hex(s):
-        # Long hex: just need to see it exists, count as ~5 chars
-        return 5
-
-    if _is_url(s):
-        # URL: count domain + first path segment
-        # https://example.com/path/to/thing → https://example.com/path
-        match = re.match(r"(https?://[^/]+/[^/]*)", s)
-        if match:
-            return len(json.dumps(match.group(1)))
-
-    return len(json.dumps(s))
+    if is_last and _is_high_entropy(s):
+        return HIGH_ENTROPY_LEN
+    return len(_json_str(s))
 
 
 def _value_semantic_len(v: Any, is_last: bool) -> int:
@@ -53,33 +54,7 @@ def _value_semantic_len(v: Any, is_last: bool) -> int:
     elif isinstance(v, list):
         return _list_semantic_len(v, is_last)
     else:
-        return len(json.dumps(v))
-
-
-def _item_semantic_len(formatted: str) -> int:
-    """Estimate semantic length of an already-formatted JSON string.
-
-    If the string ends with a low-entropy value (hex or URL), apply discount.
-    """
-    # Check if ends with a long hex string (in quotes)
-    hex_match = re.search(r'"([a-f0-9]{32,})" \}', formatted, re.IGNORECASE)
-    if hex_match:
-        # Discount: replace actual hex length with 5
-        hex_len = len(hex_match.group(1))
-        return len(formatted) - hex_len + 5
-
-    # Check if ends with a URL (in quotes)
-    url_match = re.search(r'"(https?://[^"]+)" \}', formatted)
-    if url_match:
-        url = url_match.group(1)
-        # Count domain + first path segment
-        short_match = re.match(r"(https?://[^/]+/[^/]*)", url)
-        if short_match:
-            url_len = len(url)
-            short_len = len(short_match.group(1))
-            return len(formatted) - url_len + short_len
-
-    return len(formatted)
+        return len(_json_str(v))
 
 
 def _dict_semantic_len(d: dict[str, Any], prefix_len: int, is_last_in_parent: bool = True) -> int:
@@ -92,7 +67,7 @@ def _dict_semantic_len(d: dict[str, Any], prefix_len: int, is_last_in_parent: bo
     for i, k in enumerate(keys):
         is_last = is_last_in_parent and i == len(keys) - 1
         v = d[k]
-        total += len(json.dumps(k)) + 2  # key + ": "
+        total += len(_json_str(k)) + 2  # key + ": "
         total += _value_semantic_len(v, is_last)
         if i < len(keys) - 1:
             total += 2  # ", "
@@ -118,7 +93,7 @@ def _compact_value(v: Any) -> str:
     if isinstance(v, dict):
         if not v:
             return "{}"
-        items = [f'"{k}": {_compact_value(val)}' for k, val in v.items()]
+        items = [f"{_json_str(k)}: {_compact_value(val)}" for k, val in v.items()]
         return "{ " + ", ".join(items) + " }"
     elif isinstance(v, list):
         if not v:
@@ -126,52 +101,28 @@ def _compact_value(v: Any) -> str:
         items = [_compact_value(item) for item in v]
         return "[" + ", ".join(items) + "]"
     else:
-        return json.dumps(v)
+        return _json_str(v)
 
 
-def _format_dict(d: dict[str, Any], indent: int, max_line: int, level: int, in_array: bool) -> str:
+def _format_dict(d: dict[str, Any], indent: int, max_line: int, level: int) -> str:
     """Format a dict, possibly compacted."""
     if not d:
         return "{}"
 
     prefix = " " * (indent * level)
-    child_prefix = " " * (indent * (level + 1))
 
     # Try compact with semantic length
     if _dict_semantic_len(d, len(prefix)) <= max_line:
-        # Check if all values can be compacted (no nested expansion needed)
-        # These branches are defensive - if outer dict passes semantic check, nested
-        # structures usually pass too. Hard to construct test case that triggers.
-        can_compact = True
-        for v in d.values():
-            if isinstance(v, dict) and v:
-                # defensive: outer check usually catches this
-                if _dict_semantic_len(v, len(prefix)) > max_line:  # pragma: no cover
-                    can_compact = False  # pragma: no cover
-                    break  # pragma: no cover
-            elif isinstance(v, list) and v:
-                # defensive: outer check usually catches this
-                if _list_semantic_len(v) + len(prefix) > max_line:  # pragma: no cover
-                    can_compact = False  # pragma: no cover
-                    break  # pragma: no cover
-        if can_compact:  # pragma: no branch - defensive checks above are pragma'd
-            items = [f'"{k}": {_compact_value(v)}' for k, v in d.items()]
-            return "{ " + ", ".join(items) + " }"
+        return _compact_value(d)
 
     # Multi-line
+    child_prefix = " " * (indent * (level + 1))
     items = []
-    keys = list(d.keys())
-    for i, k in enumerate(keys):
-        v = d[k]
+    for k, v in d.items():
         formatted_v = _format_value(v, indent, max_line, level + 1)
-        items.append(f'{child_prefix}"{k}": {formatted_v}')
+        items.append(f"{child_prefix}{_json_str(k)}: {formatted_v}")
 
-    if in_array:
-        # Array context: { starts on same line as [
-        inner = ",\n".join(items)
-        return "{\n" + inner + "\n" + prefix + "}"
-    else:
-        return "{\n" + ",\n".join(items) + "\n" + prefix + "}"
+    return "{\n" + ",\n".join(items) + "\n" + prefix + "}"
 
 
 def _format_list(lst: list[Any], indent: int, max_line: int, level: int) -> str:
@@ -183,61 +134,97 @@ def _format_list(lst: list[Any], indent: int, max_line: int, level: int) -> str:
     child_prefix = " " * (indent * (level + 1))
 
     # Try compact
-    compact = _compact_value(lst)
-    if len(prefix) + len(compact) <= max_line:
-        return compact
+    if _list_semantic_len(lst) + len(prefix) <= max_line:
+        return _compact_value(lst)
 
     # Check if it's an array of objects
     if all(isinstance(item, dict) for item in lst):
-        # Format each object
-        formatted_items = []
-        for item in lst:
-            formatted_items.append(_format_dict(item, indent, max_line, level + 1, in_array=True))
+        return _format_list_of_dicts(lst, indent, max_line, level, prefix, child_prefix)
 
-        # Check if all items are single-line and fit together
-        all_single_line = all("\n" not in item for item in formatted_items)
-        if all_single_line:
-            one_line = "[" + ", ".join(formatted_items) + "]"
-            # Use semantic length - last item gets entropy discount
-            semantic_len = len(prefix) + 2  # "[" and "]"
-            for i, item in enumerate(formatted_items):
-                is_last = i == len(formatted_items) - 1
-                # Item is already formatted as string, estimate semantic length
-                # by checking if it ends with a low-entropy value
-                if is_last:
-                    semantic_len += _item_semantic_len(item)
-                else:
-                    semantic_len += len(item)
-                if i < len(formatted_items) - 1:
-                    semantic_len += 2  # ", "
-            if semantic_len <= max_line:
-                return one_line
-
-        # Multi-line arrays of objects
-        if all_single_line:
-            # Single-line items: standard expansion with ] on its own line
-            items = [child_prefix + item for item in formatted_items]
-            return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
-        else:
-            # Multi-line items: [{ ... }, { ... }] with }, { together for folding
-            result = "[" + formatted_items[0]
-            for item in formatted_items[1:]:
-                result += ", " + item
-            return result + "]"
-
-    # Regular multi-line list
+    # Regular multi-line list (primitives or mixed)
     items = [child_prefix + _format_value(item, indent, max_line, level + 1) for item in lst]
     return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
+
+
+def _format_list_of_dicts(
+    lst: list[dict[str, Any]],
+    indent: int,
+    max_line: int,
+    level: int,
+    prefix: str,
+    child_prefix: str,
+) -> str:
+    """Format a list of dicts with smart expansion."""
+    # Format each dict independently - some may be compact, some expanded
+    formatted_items: list[str] = []
+    for item in lst:
+        # Check if this dict can be compact
+        if _dict_semantic_len(item, len(child_prefix)) <= max_line:
+            formatted_items.append(_compact_value(item))
+        else:
+            # Need multi-line for this dict
+            formatted_items.append(_format_dict(item, indent, max_line, level + 1))
+
+    # Check if ALL items are single-line (compact)
+    all_single_line = all("\n" not in item for item in formatted_items)
+
+    if all_single_line:
+        # Try fitting all on one line
+        one_line = "[" + ", ".join(formatted_items) + "]"
+        if _list_semantic_len(lst) + len(prefix) <= max_line:
+            return one_line
+        # Standard expansion: each item on own line, ] on own line
+        items = [child_prefix + item for item in formatted_items]
+        return "[\n" + ",\n".join(items) + "\n" + prefix + "]"
+
+    # Mixed or all multi-line: use }, { continuation for multi-line items
+    # but standard lines for single-line items
+    result_lines: list[str] = ["["]
+    prev_was_multiline = False
+
+    for i, formatted in enumerate(formatted_items):
+        is_multiline = "\n" in formatted
+        is_last = i == len(formatted_items) - 1
+        comma = "" if is_last else ","
+
+        if is_multiline:
+            if i == 0:
+                # First item, multi-line: [ then { on next conceptual line
+                # but we use }, { style so start is [\n  {\n
+                result_lines.append(child_prefix + formatted + comma)
+            elif prev_was_multiline:
+                # }, { continuation
+                # Remove last line's comma if present, replace with }, {
+                last_line = result_lines[-1]
+                if last_line.endswith(","):
+                    result_lines[-1] = last_line[:-1]
+                result_lines[-1] += ", " + formatted + comma
+            else:
+                # Previous was single-line, this is multi-line
+                result_lines.append(child_prefix + formatted + comma)
+        else:
+            # Single-line item
+            if prev_was_multiline:
+                # After multi-line, single-line goes on own line
+                result_lines.append(child_prefix + formatted + comma)
+            else:
+                # Single-line after single-line (or first)
+                result_lines.append(child_prefix + formatted + comma)
+
+        prev_was_multiline = is_multiline
+
+    result_lines.append(prefix + "]")
+    return "\n".join(result_lines)
 
 
 def _format_value(obj: Any, indent: int, max_line: int, level: int) -> str:
     """Format any JSON value."""
     if isinstance(obj, dict):
-        return _format_dict(obj, indent, max_line, level, in_array=False)
+        return _format_dict(obj, indent, max_line, level)
     elif isinstance(obj, list):
         return _format_list(obj, indent, max_line, level)
     else:
-        return json.dumps(obj)
+        return _json_str(obj)
 
 
 def dumps(obj: Any, indent: int = 2, max_line: int = 100) -> str:
