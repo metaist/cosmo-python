@@ -1,19 +1,21 @@
 # PR Build Workflow
 #
 # Validates changes by building all Python versions.
-# Triggered on PRs that modify versions.json, scripts, or README.
+# Triggered on PRs that modify versions.cdx.json, scripts, or keys.
+# Restricted to trusted actors to prevent arbitrary PRs from triggering builds.
 #
 name: PR Build
 
 on:
   pull_request:
     paths:
-      - "versions.json"
+      - "versions.cdx.json"
       - "scripts/**"
-      - "keys.asc"
+      - "keys/**"
 
 jobs:
   build:
+    if: github.actor == 'metaist' || github.actor == 'github-actions[bot]'
     name: Build All Versions
     uses: ./.github/workflows/build.yaml
     with:
