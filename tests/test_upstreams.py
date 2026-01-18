@@ -79,7 +79,7 @@ def test_gnu_dep_fetch_latest(mock_urlopen: MagicMock) -> None:
 @patch("urllib.request.urlopen")
 def test_gnu_dep_fetch_latest_failure(mock_urlopen: MagicMock) -> None:
     """GNU dep returns None on error."""
-    mock_urlopen.side_effect = Exception("Network error")
+    mock_urlopen.side_effect = OSError("Network error")
     dep = GnuDep(project="ncurses")
     assert dep.fetch_latest() is None
 
@@ -119,7 +119,7 @@ def test_sqlite_dep_fetch_latest(mock_urlopen: MagicMock) -> None:
 @patch("urllib.request.urlopen")
 def test_sqlite_dep_fetch_latest_failure(mock_urlopen: MagicMock) -> None:
     """SQLite dep returns None on error."""
-    mock_urlopen.side_effect = Exception("Network error")
+    mock_urlopen.side_effect = OSError("Network error")
     dep = SqliteDep()
     assert dep.fetch_latest() is None
 
@@ -152,7 +152,7 @@ def test_bzip2_dep_build_url() -> None:
 @patch("urllib.request.urlopen")
 def test_bzip2_dep_fetch_latest_failure(mock_urlopen: MagicMock) -> None:
     """Bzip2 dep returns None on error."""
-    mock_urlopen.side_effect = Exception("Network error")
+    mock_urlopen.side_effect = OSError("Network error")
     dep = Bzip2Dep()
     assert dep.fetch_latest() is None
 
@@ -186,7 +186,7 @@ def test_cacert_dep_build_url() -> None:
 @patch("urllib.request.urlopen")
 def test_cacert_dep_fetch_latest_failure(mock_urlopen: MagicMock) -> None:
     """Cacert dep returns None on error."""
-    mock_urlopen.side_effect = Exception("Network error")
+    mock_urlopen.side_effect = OSError("Network error")
     dep = CacertDep()
     assert dep.fetch_latest() is None
 
@@ -300,7 +300,7 @@ def test_python_get_status_prerelease(mock_eol: MagicMock) -> None:
 @patch("ci.upstreams.python.fetch_json")
 def test_python_fetch_latest_failure(mock_fetch: MagicMock) -> None:
     """Python fetch_latest returns None on error."""
-    mock_fetch.side_effect = Exception("Network error")
+    mock_fetch.side_effect = OSError("Network error")
     py = PythonUpstream()
     assert py.fetch_latest("3.13") is None
 

@@ -301,6 +301,34 @@ class Bom:
         versions = self.python_versions()
         return sorted(set(".".join(v.split(".")[:2]) for v in versions))
 
+    def upstream_table(self) -> str:
+        """Generate upstream sources table.
+
+        Columns: Dependency (linked), Version, Integrity, Signature, License.
+        """
+        lines = [
+            "| Dependency | Version | Integrity | Signature | License |",
+            "|------------|---------|-----------|-----------|---------|",
+        ]
+
+        for name in self.component_names():
+            comp = self.get_default_component(name)
+            if not comp:  # pragma: no cover - component_names always have defaults
+                continue
+            # Use version range for python
+            if name == "python":
+                minors = self.python_minors()
+                version = f"{minors[0]}–{minors[-1]}" if minors else comp.version
+            else:
+                version = comp.version
+
+            lines.append(
+                f"| [{comp.display_name}]({comp.url}) | {version} "
+                f"| SHA256 | {comp.signature_type} | {comp.license_link} |"
+            )
+
+        return "\n".join(lines)
+
     # Merging (for spanning manifest)
 
     def merge(self, other: Bom) -> Bom:

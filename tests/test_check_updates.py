@@ -96,7 +96,7 @@ def test_update_dependency_no_url(mock_deps: MagicMock) -> None:
 @patch("ci.check_updates.DEPS")
 def test_update_dependency_fetch_error(mock_deps: MagicMock, mock_sha256: MagicMock) -> None:
     """update_dependency returns False on fetch error."""
-    mock_sha256.side_effect = Exception("Network error")
+    mock_sha256.side_effect = OSError("Network error")
     mock_upstream = MagicMock()
     mock_upstream.build_url.return_value = "http://test"
     mock_deps.get.return_value = mock_upstream
@@ -154,7 +154,7 @@ def test_update_python_version_success(mock_sha256: MagicMock, monkeypatch: "pyt
 @patch("ci.check_updates.fetch_sha256")
 def test_update_python_version_fetch_error(mock_sha256: MagicMock) -> None:
     """update_python_version returns False on fetch error."""
-    mock_sha256.side_effect = Exception("Network error")
+    mock_sha256.side_effect = OSError("Network error")
 
     mock_py = MagicMock()
     mock_py.build_url.return_value = "http://test"
@@ -244,7 +244,7 @@ def test_check_dependencies_current(mock_deps: MagicMock) -> None:
 def test_check_dependencies_fetch_error(mock_deps: MagicMock) -> None:
     """check_dependencies handles fetch errors."""
     mock_upstream = MagicMock()
-    mock_upstream.fetch_latest.side_effect = Exception("Network")
+    mock_upstream.fetch_latest.side_effect = OSError("Network")
     mock_deps.get.return_value = mock_upstream
 
     bom = make_test_bom()

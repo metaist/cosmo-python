@@ -4,14 +4,14 @@
 # Attestations are added by release.yaml, not here.
 #
 # Structure:
-#   1. setup: determine versions and cosmocc version from versions.json
+#   1. setup: determine versions and cosmocc version from upstream.cdx.json
 #   2. deps: build dependencies once (cached across runs)
 #   3. build: build Python versions in parallel (matrix)
 #
 # Usage:
 #   - Single version: python_version = "3.12.8"
 #   - Multiple: python_version = "3.12.8, 3.13.1"
-#   - All versions: python_version = "all" (reads from versions.json)
+#   - All versions: python_version = "all" (reads from upstream.cdx.json)
 #
 name: build
 
@@ -72,7 +72,7 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/01-deps/**') }}
 
       - name: Build dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -101,7 +101,7 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('versions.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/01-deps/**') }}
           fail-on-cache-miss: true
 
       - name: Install uv

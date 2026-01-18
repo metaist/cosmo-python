@@ -101,7 +101,7 @@ def test_generate_deps_table(tmp_path: Path) -> None:
 
     result = generate_deps_table(bom)
 
-    assert "| Dependency | Version | License |" in result
+    assert "| Dependency | Version | Integrity | Signature | License |" in result
     assert "Python" in result
     assert "3.12–3.13" in result
     assert "OpenSSL" in result

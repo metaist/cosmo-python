@@ -33,7 +33,7 @@ class PythonUpstream:
                 return None
             versions = [str(r["name"]).replace("Python ", "") for r in releases]
             return str(sorted(versions, key=version_key)[-1])
-        except Exception:
+        except (OSError, ValueError, KeyError):
             return None
 
     def build_url(self, version: str) -> str:

@@ -115,7 +115,7 @@ def test_fetch_previous_manifest_url(mock_urlopen: MagicMock, tmp_path: Path) ->
 @patch("urllib.request.urlopen")
 def test_fetch_previous_manifest_url_failure(mock_urlopen: MagicMock) -> None:
     """fetch_previous_manifest returns None on error."""
-    mock_urlopen.side_effect = Exception("Network error")
+    mock_urlopen.side_effect = OSError("Network error")
     result = fetch_previous_manifest("https://example.com/manifest.cdx.json")
     assert result is None
 

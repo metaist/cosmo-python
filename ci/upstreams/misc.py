@@ -29,7 +29,7 @@ class SqliteDep:
                 if sub > 0:
                     return f"{major}.{minor}.{patch}.{sub}"
                 return f"{major}.{minor}.{patch}"
-        except Exception:
+        except (OSError, ValueError, IndexError):
             pass
         return None
 
@@ -56,7 +56,7 @@ class Bzip2Dep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions), key=version_key)[-1])
-        except Exception:
+        except OSError:
             pass
         return None
 
@@ -78,7 +78,7 @@ class CacertDep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions))[-1])
-        except Exception:
+        except OSError:
             pass
         return None
 

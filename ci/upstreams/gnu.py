@@ -25,7 +25,7 @@ class GnuDep:
             versions: list[str] = re.findall(pattern, html)
             if versions:
                 return str(sorted(set(versions), key=version_key)[-1])
-        except Exception:
+        except OSError:
             pass
         return None
 

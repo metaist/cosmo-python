@@ -52,24 +52,7 @@ def extract_unreleased(changelog_path: Path = CHANGELOG_PATH) -> str:
 
 def generate_deps_table(bom: cdx.Bom) -> str:
     """Generate dependency versions table from upstream.cdx.json."""
-    lines = [
-        "| Dependency | Version | License |",
-        "|------------|---------|---------|",
-    ]
-
-    for name in bom.component_names():
-        comp = bom.get_default_component(name)
-        if not comp:  # pragma: no cover - component_names always have defaults
-            continue
-        # Use version range for python
-        if name == "python":
-            minors = bom.python_minors()
-            version = f"{minors[0]}–{minors[-1]}" if minors else comp.version
-        else:
-            version = comp.version
-        lines.append(f"| {comp.display_name} | {version} | {comp.license} |")
-
-    return "\n".join(lines)
+    return bom.upstream_table()
 
 
 def move_unreleased_to_release(

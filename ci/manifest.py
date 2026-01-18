@@ -74,7 +74,7 @@ def fetch_previous_manifest(url_or_path: str) -> cdx.Bom | None:
                 Path(tmp_path).unlink()
                 log.info("Previous manifest fetched")
                 return bom
-        except Exception as e:
+        except (OSError, ValueError) as e:
             log.warning(f"Could not fetch previous manifest: {e}")
             return None
     else:

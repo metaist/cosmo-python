@@ -144,15 +144,17 @@ def _format_dict(
     # Try compact with semantic length
     if _dict_semantic_len(d, len(prefix)) <= max_line:
         # Check if all values can be compacted (no nested expansion needed)
-        # These branches are defensive - if outer passes semantic check, nested
-        # structures usually pass too, but we check to be safe.
+        # These branches are defensive - if outer dict passes semantic check, nested
+        # structures usually pass too. Hard to construct test case that triggers.
         can_compact = True
         for v in d.values():
             if isinstance(v, dict) and v:
+                # defensive: outer check usually catches this
                 if _dict_semantic_len(v, len(prefix)) > max_line:  # pragma: no cover
                     can_compact = False  # pragma: no cover
                     break  # pragma: no cover
             elif isinstance(v, list) and v:
+                # defensive: outer check usually catches this
                 if _list_semantic_len(v) + len(prefix) > max_line:  # pragma: no cover
                     can_compact = False  # pragma: no cover
                     break  # pragma: no cover

@@ -38,7 +38,7 @@ jobs:
         run: |
           uv run -m ci.check_updates 2>&1 | tee /tmp/update-output.txt
 
-          if git diff --quiet versions.json; then
+          if git diff --quiet upstream.cdx.json; then
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
             echo "No updates found"
           else
@@ -59,7 +59,7 @@ jobs:
 
           # Create or switch to branch
           git checkout -B "$BRANCH"
-          git add versions.json README.md
+          git add upstream.cdx.json README.md
           git commit -m "update: dependency versions"
           git push -f origin "$BRANCH"
 
@@ -74,7 +74,7 @@ jobs:
 
           ## Next Steps
 
-          1. Review the changes to \`versions.json\` and \`README.md\`
+          1. Review the changes to \`upstream.cdx.json\` and \`README.md\`
           2. CI will build all Python versions to verify compatibility
           3. If CI passes, merge to accept updates
           4. If CI fails, investigate which dependency caused the failure

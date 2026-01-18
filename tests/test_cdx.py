@@ -883,3 +883,34 @@ def test_cli_build_order_ignores_unknown_args(tmp_path: Path, monkeypatch: "pyte
     assert result == 0
     output = captured.getvalue().strip()
     assert "app@1.0" in output
+
+
+def test_upstream_table() -> None:
+    """upstream_table returns table with linked dependency names."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="openssl", version="3.0.0", url="https://github.com/openssl/openssl/x",
+        sha256="a", license="Apache-2.0", gpg="ABC123"
+    ))
+    bom.set_default("openssl", "3.0.0")
+
+    table = bom.upstream_table()
+    assert "| Dependency | Version | Integrity | Signature | License |" in table
+    assert "[OpenSSL](https://github.com/openssl/openssl/x)" in table
+    assert "SHA256" in table
+    assert "GPG" in table
+
+
+def test_upstream_table_python_version_range() -> None:
+    """upstream_table shows version range for Python."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.12.0", url="http://x", sha256="a", license="PSF"
+    ))
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://y", sha256="b", license="PSF"
+    ))
+    bom.set_default("python", "3.13.0")
+
+    table = bom.upstream_table()
+    assert "3.12–3.13" in table

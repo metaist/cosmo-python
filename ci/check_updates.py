@@ -41,7 +41,7 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
 
     try:
         sha256 = fetch_sha256(url)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         log.error(f"  Failed to fetch {url}: {e}")
         return False
 
@@ -87,7 +87,7 @@ def update_python_version(
 
     try:
         sha256 = fetch_sha256(url)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         log.error(f"  Failed to fetch {url}: {e}")
         return False
 
@@ -183,7 +183,7 @@ def check_dependencies(bom: cdx.Bom) -> list[tuple[str, str]]:
 
         try:
             latest = upstream.fetch_latest()
-        except Exception as e:
+        except (OSError, ValueError) as e:
             log.warning(f"{name}: {current} (failed to check: {e})")
             continue
 
