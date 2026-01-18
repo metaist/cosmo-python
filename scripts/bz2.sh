@@ -43,7 +43,7 @@ export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
   log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
-  log_error "run 00-setup/cosmocc.sh first"
+  log_error "run scripts/cosmocc.sh first"
   exit 1
 fi
 

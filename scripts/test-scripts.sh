@@ -35,9 +35,23 @@ echo "Checking syntax..."
 for f in \
   scripts/common.sh \
   scripts/build.sh \
-  scripts/00-setup/*.sh \
-  scripts/01-deps/*.sh \
-  scripts/02-python/*.sh
+  scripts/build-deps.sh \
+  scripts/setup.sh \
+  scripts/cosmocc.sh \
+  scripts/smoke.sh \
+  scripts/bz2.sh \
+  scripts/cacert.sh \
+  scripts/gdbm.sh \
+  scripts/libffi.sh \
+  scripts/ncurses.sh \
+  scripts/openssl.sh \
+  scripts/readline.sh \
+  scripts/sqlite.sh \
+  scripts/xz.sh \
+  scripts/python/build.sh \
+  scripts/python/download.sh \
+  scripts/python/compile.sh \
+  scripts/python/package.sh
 do
   if [ -f "${REPO_ROOT}/${f}" ]; then
     if bash -n "${REPO_ROOT}/${f}" 2>/dev/null; then
@@ -97,5 +111,3 @@ echo ""
 if [ $FAIL -gt 0 ]; then
   exit 1
 fi
-
-

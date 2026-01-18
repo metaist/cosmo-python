@@ -42,7 +42,7 @@ skip_if_exists "${DEPS_DIR}/lib/libreadline.a" "readline ${READLINE_VERSION}"
 # Check dependency
 if [ ! -f "${DEPS_DIR}/lib/libncurses.a" ]; then
   log_error "ncurses not found at ${DEPS_DIR}/lib/libncurses.a"
-  log_error "run 01-deps/ncurses.sh first"
+  log_error "run scripts/ncurses.sh first"
   exit 1
 fi
 
@@ -54,7 +54,7 @@ export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
   log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
-  log_error "run 00-setup/cosmocc.sh first"
+  log_error "run scripts/cosmocc.sh first"
   exit 1
 fi
 

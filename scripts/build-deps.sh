@@ -3,8 +3,7 @@
 #
 # This script:
 #   1. Installs system dependencies (via apt)
-#   2. Sets up cosmocc toolchain
-#   3. Builds all library dependencies
+#   2. Builds all library dependencies via toposort
 #
 # Dependencies are built in parallel by level when GNU parallel is available.
 # Build order is determined by upstream.cdx.json dependency graph.
@@ -12,19 +11,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-source "${ROOT_DIR}/scripts/common.sh"
+source "${SCRIPT_DIR}/common.sh"
 
 # Default to building deps for default Python version
 PYTHON_VERSION="${1:-$($CDX_CLI default python)}"
 
-# Setup
-"${ROOT_DIR}/scripts/00-setup/system-deps.sh"
-"${ROOT_DIR}/scripts/00-setup/cosmocc.sh"
+# Install system dependencies first (not in toposort)
+"${SCRIPT_DIR}/setup.sh"
 
-# Get build order, excluding non-library deps
-BUILD_ORDER=$($CDX_CLI build-order python "$PYTHON_VERSION" \
-  --exclude python --exclude cosmocc --exclude cacert)
+# Get build order, excluding python (which is built separately)
+BUILD_ORDER=$($CDX_CLI build-order python "$PYTHON_VERSION" --exclude python)
 
 # Build a single dep by name
 build_dep() {

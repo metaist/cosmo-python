@@ -70,7 +70,7 @@ echo "========================================"
 echo "  Phase 1: Dependencies"
 echo "========================================"
 
-${SCRIPT_DIR}/01-deps/build.sh
+${SCRIPT_DIR}/build-deps.sh
 
 echo ""
 echo "========================================"
@@ -78,7 +78,7 @@ echo "  Phase 2: Python"
 echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
-  "${SCRIPT_DIR}/02-python/build.sh" "${version}"
+  "${SCRIPT_DIR}/python/build.sh" "${version}"
 done
 
 echo ""
@@ -91,7 +91,7 @@ for version in "${VERSIONS[@]}"; do
 
   if [ -f "$BINARY" ]; then
     log_info "testing Python ${version}..."
-    "${SCRIPT_DIR}/02-python/smoke.sh" "${BINARY}"
+    "${SCRIPT_DIR}/smoke.sh" "${BINARY}"
   else
     log_error "binary not found: ${BINARY}"
     exit 1

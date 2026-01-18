@@ -7,14 +7,14 @@
 #   3. Package into distributable binary
 #
 # Usage:
-#   ./scripts/02-python/build.sh <version>
+#   ./scripts/python/build.sh <version>
 #
 # Example:
-#   ./scripts/02-python/build.sh 3.12.8
+#   ./scripts/python/build.sh 3.12.8
 #
 # Prerequisites:
-#   - cosmocc toolchain installed (via 00-setup/cosmocc.sh)
-#   - Dependencies built (via 01-deps/build.sh)
+#   - cosmocc toolchain installed (via scripts/cosmocc.sh)
+#   - Dependencies built (via scripts/build-deps.sh)
 #
 set -euo pipefail
 

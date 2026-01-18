@@ -55,7 +55,7 @@ log_build "libffi ${LIBFFI_VERSION}"
 # Verify toolchain exists
 if [ ! -x "${COSMO_DIR}/bin/x86_64-linux-cosmo-gcc" ]; then
   log_error "cosmopolitan toolchain not found at ${COSMO_DIR}"
-  log_error "run 00-setup/cosmocc.sh first"
+  log_error "run scripts/cosmocc.sh first"
   exit 1
 fi
 

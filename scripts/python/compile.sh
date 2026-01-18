@@ -4,7 +4,7 @@
 # cosmocc automatically compiles for both x86_64 and aarch64 architectures,
 # creating a "fat" APE binary that runs on both.
 #
-# Dependencies: all 01-deps/* must be built first
+# Dependencies: all scripts/*.sh must be built first
 # Outputs: ${WORK_DIR}/build-${PYTHON_VERSION}-x86_64/python (fat APE)
 #
 source "$(dirname "$0")/../common.sh"
@@ -32,11 +32,11 @@ fi
 # Check source exists
 if [ ! -d "${SRC_DIR}" ]; then
   log_error "Python source not found at ${SRC_DIR}"
-  log_error "run 02-python/download.sh ${PYTHON_VERSION} first"
+  log_error "run scripts/python/download.sh ${PYTHON_VERSION} first"
   exit 1
 fi
 
-# Apply patches from 02-python/all/ and 02-python/{version}/
+# Apply patches from scripts/python/all/ and scripts/python/{version}/
 # Uses -N (--forward) to skip already-applied patches
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PYTHON_MAJOR_MINOR="${PYTHON_VERSION%.*}"
@@ -80,14 +80,14 @@ REQUIRED_LIBS=(
 for lib in "${REQUIRED_LIBS[@]}"; do
   if [ ! -f "$lib" ]; then
     log_error "missing dependency: $lib"
-    log_error "run all 01-deps/*.sh scripts first"
+    log_error "run all scripts/*.sh.sh scripts first"
     exit 1
   fi
 done
 
 log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 
-# Config files (like Setup.local) are in 02-python/{version}/
+# Config files (like Setup.local) are in scripts/python/{version}/
 
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
@@ -104,7 +104,7 @@ export _PYTHON_HOST_PLATFORM="cosmo"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
   log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
-  log_error "run 00-setup/cosmocc.sh first"
+  log_error "run scripts/cosmocc.sh first"
   exit 1
 fi
 

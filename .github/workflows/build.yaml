@@ -6,7 +6,12 @@
 # Structure:
 #   1. setup: determine versions and cosmocc version from upstream.cdx.json
 #   2. deps: build dependencies once (cached across runs)
-#   3. build: build Python versions in parallel (matrix)
+#   3. build: build Python versions in parallel (matrix, cached per version)
+#
+# Caching:
+#   - deps: cosmocc + libraries, keyed by upstream.cdx.json + dep scripts
+#   - python: per-version binaries, keyed by upstream.cdx.json + python scripts
+#   - PR builds populate cache, release builds get cache hits
 #
 # Usage:
 #   - Single version: python_version = "3.12.8"
@@ -72,11 +77,11 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/*.sh') }}
 
       - name: Build dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: ./scripts/01-deps/build.sh
+        run: ./scripts/build-deps.sh
 
   # Third job: build Python versions in parallel
   build:
@@ -101,7 +106,7 @@ jobs:
           path: |
             /tmp/cosmo
             work/deps
-          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/01-deps/**') }}
+          key: deps-cosmocc${{ needs.setup.outputs.cosmocc_version }}-${{ hashFiles('upstream.cdx.json', 'scripts/*.sh') }}
           fail-on-cache-miss: true
 
       - name: Install uv
@@ -109,15 +114,24 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Cache Python binary
+        id: cache-python
+        uses: actions/cache@v5
+        with:
+          path: |
+            dist/python-${{ matrix.version }}-cosmo.com
+            dist/python-${{ matrix.version }}-cosmo.com.sha256
+          key: python-${{ matrix.version }}-${{ hashFiles('upstream.cdx.json', 'scripts/python/**', 'scripts/common.sh') }}
+
       - name: Setup APE loader
-        run: ./scripts/00-setup/cosmocc.sh
+        run: ./scripts/cosmocc.sh
 
       - name: Build Python ${{ matrix.version }}
-        run: ./scripts/02-python/build.sh "${{ matrix.version }}"
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        run: ./scripts/python/build.sh "${{ matrix.version }}"
 
       - name: Run smoke tests
-        run: |
-          ./scripts/02-python/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
+        run: ./scripts/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6

@@ -9,7 +9,7 @@ name: PR Build
 on:
   pull_request:
     paths:
-      - "versions.cdx.json"
+      - "upstream.cdx.json"
       - "scripts/**"
       - "keys/**"
 

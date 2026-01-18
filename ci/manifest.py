@@ -214,12 +214,14 @@ def generate_manifest(
         dep_comp = build_bom.get_component(name, version)
         if dep_comp and not manifest.get_component(name, version):
             manifest.add_component(dep_comp)
-        # Copy library interdependencies (e.g., readline -> ncurses)
+        # Copy runtime library interdependencies (e.g., readline -> ncurses)
         # Skip python - it's just source, cosmo-python has the real deps
+        # Filter out build-time deps (cosmocc) - only keep runtime deps
         if name != "python":
             lib_deps = build_bom.get_dependencies(dep_ref)
-            if lib_deps:
-                manifest.set_dependencies(dep_ref, lib_deps)
+            runtime_deps = [d for d in lib_deps if not d.startswith("cosmocc@")]
+            if runtime_deps:
+                manifest.set_dependencies(dep_ref, runtime_deps)
 
     # Compute default (highest non-prerelease stable version of cosmo-python)
     all_versions = sorted(c.version for c in manifest.get_components("cosmo-python"))

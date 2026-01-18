@@ -24,10 +24,10 @@
 # - QUIC/async/engine: No security impact; just features not needed.
 # - no-legacy: Actually improves security by disabling old algorithms.
 #
-# Dependencies: none
+# Dependencies: cosmocc, cacert
 # Outputs: ${DEPS_DIR}/lib/libssl.a, ${DEPS_DIR}/lib/libcrypto.a, ${DEPS_DIR}/include/openssl/
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "openssl" "$@"
@@ -76,7 +76,7 @@ export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
   log_error "cosmocc not found at ${COSMO_DIR}/bin/cosmocc"
-  log_error "run 00-setup/cosmocc.sh first"
+  log_error "run scripts/cosmocc.sh first"
   exit 1
 fi
 
@@ -191,58 +191,6 @@ if find . -name ".aarch64" -type d | head -1 | grep -q .; then
   done
 fi
 
-# Download Mozilla CA certificate bundle for SSL verification
-# This will be bundled into the final Python binary at /zip/share/ssl/certs/
-# We store locally at ${DEPS_DIR}/share/ssl/ to match the /zip/ structure
-CACERT_VERSION="${CACERT_VERSION:-$(get_dep_version cacert)}"
-CACERT_SHA256="$(get_pkg_sha256 cacert "$CACERT_VERSION")"
-CA_BUNDLE_URL="https://curl.se/ca/cacert-${CACERT_VERSION}.pem"
-CA_BUNDLE_DIR="${DEPS_DIR}/share/ssl/certs"
-CA_BUNDLE_FILE="${DEPS_DIR}/share/ssl/cert.pem"
-
-if [ ! -f "${CA_BUNDLE_FILE}" ]; then
-  log_info "downloading Mozilla CA certificate bundle ${CACERT_VERSION}..."
-  mkdir -p "${CA_BUNDLE_DIR}"
-  
-  # Download and verify
-  curl -fsSL "${CA_BUNDLE_URL}" -o "${CA_BUNDLE_FILE}.tmp"
-  echo "${CACERT_SHA256}  ${CA_BUNDLE_FILE}.tmp" | sha256sum -c - > /dev/null 2>&1 || {
-    log_error "CA bundle checksum verification failed!"
-    rm -f "${CA_BUNDLE_FILE}.tmp"
-    exit 1
-  }
-  mv "${CA_BUNDLE_FILE}.tmp" "${CA_BUNDLE_FILE}"
-  log_info "CA bundle checksum verified"
-  
-  # Also create individual cert files for compatibility
-  # Some tools expect a directory of individual certs
-  log_info "extracting individual certificates..."
-  cd "${CA_BUNDLE_DIR}"
-  awk '
-    /-----BEGIN CERTIFICATE-----/ { cert = "" }
-    { cert = cert $0 "\n" }
-    /-----END CERTIFICATE-----/ {
-      # Extract subject CN for filename
-      cmd = "echo \"" cert "\" | openssl x509 -noout -subject 2>/dev/null | sed \"s/.*CN = //\" | sed \"s/[^a-zA-Z0-9_.-]/_/g\""
-      cmd | getline name
-      close(cmd)
-      if (name == "") name = "cert_" NR
-      print cert > name ".pem"
-    }
-  ' "${CA_BUNDLE_FILE}" 2>/dev/null || true
-  
-  # Create hash symlinks (c_rehash equivalent)
-  for cert in *.pem; do
-    if [ -f "$cert" ]; then
-      hash=$(openssl x509 -hash -noout -in "$cert" 2>/dev/null) || continue
-      ln -sf "$cert" "${hash}.0" 2>/dev/null || true
-    fi
-  done
-  
-  log_ok "CA certificates installed"
-fi
-
 log_ok "openssl ${OPENSSL_VERSION} installed"
 log_info "  libraries: ${DEPS_DIR}/lib/libssl.a, ${DEPS_DIR}/lib/libcrypto.a"
 log_info "  headers:   ${DEPS_DIR}/include/openssl/"
-log_info "  ca-certs:  ${CA_BUNDLE_DIR}/"

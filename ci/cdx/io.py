@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ci.common import version_key
 from ci.json_fmt import dumps as json_dumps
 
 from .bom import Bom
@@ -208,11 +209,30 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
     if bom._release:
         meta_component["version"] = bom._release
 
-    # Build components with per-component release info
+    # Build components in topological order (by level, then alphabetical)
+    # This makes the JSON reflect actual build order
     components: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+
+    # Get toposorted order for deps
+    ordered_names = bom.toposorted_names()
+
+    # Add components in order (all versions of each name together)
+    for name in ordered_names:
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        for c in sorted(bom.get_components(name), key=lambda x: version_key(x.version)):
+            release = bom._component_releases.get(c.bom_ref)
+            components.append(_component_to_cdx(c, release))
+
+    # Add any remaining components not in toposort (shouldn't happen normally)
     for c in bom.all_components():
-        release = bom._component_releases.get(c.bom_ref)
-        components.append(_component_to_cdx(c, release))
+        name = c.name
+        if name not in seen_names:
+            seen_names.add(name)
+            release = bom._component_releases.get(c.bom_ref)
+            components.append(_component_to_cdx(c, release))
 
     result: dict[str, Any] = {
         "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
@@ -229,8 +249,6 @@ def dump(bom: Bom, path: Path | str | None = None) -> dict[str, Any]:
 
     # Add dependencies
     # Sort dependencies by ref: python first, then alpha, each with version_key
-    from ci.common import version_key
-
     def dep_sort_key(
         item: tuple[str, list[str]],
     ) -> tuple[int, str, list[tuple[int, int | str]]]:

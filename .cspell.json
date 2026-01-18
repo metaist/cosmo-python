@@ -118,6 +118,7 @@
     "mailcap",
     "sunau",
     "idlelib",
-    "ghijkl"
+    "ghijkl",
+    "toposorted"
   ]
 }

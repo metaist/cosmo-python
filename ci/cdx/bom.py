@@ -186,17 +186,64 @@ class Bom:
         versions = self.python_versions()
         return sorted(set(".".join(v.split(".")[:2]) for v in versions))
 
+    def toposorted_names(self, root: str | None = None, reverse: bool = True) -> list[str]:
+        """Get component names in topological order (by level, then alphabetical).
+
+        If root is provided, only includes deps of that component.
+        Otherwise uses python as root if available.
+        Components not in the dep graph are appended alphabetically at the end,
+        except cosmo-python which goes first (it's the product in manifests).
+
+        Args:
+            root: Starting component ref (e.g., "python@3.14.2")
+            reverse: If True (default), highest level first (python before deps).
+                     If False, lowest level first (build order).
+        """
+        if root is None:
+            # Find a root - prefer cosmo-python (manifests) over python (upstream)
+            # For manifests, cosmo-python has deps; for upstream, python has deps
+            python_default = self.get_default_version("python")
+            if "cosmo-python" in self._components and python_default:
+                # Manifest: use cosmo-python with same version as python default
+                root = f"cosmo-python@{python_default}"
+            elif python_default:
+                # Upstream: use python
+                root = f"python@{python_default}"
+            else:
+                # No python, fall back to alphabetical
+                return sorted(self.component_names())
+
+        order = self.build_order(root)
+        # Sort by (level, name) - negate level if reverse
+        if reverse:
+            order.sort(key=lambda x: (-x[0], x[1].split("@")[0]))
+        else:
+            order.sort(key=lambda x: (x[0], x[1].split("@")[0]))
+        result = [ref.split("@")[0] for level, ref in order]
+
+        # Add any components not in the dep graph
+        # cosmo-python goes first (it's the product), others alphabetically at end
+        seen = set(result)
+        extras = [name for name in self.component_names() if name not in seen]
+        if "cosmo-python" in extras:
+            result.insert(0, "cosmo-python")
+            extras.remove("cosmo-python")
+        result.extend(sorted(extras))
+
+        return result
+
     def upstream_table(self) -> str:
         """Generate upstream sources table.
 
         Columns: Dependency (linked), Version, Integrity, Signature, License.
+        Components are listed in topological build order (by level, then alphabetical).
         """
         lines = [
             "| Dependency | Version | Integrity | Signature | License |",
             "|------------|---------|-----------|-----------|---------|",
         ]
 
-        for name in self.component_names():
+        for name in self.toposorted_names():
             comp = self.get_default_component(name)
             if not comp:  # pragma: no cover - component_names always have defaults
                 continue

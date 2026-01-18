@@ -8,7 +8,7 @@
 # cosmocc automatically compiles for both architectures and embeds both
 # in a single binary.
 #
-# Dependencies: 02-python/compile.sh must have run successfully
+# Dependencies: scripts/python/compile.sh must have run successfully
 # Outputs: ${DIST_DIR}/python-${VERSION}-cosmo.com
 #
 source "$(dirname "$0")/../common.sh"
@@ -46,7 +46,7 @@ done
 
 if [ -z "${BINARY}" ]; then
   log_error "could not find built Python binary in ${BUILD_DIR}"
-  log_error "run 02-python/compile.sh ${PYTHON_VERSION} first"
+  log_error "run scripts/python/compile.sh ${PYTHON_VERSION} first"
   exit 1
 fi
 
