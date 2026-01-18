@@ -1,22 +1,32 @@
 # PR Build Workflow
 #
 # Validates changes by building all Python versions.
-# Triggered on PRs that modify versions.cdx.json, scripts, or keys.
-# Restricted to trusted actors to prevent arbitrary PRs from triggering builds.
+# Triggered on PRs that modify upstream.cdx.json, scripts, or keys.
+#
+# Security: Uses pull_request_target with environment approval to safely
+# build PRs from forks. The workflow code from main is used, not from the PR.
+# A maintainer must approve via the pr-approval environment before builds run.
 #
 name: PR Build
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - "upstream.cdx.json"
       - "scripts/**"
       - "keys/**"
 
 jobs:
+  approve:
+    name: Await Approval
+    runs-on: ubuntu-latest
+    environment: pr-approval
+    steps:
+      - run: echo "Build approved by maintainer"
+
   build:
-    if: github.actor == 'metaist' || github.actor == 'github-actions[bot]'
     name: Build All Versions
+    needs: approve
     uses: ./.github/workflows/build.yaml
     with:
       python_version: "all"
