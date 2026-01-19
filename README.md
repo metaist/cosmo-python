@@ -49,7 +49,7 @@ cog.outl(bom.upstream_table())
 ]]]-->
 | Dependency | Version | Integrity | Signature | License |
 |------------|---------|-----------|-----------|---------|
-| [Python](https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz) | 3.10–3.14 | SHA256 | Sigstore | [PSF-2.0](https://docs.python.org/3/license.html) |
+| [Python](https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz) | 3.10–3.14 | SHA256 | — | [PSF-2.0](https://docs.python.org/3/license.html) |
 | [readline](https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz) | 8.3 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING) |
 | [bzip2](https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz) | 1.0.8 | SHA256 | GPG | [bzip2-1.0.6](https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE) |
 | [gdbm](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | 1.26 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
