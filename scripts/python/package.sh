@@ -96,12 +96,11 @@ find lib/python${PYTHON_MAJOR_MINOR} -type d -name '__pycache__' -exec rm -rf {}
 # -b: write .pyc to legacy location (beside .py, not __pycache__/)
 # -f: force recompile
 # -q: quiet
-# -s: strip this prefix from source paths
 # -p: prepend this prefix (so tracebacks show /zip/lib/...)
+# Note: not using -s since paths are already relative (lib/python3.XX/...)
 log_info "pre-compiling bytecode..."
 PYTHONPATH="${PWD}/lib/python${PYTHON_MAJOR_MINOR}" \
     "${BINARY}" -m compileall -fqb \
-    -s "${PWD}" \
     -p /zip \
     lib/python${PYTHON_MAJOR_MINOR}
 
