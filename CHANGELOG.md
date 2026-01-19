@@ -24,6 +24,12 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#73] hardcoded repo URL in `ci/release_notes.py`
 - [#76] `check_updates.py` crashes on `gh api` failures
 - [#77] Python version fetcher uses non-existent API filter
+- [#82] dependency refs not updated when default version changes
+- [#84] new component versions don't inherit dependencies
+- [#86] incorrect source path for `common.sh` in build scripts
+- [#87] `CDX_CLI` fails when run from different directory
+- [#88] `bz2.sh` script name doesn't match `bzip2` component
+- [#91] `compileall` stripdir not working (traceback paths wrong)
 
 **Changed**
 
@@ -70,6 +76,8 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#66] `pyproject.toml` for proper Python project setup
 - [#69] OpenSSL EOL tracking in check-updates
 - [#75] approval-based PR build workflow for contributors
+- [#89] disable deprecated Java raw API in libffi (cleaner build logs)
+- [#90] zstd dependency for Python 3.14 `compression.zstd` module
 
 **Removed**
 
@@ -133,6 +141,16 @@ These are changes that are on `main` that are not yet in `prod`.
 [#73]: https://github.com/metaist/cosmo-python/issues/73
 [#74]: https://github.com/metaist/cosmo-python/issues/74
 [#75]: https://github.com/metaist/cosmo-python/issues/75
+[#76]: https://github.com/metaist/cosmo-python/issues/76
+[#77]: https://github.com/metaist/cosmo-python/issues/77
+[#82]: https://github.com/metaist/cosmo-python/issues/82
+[#84]: https://github.com/metaist/cosmo-python/issues/84
+[#86]: https://github.com/metaist/cosmo-python/issues/86
+[#87]: https://github.com/metaist/cosmo-python/issues/87
+[#88]: https://github.com/metaist/cosmo-python/issues/88
+[#89]: https://github.com/metaist/cosmo-python/issues/89
+[#90]: https://github.com/metaist/cosmo-python/issues/90
+[#91]: https://github.com/metaist/cosmo-python/issues/91
 [#13]: https://github.com/metaist/cosmo-python/issues/13
 [20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
 

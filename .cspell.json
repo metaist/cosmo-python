@@ -120,6 +120,8 @@
     "idlelib",
     "ghijkl",
     "toposorted",
-    "zstd"
+    "zstd",
+    "compileall",
+    "stripdir"
   ]
 }
