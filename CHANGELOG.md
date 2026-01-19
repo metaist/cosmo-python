@@ -16,17 +16,35 @@ Sections order is: `Fixed`, `Changed`, `Added`, `Deprecated`, `Removed`, `Securi
 
 These are changes that are on `main` that are not yet in `prod`.
 
+**Fixed**
+
+- [#70] `MISC_DEPS` key mismatch (`bz2` vs `bzip2`)
+- [#71] PURL not regenerated when updating dependencies
+- [#72] hardcoded publisher in `ci/cdx/io.py`
+- [#73] hardcoded repo URL in `ci/release_notes.py`
+
 **Changed**
 
-- [#47] default Python version changed to 3.13
+- [#47] default Python version changed to 3.14
 - [#47] `versions.json` subkeys sorted to `eol`, `status`, `sha256`
 - [#49] check-updates reads Python versions from `versions.json` instead of hardcoding
 - [#49] check-updates uses endoflife.date API for status/eol
 - [#49] check-updates uses `ds cog` for README regeneration
 - [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
+- [#52] build scripts use URLs from `versions.json`
+- [#53] standardized key ordering in JSON files
+- [#54] wide-ranging delinting and cleanup
+- [#58] use maximum ZIP compression for smaller binaries
+- [#59] CI scripts rewritten in Python with shared module
 - [#60] `versions.json` replaced by `upstream.cdx.json` (CycloneDX 1.5 format)
 - [#60] release `manifest.json` replaced by `manifest.cdx.json` (CycloneDX SBOM)
 - [#60] built binaries are `cosmo-python` in manifest (depends on upstream `python` + libs)
+- [#62] flatten scripts structure with build caching
+- [#64] restrict `pr-build.yaml` to trusted actors
+- [#65] rename `versions.cdx.json` to `upstream.cdx.json`
+- [#67] split `cdx.py` into `ci/cdx/` package
+- [#68] `json_fmt` array expansion and trailing collapse fixes
+- [#74] simplify trailing collapse heuristic (length + spaces)
 
 **Added**
 
@@ -38,9 +56,17 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#48] per-version signing metadata (`sigstore`, `gpg`) in `versions.json`
 - [#51] license tracking (`license`, `license_url`) in `versions.json`
 - [#51] License column in README upstream sources table
+- [#55] `LIMITATIONS.md` documenting known limitations
+- [#56] unit tests for `ci/` modules
+- [#57] pre-compile `.pyc` files for faster startup
 - [#60] `ci/cdx.py` - CycloneDX BOM parsing and generation
-- [#60] `ci/json_fmt.py` - semantic JSON formatter (entropy-aware compaction)
+- [#60] `ci/json_fmt.py` - semantic JSON formatter
 - [#60] manifest includes full dependency graph (python source + libraries)
+- [#61] dependency graph and `build-order` command
+- [#63] auto-generate release notes from changelog and deps
+- [#66] `pyproject.toml` for proper Python project setup
+- [#69] OpenSSL EOL tracking in check-updates
+- [#75] approval-based PR build workflow for contributors
 
 **Removed**
 
@@ -80,7 +106,30 @@ These are changes that are on `main` that are not yet in `prod`.
 [#48]: https://github.com/metaist/cosmo-python/issues/48
 [#49]: https://github.com/metaist/cosmo-python/issues/49
 [#51]: https://github.com/metaist/cosmo-python/issues/51
+[#52]: https://github.com/metaist/cosmo-python/issues/52
+[#53]: https://github.com/metaist/cosmo-python/issues/53
+[#54]: https://github.com/metaist/cosmo-python/issues/54
+[#55]: https://github.com/metaist/cosmo-python/issues/55
+[#56]: https://github.com/metaist/cosmo-python/issues/56
+[#57]: https://github.com/metaist/cosmo-python/issues/57
+[#58]: https://github.com/metaist/cosmo-python/issues/58
+[#59]: https://github.com/metaist/cosmo-python/issues/59
 [#60]: https://github.com/metaist/cosmo-python/issues/60
+[#61]: https://github.com/metaist/cosmo-python/issues/61
+[#62]: https://github.com/metaist/cosmo-python/issues/62
+[#63]: https://github.com/metaist/cosmo-python/issues/63
+[#64]: https://github.com/metaist/cosmo-python/issues/64
+[#65]: https://github.com/metaist/cosmo-python/issues/65
+[#66]: https://github.com/metaist/cosmo-python/issues/66
+[#67]: https://github.com/metaist/cosmo-python/issues/67
+[#68]: https://github.com/metaist/cosmo-python/issues/68
+[#69]: https://github.com/metaist/cosmo-python/issues/69
+[#70]: https://github.com/metaist/cosmo-python/issues/70
+[#71]: https://github.com/metaist/cosmo-python/issues/71
+[#72]: https://github.com/metaist/cosmo-python/issues/72
+[#73]: https://github.com/metaist/cosmo-python/issues/73
+[#74]: https://github.com/metaist/cosmo-python/issues/74
+[#75]: https://github.com/metaist/cosmo-python/issues/75
 [#13]: https://github.com/metaist/cosmo-python/issues/13
 [20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
 
