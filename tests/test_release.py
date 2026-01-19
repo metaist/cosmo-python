@@ -54,6 +54,8 @@ These are changes that are on `main` that are not yet in `prod`.
 ## [20260101-120000] - 2026-01-01
 
 Previous release.
+
+[20260101-120000]: https://github.com/test/repo/releases/tag/20260101-120000
 """)
     return changelog
 
@@ -71,9 +73,42 @@ class TestMoveUnreleasedToRelease:
 
         content = tmp_changelog.read_text()
         assert "## [20260119-120000] -" in content
-        assert "[20260119-120000]: https://github.com/test/repo/releases/tag/20260119-120000" in content
+        # Should use compare link since there's a previous release
+        assert "[20260119-120000]: https://github.com/test/repo/compare/20260101-120000...20260119-120000" in content
         # Original content should be in new section
         assert "[#1] bug fix one" in content
+
+    def test_first_release_uses_tag_link(self, tmp_path: Path) -> None:
+        """Should use direct tag link when no previous release exists."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text("""\
+# Changelog
+
+---
+
+## [Unreleased]
+
+[unreleased]: https://github.com/test/repo/compare/prod...main
+
+These are changes that are on `main` that are not yet in `prod`.
+
+**Added**
+
+- [#1] first feature
+
+[#1]: https://github.com/test/repo/issues/1
+
+---
+""")
+        release.move_unreleased_to_release(
+            "20260119-120000",
+            changelog,
+            "test/repo",
+        )
+
+        content = changelog.read_text()
+        # Should use direct tag link (no previous release to compare)
+        assert "[20260119-120000]: https://github.com/test/repo/releases/tag/20260119-120000" in content
 
     def test_missing_file(self, tmp_path: Path) -> None:
         """Should do nothing for missing file."""

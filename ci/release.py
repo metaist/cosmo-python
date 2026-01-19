@@ -150,9 +150,19 @@ def move_unreleased_to_release(
     # content is match.group(2) - same as unreleased_content
     separator = match.group(3)
 
+    # Find the previous release tag (if any) for compare link
+    prev_tag_match = re.search(r"\[(\d{8}-\d{6})\]:", content)
+    if prev_tag_match:
+        prev_tag = prev_tag_match.group(1)
+        release_link = (
+            f"[{release_tag}]: https://github.com/{repo}/compare/{prev_tag}...{release_tag}\n"
+        )
+    else:
+        # First release after initial - link directly to tag
+        release_link = f"[{release_tag}]: https://github.com/{repo}/releases/tag/{release_tag}\n"
+
     # Build new release section
     new_section = f"## [{release_tag}] - {today}\n\n{unreleased_content}\n"
-    release_link = f"[{release_tag}]: https://github.com/{repo}/releases/tag/{release_tag}\n"
 
     # Reconstruct: header (empty) + new section + separator
     new_content = (
