@@ -125,6 +125,18 @@ class TestGenerateVersionTable:
         assert "3.13" in versions[1]
         assert "3.14" in versions[2]
 
+    def test_skips_non_matching_files(self, tmp_path: Path) -> None:
+        """Should skip files that don't match the expected pattern."""
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        (dist / "python-3.12.1-cosmo.com").touch()
+        (dist / "not-a-python-binary.com").touch()  # doesn't match
+        (dist / "python-invalid-cosmo.com").touch()  # doesn't match
+        result = release.generate_version_table(dist)
+        assert "3.12" in result
+        assert "invalid" not in result
+        assert "not-a-python" not in result
+
 
 class TestGenerateSupplyChainTable:
     """Tests for generate_supply_chain_table."""
@@ -176,6 +188,46 @@ class TestGenerateReleaseNotes:
         assert "Default Python version:" in result
         assert "[python-3.12.1-cosmo.com]" in result
         assert "[#1] bug fix one" in result
+
+    def test_handles_empty_dist(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Should handle empty dist directory (no version table)."""
+        import shutil
+        src = Path(__file__).parent.parent / "upstream.cdx.json"
+        shutil.copy(src, tmp_path / "upstream.cdx.json")
+        monkeypatch.chdir(tmp_path)
+
+        empty_dist = tmp_path / "empty_dist"
+        empty_dist.mkdir()
+
+        result = release.generate_release_notes(empty_dist)
+
+        # No Python Versions section when no binaries
+        assert "## Python Versions" not in result
+        # But Supply Chain should still be there
+        assert "## Supply Chain" in result
+
+    def test_handles_empty_changelog(
+        self, tmp_dist: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should handle empty/missing changelog."""
+        import shutil
+        src = Path(__file__).parent.parent / "upstream.cdx.json"
+        shutil.copy(src, tmp_path / "upstream.cdx.json")
+        monkeypatch.chdir(tmp_path)
+
+        # Create empty changelog
+        empty_changelog = tmp_path / "CHANGELOG.md"
+        empty_changelog.write_text("# Changelog\n\nNo unreleased section.\n")
+
+        result = release.generate_release_notes(
+            tmp_dist,
+            changelog_path=empty_changelog,
+        )
+
+        # No Changelog section when changelog is empty
+        assert "## Changelog" not in result
+        # But Python Versions should still be there
+        assert "## Python Versions" in result
 
 
 class TestMain:
@@ -250,6 +302,35 @@ class TestMain:
             sys,
             "argv",
             ["release", str(tmp_dist), "--unknown", "value"],
+        ):
+            result = release.main()
+        assert result == 0
+
+    def test_handles_args_at_end_without_values(self, tmp_dist: Path) -> None:
+        """Should handle args at end of argv without values."""
+        # --release-tag at end without value
+        with patch.object(
+            sys,
+            "argv",
+            ["release", str(tmp_dist), "--release-tag"],
+        ):
+            result = release.main()
+        assert result == 0
+
+        # --repo at end without value
+        with patch.object(
+            sys,
+            "argv",
+            ["release", str(tmp_dist), "--repo"],
+        ):
+            result = release.main()
+        assert result == 0
+
+        # --output at end without value
+        with patch.object(
+            sys,
+            "argv",
+            ["release", str(tmp_dist), "--output"],
         ):
             result = release.main()
         assert result == 0
