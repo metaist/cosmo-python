@@ -89,6 +89,12 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
         if updated:
             log.info(f"  Updated {updated} dependency reference(s)")
 
+        # Copy dependencies from old version to new version
+        old_deps = bom.get_dependencies(old_ref)
+        if old_deps:
+            bom.set_dependencies(new_ref, old_deps)
+            log.info(f"  Copied {len(old_deps)} dependency(ies) from {old_ref}")
+
     bom.set_default(dep, new_version)
 
     log.info(f"OK Updated {dep} to {new_version}")

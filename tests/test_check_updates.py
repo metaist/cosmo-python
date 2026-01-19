@@ -25,10 +25,15 @@ def make_test_bom() -> cdx.Bom:
         sha256="def", license="MIT", license_url="http://mit",
         gpg="ABC123", component_type="library"
     ))
+    bom.add_component(cdx.Component(
+        name="cosmocc", version="4.0.0", url="http://cosmocc/4.0.0.zip",
+        sha256="ccc", license="ISC", component_type="application"
+    ))
     bom.set_default("python", "3.13")
     bom.set_latest("python", "3.13", "3.13.0")
     bom.set_default("xz", "5.6.0")
     bom.set_dependencies("python@3.13.0", ["xz@5.6.0"])
+    bom.set_dependencies("xz@5.6.0", ["cosmocc@4.0.0"])  # xz depends on cosmocc
     return bom
 
 
@@ -52,7 +57,7 @@ def test_update_dependency_dry_run(mock_deps: MagicMock, mock_sha256: MagicMock,
 @patch("ci.check_updates.fetch_sha256")
 @patch("ci.check_updates.DEPS")
 def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_dependency adds new version and updates dependency refs."""
+    """update_dependency adds new version, updates refs, and copies deps."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
     mock_sha256.return_value = "def456"
     mock_upstream = MagicMock()
@@ -62,6 +67,8 @@ def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock,
     bom = make_test_bom()
     # python@3.13.0 depends on xz@5.6.0
     assert "xz@5.6.0" in bom.get_dependencies("python@3.13.0")
+    # xz@5.6.0 depends on cosmocc
+    assert bom.get_dependencies("xz@5.6.0") == ["cosmocc@4.0.0"]
 
     result = update_dependency(bom, "xz", "5.6.1")
 
@@ -75,6 +82,10 @@ def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock,
     # Dependency ref should be updated
     assert "xz@5.6.1" in bom.get_dependencies("python@3.13.0")
     assert "xz@5.6.0" not in bom.get_dependencies("python@3.13.0")
+    # New version should have same dependencies as old version
+    assert bom.get_dependencies("xz@5.6.1") == ["cosmocc@4.0.0"]
+    # Old version's dependencies should still exist
+    assert bom.get_dependencies("xz@5.6.0") == ["cosmocc@4.0.0"]
 
 
 @patch("ci.check_updates.DEPS")
