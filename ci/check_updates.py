@@ -187,7 +187,7 @@ def check_dependencies(bom: cdx.Bom) -> list[tuple[str, str]]:
 
         try:
             latest = upstream.fetch_latest()
-        except (OSError, ValueError) as e:
+        except Exception as e:
             log.warning(f"{name}: {current} (failed to check: {e})")
             continue
 
