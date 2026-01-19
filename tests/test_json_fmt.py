@@ -87,17 +87,22 @@ def test_formatter_preserves_data() -> None:
 # -----------------------------------------------------------------------------
 
 
-def test_is_hex() -> None:
-    """Detect hex strings (32+ chars)."""
-    assert json_fmt._is_hex("abcdef0123456789" * 2)  # 32 chars
-    assert json_fmt._is_hex("ABCDEF0123456789" * 2)  # uppercase
-    assert not json_fmt._is_hex("abc")  # too short
-    assert not json_fmt._is_hex("ghijkl0123456789" * 2)  # not hex
-
-
-def test_is_url() -> None:
-    """Detect URLs."""
-    assert json_fmt._is_url("https://example.com")
-    assert json_fmt._is_url("http://example.com")
-    assert not json_fmt._is_url("ftp://example.com")
-    assert not json_fmt._is_url("not a url")
+def test_is_skippable() -> None:
+    """Detect visual blobs humans skip over."""
+    # URLs - always skippable
+    assert json_fmt._is_skippable("https://example.com/path/to/resource")
+    assert json_fmt._is_skippable("http://example.com/path/to/resource")
+    # Hashes (long, no spaces)
+    assert json_fmt._is_skippable("abcdef0123456789" * 2)
+    assert json_fmt._is_skippable("ABCDEF0123456789" * 2)
+    # File paths (long, no spaces)
+    assert json_fmt._is_skippable("/home/user/path/to/some/file.tar.gz")
+    # Repeated chars (long blob)
+    assert json_fmt._is_skippable("a" * 40)
+    # Short strings - always readable
+    assert not json_fmt._is_skippable("abc")
+    assert not json_fmt._is_skippable("short")
+    assert not json_fmt._is_skippable("python")
+    assert not json_fmt._is_skippable("3.14.2")
+    # Long with spaces = prose = readable
+    assert not json_fmt._is_skippable("This is a longer description with varied chars")

@@ -1,7 +1,7 @@
 """Semantic JSON formatter.
 
-Formats JSON with smart compaction based on semantic entropy - high-entropy
-values (hashes, URLs) are treated as shorter since you scan/skip over them.
+Formats JSON with smart compaction - long "blob" values (hashes, URLs, paths)
+are treated as shorter since humans visually skip over them.
 """
 
 from __future__ import annotations
@@ -10,37 +10,64 @@ import json
 import re
 from typing import Any
 
-# High-entropy values count as this many chars for line-length decisions
-HIGH_ENTROPY_LEN = 5
+# Skippable values count as this many chars for line-length decisions
+SKIPPABLE_LEN = 5
+
+# Minimum length for a string to be considered a skippable blob
+MIN_BLOB_LEN = 20
 
 
-def _is_hex(s: str) -> bool:
-    """Check if string is a long hex value (32+ chars)."""
-    return len(s) >= 32 and bool(re.fullmatch(r"[a-f0-9]+", s, re.IGNORECASE))
+def _is_skippable(s: str) -> bool:
+    """Check if string is visual line noise humans skip over.
 
+    Long strings without spaces are "blobs" (hashes, URLs, paths, encoded data).
+    Strings with spaces are prose meant to be read.
 
-def _is_url(s: str) -> bool:
-    """Check if string is a URL."""
-    return s.startswith("http://") or s.startswith("https://")
+    >>> _is_skippable("a078fb2d7a216071ebbe2e34b5f5355dd6b6e9b0")  # hash
+    True
+    >>> _is_skippable("https://github.com/user/repo/file.tar.gz")  # URL
+    True
+    >>> _is_skippable("/home/user/path/to/some/file.tar.gz")  # path
+    True
+    >>> _is_skippable("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")  # repeated
+    True
+    >>> _is_skippable("This is a description with spaces")  # prose
+    False
+    >>> _is_skippable("python")  # short name
+    False
+    >>> _is_skippable("3.14.2")  # version
+    False
+    """
+    # URLs - always skip
+    if s.startswith(("http://", "https://")):
+        return True
+
+    # Short strings - always readable
+    if len(s) < MIN_BLOB_LEN:
+        return False
+
+    # Long with spaces = prose = read it
+    if " " in s:
+        return False
+
+    # Long without spaces = blob (hash, path, encoded data) = skip it
+    return True
 
 
 def _semantic_compact_len(compact: str) -> int:
     """Calculate semantic length of a compact JSON string.
 
-    If the string ends with a high-entropy value (hash/URL) followed only by
-    closing brackets/braces, those trailing chars collapse to nearly nothing.
+    If the string ends with a skippable value (hash, URL, path) followed only
+    by closing brackets/braces, those trailing chars collapse to nearly nothing.
     This handles deeply nested structures like [[[{ "a": "hash..." }]]].
     """
-    # Match: hex hash at end, followed only by closing punctuation
-    match = re.search(r'"([a-f0-9]{32,})"\s*[\s}\]]*$', compact, re.IGNORECASE)
+    # Match: string value at end, followed only by closing punctuation
+    match = re.search(r'"([^"]+)"\s*[\s}\]]*$', compact)
     if match:
-        # Everything before the hash + small constant for hash
-        return match.start(1) + HIGH_ENTROPY_LEN
-
-    # Match: URL at end, followed only by closing punctuation
-    match = re.search(r'"(https?://[^"]+)"\s*[\s}\]]*$', compact)
-    if match:
-        return match.start(1) + HIGH_ENTROPY_LEN
+        value = match.group(1)
+        if _is_skippable(value):
+            # Everything before the value + small constant for the value
+            return match.start(1) + SKIPPABLE_LEN
 
     return len(compact)
 
