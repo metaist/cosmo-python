@@ -212,6 +212,33 @@ def test_bom_dependencies() -> None:
     assert bom.get_dependencies("missing@1.0") == []
 
 
+def test_bom_update_dependency_refs() -> None:
+    """Test updating dependency references."""
+    bom = cdx.Bom()
+    bom.set_dependencies("python@3.13", ["openssl@3.5.4", "sqlite@3.51.2"])
+    bom.set_dependencies("python@3.14", ["openssl@3.5.4", "xz@5.8.2"])
+    bom.set_dependencies("openssl@3.5.4", ["cosmocc@4.0.2"])  # Doesn't contain openssl
+
+    # Update openssl refs
+    count = bom.update_dependency_refs("openssl@3.5.4", "openssl@3.6.0")
+
+    assert count == 2  # python@3.13 and python@3.14
+    assert bom.get_dependencies("python@3.13") == ["openssl@3.6.0", "sqlite@3.51.2"]
+    assert bom.get_dependencies("python@3.14") == ["openssl@3.6.0", "xz@5.8.2"]
+    assert bom.get_dependencies("openssl@3.5.4") == ["cosmocc@4.0.2"]  # Unchanged
+
+
+def test_bom_update_dependency_refs_no_matches() -> None:
+    """Test updating dependency refs when none match."""
+    bom = cdx.Bom()
+    bom.set_dependencies("python@3.13", ["openssl@3.5.4"])
+
+    count = bom.update_dependency_refs("xz@5.8.1", "xz@5.8.2")
+
+    assert count == 0
+    assert bom.get_dependencies("python@3.13") == ["openssl@3.5.4"]  # Unchanged
+
+
 def test_bom_is_disabled() -> None:
     """Test is_disabled checks version prefix."""
     bom = cdx.Bom()

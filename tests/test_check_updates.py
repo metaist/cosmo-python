@@ -140,6 +140,35 @@ def test_update_dependency_fetch_error(mock_deps: MagicMock, mock_sha256: MagicM
 
 
 @patch("ci.check_updates.fetch_sha256")
+@patch("ci.check_updates.DEPS")
+def test_update_dependency_no_previous_default(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_dependency works when no previous default exists."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+    mock_upstream = MagicMock()
+    mock_upstream.build_url.return_value = "http://newdep/1.0.tar.gz"
+    mock_upstream.build_purl.return_value = None
+    mock_deps.get.return_value = mock_upstream
+
+    # Create bom without "newdep" component or default
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.13.0", url="http://py/3.13.0.tgz",
+        sha256="abc", license="PSF-2.0", component_type="application"
+    ))
+    bom.set_dependencies("python@3.13.0", ["otherdep@1.0"])
+
+    result = update_dependency(bom, "newdep", "1.0")
+
+    assert result is True
+    assert bom.get_default_version("newdep") == "1.0"
+    comp = bom.get_component("newdep", "1.0")
+    assert comp is not None
+    # Dependencies unchanged (no old ref to update)
+    assert bom.get_dependencies("python@3.13.0") == ["otherdep@1.0"]
+
+
+@patch("ci.check_updates.fetch_sha256")
 def test_update_python_version_dry_run(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
     """update_python_version in dry-run mode doesn't modify bom."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", True)
