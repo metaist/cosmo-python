@@ -2,7 +2,7 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "version": 1,
+  "version": 2,
   "metadata": {
     "timestamp": "2026-01-15T02:03:13Z",
     "component": { "type": "application", "name": "cosmo-python", "publisher": "metaist" },
@@ -13,7 +13,7 @@
       { "name": "cosmo:default:gdbm", "value": "1.26" },
       { "name": "cosmo:default:libffi", "value": "3.5.2" },
       { "name": "cosmo:default:ncurses", "value": "6.6" },
-      { "name": "cosmo:default:openssl", "value": "3.5.4" },
+      { "name": "cosmo:default:openssl", "value": "3.6.0" },
       { "name": "cosmo:default:python", "value": "3.14.2" },
       { "name": "cosmo:default:readline", "value": "8.3" },
       { "name": "cosmo:default:sqlite", "value": "3.51.2" },
@@ -98,6 +98,24 @@
       ]
     }, {
       "type": "library",
+      "bom-ref": "readline@8.2",
+      "name": "readline",
+      "version": "8.2",
+      "hashes": [{ "alg": "SHA-256", "content": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35" }],
+      "licenses": [{ "license": { "id": "GPL-3.0-only", "url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB" }]
+    }, {
+      "type": "library",
+      "bom-ref": "readline@8.3",
+      "name": "readline",
+      "version": "8.3",
+      "hashes": [{ "alg": "SHA-256", "content": "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc" }],
+      "licenses": [{ "license": { "id": "GPL-3.0-only", "url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB" }]
+    }, {
+      "type": "library",
       "bom-ref": "bzip2@1.0.8",
       "name": "bzip2",
       "version": "1.0.8",
@@ -105,24 +123,6 @@
       "licenses": [{ "license": { "id": "bzip2-1.0.6", "url": "https://sourceware.org/git/?p=bzip2.git;a=blob;f=LICENSE" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz" }],
       "properties": [{ "name": "cosmo:gpg", "value": "12768A96795990107A0D2FDFFC57E3CCACD99A78" }]
-    }, {
-      "type": "data",
-      "bom-ref": "cacert@2025-12-02",
-      "name": "cacert",
-      "version": "2025-12-02",
-      "description": "Mozilla CA certificate bundle from curl.se",
-      "hashes": [{ "alg": "SHA-256", "content": "f1407d974c5ed87d544bd931a278232e13925177e239fca370619aba63c757b4" }],
-      "licenses": [{ "license": { "id": "MPL-2.0", "url": "https://www.mozilla.org/en-US/MPL/2.0/" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://curl.se/ca/cacert-2025-12-02.pem" }]
-    }, {
-      "type": "application",
-      "bom-ref": "cosmocc@4.0.2",
-      "name": "cosmocc",
-      "version": "4.0.2",
-      "purl": "pkg:github/jart/cosmopolitan@4.0.2",
-      "hashes": [{ "alg": "SHA-256", "content": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44" }],
-      "licenses": [{ "license": { "id": "ISC", "url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip" }]
     }, {
       "type": "library",
       "bom-ref": "gdbm@1.23",
@@ -205,22 +205,18 @@
       ]
     }, {
       "type": "library",
-      "bom-ref": "readline@8.2",
-      "name": "readline",
-      "version": "8.2",
-      "hashes": [{ "alg": "SHA-256", "content": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35" }],
-      "licenses": [{ "license": { "id": "GPL-3.0-only", "url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz" }],
-      "properties": [{ "name": "cosmo:gpg", "value": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB" }]
-    }, {
-      "type": "library",
-      "bom-ref": "readline@8.3",
-      "name": "readline",
-      "version": "8.3",
-      "hashes": [{ "alg": "SHA-256", "content": "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc" }],
-      "licenses": [{ "license": { "id": "GPL-3.0-only", "url": "https://git.savannah.gnu.org/cgit/readline.git/tree/COPYING" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz" }],
-      "properties": [{ "name": "cosmo:gpg", "value": "7C0135FB088AAF6C66C650B9BB5869F064EA74AB" }]
+      "bom-ref": "openssl@3.6.0",
+      "name": "openssl",
+      "version": "3.6.0",
+      "purl": "pkg:github/openssl/openssl@openssl-3.6.0",
+      "hashes": [{ "alg": "SHA-256", "content": "b6a5f44b7eb69e3fa35dbf15524405b44837a481d43d81daddde3ff21fcbb8e9" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2026-11" },
+        { "name": "cosmo:status", "value": "supported" },
+        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
+      ]
     }, {
       "type": "library",
       "bom-ref": "sqlite@3.51.2",
@@ -249,14 +245,27 @@
       "licenses": [{ "license": { "name": "Public Domain", "url": "https://github.com/tukaani-project/xz/blob/master/COPYING" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz" }],
       "properties": [{ "name": "cosmo:gpg", "value": "3690C240CE51B4670D30AD1C38EE757D69184620" }]
+    }, {
+      "type": "data",
+      "bom-ref": "cacert@2025-12-02",
+      "name": "cacert",
+      "version": "2025-12-02",
+      "description": "Mozilla CA certificate bundle from curl.se",
+      "hashes": [{ "alg": "SHA-256", "content": "f1407d974c5ed87d544bd931a278232e13925177e239fca370619aba63c757b4" }],
+      "licenses": [{ "license": { "id": "MPL-2.0", "url": "https://www.mozilla.org/en-US/MPL/2.0/" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://curl.se/ca/cacert-2025-12-02.pem" }]
+    }, {
+      "type": "application",
+      "bom-ref": "cosmocc@4.0.2",
+      "name": "cosmocc",
+      "version": "4.0.2",
+      "purl": "pkg:github/jart/cosmopolitan@4.0.2",
+      "hashes": [{ "alg": "SHA-256", "content": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44" }],
+      "licenses": [{ "license": { "id": "ISC", "url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip" }]
     }
   ],
   "dependencies": [
-    { "ref": "bzip2@1.0.8", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "gdbm@1.26", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "libffi@3.5.2", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "ncurses@6.6", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
     {
       "ref": "python@3.10.19",
       "dependsOn": [
@@ -328,6 +337,11 @@
         "xz@5.8.2"
       ]
     },
+    { "ref": "bzip2@1.0.8", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "gdbm@1.26", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "libffi@3.5.2", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "ncurses@6.6", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
     { "ref": "readline@8.3", "dependsOn": ["ncurses@6.6"] },
     { "ref": "sqlite@3.51.2", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "xz@5.8.2", "dependsOn": ["cosmocc@4.0.2"] }
