@@ -157,11 +157,11 @@ def test_update_dependency_no_previous_default(mock_deps: MagicMock, mock_sha256
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
     mock_sha256.return_value = "newsha"
     mock_upstream = MagicMock()
-    mock_upstream.build_url.return_value = "http://newdep/1.0.tar.gz"
+    mock_upstream.build_url.return_value = "http://zlib/1.0.tar.gz"
     mock_upstream.build_purl.return_value = None
     mock_deps.get.return_value = mock_upstream
 
-    # Create bom without "newdep" component or default
+    # Create bom without "zlib" component or default
     bom = cdx.Bom()
     bom.add_component(cdx.Component(
         name="python", version="3.13.0", url="http://py/3.13.0.tgz",
@@ -169,11 +169,11 @@ def test_update_dependency_no_previous_default(mock_deps: MagicMock, mock_sha256
     ))
     bom.set_dependencies("python@3.13.0", ["otherdep@1.0"])
 
-    result = update_dependency(bom, "newdep", "1.0")
+    result = update_dependency(bom, "zlib", "1.0")
 
     assert result is True
-    assert bom.get_default_version("newdep") == "1.0"
-    comp = bom.get_component("newdep", "1.0")
+    assert bom.get_default_version("zlib") == "1.0"
+    comp = bom.get_component("zlib", "1.0")
     assert comp is not None
     # Dependencies unchanged (no old ref to update)
     assert bom.get_dependencies("python@3.13.0") == ["otherdep@1.0"]
