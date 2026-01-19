@@ -272,7 +272,8 @@
       "purl": "pkg:github/facebook/zstd@v1.5.7",
       "hashes": [{ "alg": "SHA-256", "content": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3" }],
       "licenses": [{ "license": { "id": "BSD-3-Clause", "url": "https://github.com/facebook/zstd/blob/dev/LICENSE" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz" }]
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "4EF4AC63455FC9F4545D9B7DEF8FE99528B52FFD" }]
     }
   ],
   "dependencies": [

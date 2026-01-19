@@ -52,7 +52,7 @@ fi
 if [ ! -d "${ZSTD_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="zstd-${ZSTD_VERSION}.tar.gz"
-  download_and_verify "${ZSTD_URL}" "${TARBALL}" "${ZSTD_SHA256}" "zstd ${ZSTD_VERSION}"
+  download_verify_gpg "zstd" "${ZSTD_VERSION}" "${ZSTD_URL}" "${TARBALL}" "zstd ${ZSTD_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi
