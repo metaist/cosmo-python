@@ -52,7 +52,7 @@ def test_update_dependency_dry_run(mock_deps: MagicMock, mock_sha256: MagicMock,
 @patch("ci.check_updates.fetch_sha256")
 @patch("ci.check_updates.DEPS")
 def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
-    """update_dependency adds new version."""
+    """update_dependency adds new version and updates dependency refs."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
     mock_sha256.return_value = "def456"
     mock_upstream = MagicMock()
@@ -60,6 +60,9 @@ def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock,
     mock_deps.get.return_value = mock_upstream
 
     bom = make_test_bom()
+    # python@3.13.0 depends on xz@5.6.0
+    assert "xz@5.6.0" in bom.get_dependencies("python@3.13.0")
+
     result = update_dependency(bom, "xz", "5.6.1")
 
     assert result is True
@@ -69,6 +72,9 @@ def test_update_dependency_success(mock_deps: MagicMock, mock_sha256: MagicMock,
     assert comp.sha256 == "def456"
     assert comp.license == "MIT"  # Copied from old default
     assert comp.gpg == "ABC123"  # Copied from old default
+    # Dependency ref should be updated
+    assert "xz@5.6.1" in bom.get_dependencies("python@3.13.0")
+    assert "xz@5.6.0" not in bom.get_dependencies("python@3.13.0")
 
 
 @patch("ci.check_updates.DEPS")

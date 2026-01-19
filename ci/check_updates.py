@@ -79,6 +79,16 @@ def update_dependency(bom: cdx.Bom, dep: str, new_version: str) -> bool:
         log.info(f"  License: {comp.license}")
 
     bom.add_component(comp)
+
+    # Update dependency references from old version to new version
+    old_version = bom.get_default_version(dep)
+    if old_version:
+        old_ref = f"{dep}@{old_version}"
+        new_ref = f"{dep}@{new_version}"
+        updated = bom.update_dependency_refs(old_ref, new_ref)
+        if updated:
+            log.info(f"  Updated {updated} dependency reference(s)")
+
     bom.set_default(dep, new_version)
 
     log.info(f"OK Updated {dep} to {new_version}")

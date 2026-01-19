@@ -125,6 +125,28 @@ class Bom:
         """Get the dependency refs for a component."""
         return self._dependencies.get(ref, [])
 
+    def update_dependency_refs(self, old_ref: str, new_ref: str) -> int:
+        """Update all dependency references from old_ref to new_ref.
+
+        Returns the number of components updated.
+
+        >>> bom = Bom()
+        >>> bom.set_dependencies("a@1", ["b@1", "c@1"])
+        >>> bom.set_dependencies("d@1", ["b@1"])
+        >>> bom.update_dependency_refs("b@1", "b@2")
+        2
+        >>> bom.get_dependencies("a@1")
+        ['b@2', 'c@1']
+        >>> bom.get_dependencies("d@1")
+        ['b@2']
+        """
+        count = 0
+        for ref, deps in self._dependencies.items():
+            if old_ref in deps:
+                self._dependencies[ref] = [new_ref if d == old_ref else d for d in deps]
+                count += 1
+        return count
+
     def build_order(self, ref: str) -> list[tuple[int, str]]:
         """Get dependencies in build order (topological sort) with parallel levels.
 
