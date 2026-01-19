@@ -261,16 +261,16 @@ def test_cacert_dep_fetch_latest(mock_urlopen: MagicMock) -> None:
 # --- Python ---
 
 
-@patch("ci.upstreams.python.fetch_json")
+@patch("ci.upstreams.python._fetch_releases")
 def test_python_fetch_latest(mock_fetch: MagicMock) -> None:
     """Python upstream fetches latest for minor."""
-    mock_fetch.return_value = {
-        "results": [
-            {"name": "Python 3.13.0", "is_published": True},
-            {"name": "Python 3.13.1", "is_published": True},
-            {"name": "Python 3.13.2", "is_published": False},
-        ]
-    }
+    mock_fetch.return_value = [
+        {"name": "Python 3.13.0", "is_published": True, "pre_release": False},
+        {"name": "Python 3.13.1", "is_published": True, "pre_release": False},
+        {"name": "Python 3.13.2", "is_published": False, "pre_release": False},
+        {"name": "Python 3.13.0a1", "is_published": True, "pre_release": True},  # Excluded
+        {"name": "Python 3.12.5", "is_published": True, "pre_release": False},  # Different minor
+    ]
     py = PythonUpstream()
     assert py.fetch_latest("3.13") == "3.13.1"
 
@@ -364,7 +364,7 @@ def test_python_get_status_prerelease(mock_eol: MagicMock) -> None:
     assert py.get_status("3.99") == "prerelease"
 
 
-@patch("ci.upstreams.python.fetch_json")
+@patch("ci.upstreams.python._fetch_releases")
 def test_python_fetch_latest_failure(mock_fetch: MagicMock) -> None:
     """Python fetch_latest returns None on error."""
     mock_fetch.side_effect = OSError("Network error")
@@ -372,10 +372,10 @@ def test_python_fetch_latest_failure(mock_fetch: MagicMock) -> None:
     assert py.fetch_latest("3.13") is None
 
 
-@patch("ci.upstreams.python.fetch_json")
+@patch("ci.upstreams.python._fetch_releases")
 def test_python_fetch_latest_no_results(mock_fetch: MagicMock) -> None:
     """Python fetch_latest returns None if no published releases."""
-    mock_fetch.return_value = {"results": []}
+    mock_fetch.return_value = []
     py = PythonUpstream()
     assert py.fetch_latest("3.13") is None
 

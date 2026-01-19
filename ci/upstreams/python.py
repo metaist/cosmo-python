@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any
 
@@ -9,6 +10,7 @@ from ..common import version_key
 from .http import fetch_json
 
 _ENDOFLIFE_CACHE: list[dict[str, Any]] = []
+_RELEASES_CACHE: list[dict[str, Any]] = []
 
 
 def _fetch_endoflife_data() -> list[dict[str, Any]]:  # pragma: no cover
@@ -19,14 +21,28 @@ def _fetch_endoflife_data() -> list[dict[str, Any]]:  # pragma: no cover
     return _ENDOFLIFE_CACHE
 
 
+def _fetch_releases() -> list[dict[str, Any]]:
+    """Fetch all Python releases from python.org API (cached)."""
+    global _RELEASES_CACHE
+    if not _RELEASES_CACHE:
+        _RELEASES_CACHE = fetch_json("https://www.python.org/api/v2/downloads/release/")
+    return _RELEASES_CACHE
+
+
 class PythonUpstream:
     """Python upstream with status and EOL tracking."""
 
     def fetch_latest(self, minor: str) -> str | None:
         """Fetch latest Python version for a minor release."""
         try:
-            data = fetch_json(f"https://www.python.org/api/v2/downloads/release/?version={minor}")
-            releases = [r for r in data["results"] if r["is_published"]]
+            data = _fetch_releases()
+            # Filter by name pattern: "Python 3.14.X" (X = digits only, no alpha/beta/rc)
+            pattern = re.compile(rf"^Python {re.escape(minor)}\.\d+$")
+            releases = [
+                r
+                for r in data
+                if r["is_published"] and not r["pre_release"] and pattern.match(r["name"])
+            ]
             if not releases:
                 return None
             versions = [str(r["name"]).replace("Python ", "") for r in releases]
