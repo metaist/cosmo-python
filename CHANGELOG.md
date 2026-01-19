@@ -55,6 +55,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#68] `json_fmt` array expansion and trailing collapse fixes
 - [#74] simplify trailing collapse heuristic (length + spaces)
 - [#75] `pr-build.yaml` uses approval-based workflow
+- [#93] consolidate release logic into `ci/release.py`
 
 **Added**
 
@@ -84,6 +85,7 @@ These are changes that are on `main` that are not yet in `prod`.
 
 - [#60] `versions.json` (replaced by `upstream.cdx.json`)
 - [#60] `ci/normalize.py` (replaced by `ci/cdx.py` and `ci/json_fmt.py`)
+- [#93] `ci/release_notes.py` (replaced by `ci/release.py`)
 
 [#13]: https://github.com/metaist/cosmo-python/issues/13
 [#46]: https://github.com/metaist/cosmo-python/issues/46
@@ -126,6 +128,7 @@ These are changes that are on `main` that are not yet in `prod`.
 [#90]: https://github.com/metaist/cosmo-python/issues/90
 [#91]: https://github.com/metaist/cosmo-python/issues/91
 [#92]: https://github.com/metaist/cosmo-python/issues/92
+[#93]: https://github.com/metaist/cosmo-python/issues/93
 
 ---
 
