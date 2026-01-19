@@ -26,6 +26,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 - Use `fd` instead of `find` (simpler syntax, respects `.gitignore`)
 - Use `rg` instead of `grep` (faster, better defaults)
 - For long-running commands (builds), pipe to a file so user can follow: `cmd 2>&1 | tee /tmp/build.log`
+- If a command seems to hang, check what's happening rather than waiting silently
 
 ## Code Style
 
@@ -40,6 +41,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 
 - Create an issue before implementing non-trivial changes
 - Add comments to existing issues when scope expands
+- Discuss structural/organizational changes before implementing (avoid churn)
 
 ## Commits and Pushing
 
