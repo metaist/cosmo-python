@@ -22,6 +22,8 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#71] PURL not regenerated when updating dependencies
 - [#72] hardcoded publisher in `ci/cdx/io.py`
 - [#73] hardcoded repo URL in `ci/release_notes.py`
+- [#76] `check_updates.py` crashes on `gh api` failures
+- [#77] Python version fetcher uses non-existent API filter
 
 **Changed**
 
@@ -45,6 +47,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#67] split `cdx.py` into `ci/cdx/` package
 - [#68] `json_fmt` array expansion and trailing collapse fixes
 - [#74] simplify trailing collapse heuristic (length + spaces)
+- [#75] `pr-build.yaml` uses approval-based workflow
 
 **Added**
 
