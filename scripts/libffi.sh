@@ -74,6 +74,7 @@ COMMON_CONFIG_FLAGS=(
   --enable-static
   --disable-exec-static-tramp  # CRITICAL: prevents segfaults with closures
   --disable-docs
+  --disable-raw-api            # Disable deprecated Java raw API (suppresses warnings)
 )
 
 # Create a compiler wrapper script for the specified architecture
