@@ -16,6 +16,9 @@ Sections order is: `Fixed`, `Changed`, `Added`, `Deprecated`, `Removed`, `Securi
 
 These are changes that are on `main` that are not yet in `prod`.
 
+
+## [20260119-034107] - 2026-01-19
+
 **Fixed**
 
 - [#70] `MISC_DEPS` key mismatch (`bz2` vs `bzip2`)
@@ -130,6 +133,8 @@ These are changes that are on `main` that are not yet in `prod`.
 [#91]: https://github.com/metaist/cosmo-python/issues/91
 [#92]: https://github.com/metaist/cosmo-python/issues/92
 [#93]: https://github.com/metaist/cosmo-python/issues/93
+
+[20260119-034107]: https://github.com/metaist/cosmo-python/compare/20260115-134426...20260119-034107
 
 ---
 
