@@ -122,6 +122,7 @@
     "toposorted",
     "zstd",
     "compileall",
-    "stripdir"
+    "stripdir",
+    "HACL"
   ]
 }

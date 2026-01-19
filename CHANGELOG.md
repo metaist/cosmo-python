@@ -30,6 +30,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#87] `CDX_CLI` fails when run from different directory
 - [#88] `bz2.sh` script name doesn't match `bzip2` component
 - [#91] `compileall` stripdir not working (traceback paths wrong)
+- [#92] HACL endianness macro redefinition warnings (48 warnings removed)
 
 **Changed**
 
@@ -151,6 +152,7 @@ These are changes that are on `main` that are not yet in `prod`.
 [#89]: https://github.com/metaist/cosmo-python/issues/89
 [#90]: https://github.com/metaist/cosmo-python/issues/90
 [#91]: https://github.com/metaist/cosmo-python/issues/91
+[#92]: https://github.com/metaist/cosmo-python/issues/92
 [#13]: https://github.com/metaist/cosmo-python/issues/13
 [20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
 
