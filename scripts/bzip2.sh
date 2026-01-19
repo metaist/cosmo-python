@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build bzip2 with cosmocc for use with Python
 #
-# Usage: ./bz2.sh [VERSION] [--clean]
+# Usage: ./bzip2.sh [VERSION] [--clean]
 #
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/libbz2.a, ${DEPS_DIR}/include/bzlib.h
@@ -9,16 +9,16 @@
 source "$(dirname "$0")/common.sh"
 
 # Parse arguments
-parse_dep_args "bz2" "$@"
+parse_dep_args "bzip2" "$@"
 
 BZ2_VERSION="$DEP_VERSION"
-BZ2_SHA256="$(get_pkg_sha256 bz2 "$BZ2_VERSION")"
-BZ2_URL="$(get_pkg_url bz2 "$BZ2_VERSION")"
+BZ2_SHA256="$(get_pkg_sha256 bzip2 "$BZ2_VERSION")"
+BZ2_URL="$(get_pkg_url bzip2 "$BZ2_VERSION")"
 BZ2_DIR="${WORK_DIR}/bzip2-${BZ2_VERSION}"
 
 # Validate version exists
 if [ "$BZ2_SHA256" = "null" ] || [ -z "$BZ2_SHA256" ]; then
-  log_error "bz2 ${BZ2_VERSION} not found in upstream.cdx.json"
+  log_error "bzip2 ${BZ2_VERSION} not found in upstream.cdx.json"
   exit 1
 fi
 
@@ -51,7 +51,7 @@ fi
 if [ ! -d "${BZ2_DIR}" ]; then
   cd "${WORK_DIR}"
   TARBALL="bzip2-${BZ2_VERSION}.tar.gz"
-  download_verify_gpg "bz2" "${BZ2_VERSION}" "${BZ2_URL}" "${TARBALL}" "bzip2 ${BZ2_VERSION}"
+  download_verify_gpg "bzip2" "${BZ2_VERSION}" "${BZ2_URL}" "${TARBALL}" "bzip2 ${BZ2_VERSION}"
   tar xzf "${TARBALL}"
   rm "${TARBALL}"
 fi

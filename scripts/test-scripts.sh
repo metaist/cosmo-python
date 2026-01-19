@@ -39,7 +39,7 @@ for f in \
   scripts/setup.sh \
   scripts/cosmocc.sh \
   scripts/smoke.sh \
-  scripts/bz2.sh \
+  scripts/bzip2.sh \
   scripts/cacert.sh \
   scripts/gdbm.sh \
   scripts/libffi.sh \
