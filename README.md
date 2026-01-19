@@ -55,11 +55,11 @@ cog.outl(bom.upstream_table())
 | [gdbm](https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz) | 1.26 | SHA256 | GPG | [GPL-3.0-only](https://git.savannah.gnu.org/cgit/gdbm.git/tree/COPYING) |
 | [libffi](https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz) | 3.5.2 | SHA256 | — | [MIT](https://github.com/libffi/libffi/blob/master/LICENSE) |
 | [ncurses](https://ftp.gnu.org/gnu/ncurses/ncurses-6.6.tar.gz) | 6.6 | SHA256 | GPG | [X11](https://invisible-island.net/ncurses/ncurses-license.html) |
-| [OpenSSL](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | 3.5.4 | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
 | [sqlite](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | 3.51.2 | SHA256 | — | [Public Domain](https://www.sqlite.org/copyright.html) |
 | [xz/liblzma](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | 5.8.2 | SHA256 | GPG | [Public Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
 | [CA certs](https://curl.se/ca/cacert-2025-12-02.pem) | 2025-12-02 | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
 | [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
+| [OpenSSL](https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz) | 3.6.0 | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
 <!--[[[end]]]-->
 
 ## Releases

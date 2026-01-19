@@ -2,7 +2,7 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "version": 1,
+  "version": 2,
   "metadata": {
     "timestamp": "2026-01-15T02:03:13Z",
     "component": { "type": "application", "name": "cosmo-python", "publisher": "metaist" },
@@ -13,7 +13,7 @@
       { "name": "cosmo:default:gdbm", "value": "1.26" },
       { "name": "cosmo:default:libffi", "value": "3.5.2" },
       { "name": "cosmo:default:ncurses", "value": "6.6" },
-      { "name": "cosmo:default:openssl", "value": "3.5.4" },
+      { "name": "cosmo:default:openssl", "value": "3.6.0" },
       { "name": "cosmo:default:python", "value": "3.14.2" },
       { "name": "cosmo:default:readline", "value": "8.3" },
       { "name": "cosmo:default:sqlite", "value": "3.51.2" },
@@ -179,32 +179,6 @@
       "properties": [{ "name": "cosmo:gpg", "value": "19882D92DDA4C400C22C0D56CC2AF4472167BE03" }]
     }, {
       "type": "library",
-      "bom-ref": "openssl@1.1.1u",
-      "name": "openssl",
-      "version": "1.1.1u",
-      "description": "EOL but matches superconfigure; stable with Cosmopolitan",
-      "purl": "pkg:github/openssl/openssl@OpenSSL_1_1_1u",
-      "hashes": [{ "alg": "SHA-256", "content": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7" }],
-      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1u.tar.gz" }],
-      "properties": [{ "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }]
-    }, {
-      "type": "library",
-      "bom-ref": "openssl@3.5.4",
-      "name": "openssl",
-      "version": "3.5.4",
-      "description": "First OpenSSL 3.x version compatible with Cosmopolitan",
-      "purl": "pkg:github/openssl/openssl@openssl-3.5.4",
-      "hashes": [{ "alg": "SHA-256", "content": "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99" }],
-      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz" }],
-      "properties": [
-        { "name": "cosmo:eol", "value": "2030-04" },
-        { "name": "cosmo:status", "value": "lts" },
-        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
-      ]
-    }, {
-      "type": "library",
       "bom-ref": "sqlite@3.51.2",
       "name": "sqlite",
       "version": "3.51.2",
@@ -249,6 +223,46 @@
       "hashes": [{ "alg": "SHA-256", "content": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44" }],
       "licenses": [{ "license": { "id": "ISC", "url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip" }]
+    }, {
+      "type": "library",
+      "bom-ref": "openssl@1.1.1u",
+      "name": "openssl",
+      "version": "1.1.1u",
+      "description": "EOL but matches superconfigure; stable with Cosmopolitan",
+      "purl": "pkg:github/openssl/openssl@OpenSSL_1_1_1u",
+      "hashes": [{ "alg": "SHA-256", "content": "fafe27202bde4238dce258d82ec8a8592a657842e5431264620a933a0c9436b7" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1u.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }]
+    }, {
+      "type": "library",
+      "bom-ref": "openssl@3.5.4",
+      "name": "openssl",
+      "version": "3.5.4",
+      "description": "First OpenSSL 3.x version compatible with Cosmopolitan",
+      "purl": "pkg:github/openssl/openssl@openssl-3.5.4",
+      "hashes": [{ "alg": "SHA-256", "content": "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2030-04" },
+        { "name": "cosmo:status", "value": "lts" },
+        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
+      ]
+    }, {
+      "type": "library",
+      "bom-ref": "openssl@3.6.0",
+      "name": "openssl",
+      "version": "3.6.0",
+      "purl": "pkg:github/openssl/openssl@openssl-3.6.0",
+      "hashes": [{ "alg": "SHA-256", "content": "b6a5f44b7eb69e3fa35dbf15524405b44837a481d43d81daddde3ff21fcbb8e9" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2026-11" },
+        { "name": "cosmo:status", "value": "supported" },
+        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
+      ]
     }
   ],
   "dependencies": [
@@ -261,7 +275,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.5.4",
+        "openssl@3.6.0",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -275,7 +289,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.5.4",
+        "openssl@3.6.0",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -289,7 +303,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.5.4",
+        "openssl@3.6.0",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -303,7 +317,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.5.4",
+        "openssl@3.6.0",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -317,7 +331,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.5.4",
+        "openssl@3.6.0",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
