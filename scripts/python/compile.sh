@@ -92,7 +92,7 @@ log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 # Setup compiler with cosmocc include paths only
 # DO NOT mix system headers - they conflict with cosmopolitan
 setup_cosmocc
-export CFLAGS="-Os -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include --sysroot=${COSMO_DIR}"
+export CFLAGS="-Os -D__USE_SYSTEM_ENDIAN_H__ -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include --sysroot=${COSMO_DIR}"
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
 
