@@ -51,13 +51,15 @@ jobs:
       - name: Create or update PR
         if: steps.check.outputs.has_updates == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use PAT to allow PR to trigger other workflows (GITHUB_TOKEN can't)
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           BRANCH="update/dependencies"
 
-          # Configure git
+          # Configure git for PAT-based push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
 
           # Create or switch to branch
           git checkout -B "$BRANCH"
