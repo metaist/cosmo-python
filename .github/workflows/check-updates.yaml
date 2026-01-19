@@ -65,8 +65,9 @@ jobs:
           git commit -m "update: dependency versions"
           git push -f origin "$BRANCH"
 
-          # Create PR if it doesn't exist, otherwise it auto-updates
-          if ! gh pr view "$BRANCH" &>/dev/null; then
+          # Create PR if it doesn't exist or is closed, otherwise it auto-updates
+          PR_STATE=$(gh pr view "$BRANCH" --json state -q '.state' 2>/dev/null || echo "NONE")
+          if [ "$PR_STATE" != "OPEN" ]; then
             gh pr create \
               --head "$BRANCH" \
               --title "update: dependency versions" \
@@ -84,5 +85,5 @@ jobs:
           ---
           *This PR was automatically created by the check-updates workflow.*"
           else
-            echo "PR already exists, updated with new commits"
+            echo "PR already exists (open), updated with new commits"
           fi
