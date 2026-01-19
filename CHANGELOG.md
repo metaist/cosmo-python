@@ -34,12 +34,12 @@ These are changes that are on `main` that are not yet in `prod`.
 
 **Changed**
 
+- [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
 - [#47] default Python version changed to 3.14
 - [#47] `versions.json` subkeys sorted to `eol`, `status`, `sha256`
 - [#49] check-updates reads Python versions from `versions.json` instead of hardcoding
 - [#49] check-updates uses endoflife.date API for status/eol
 - [#49] check-updates uses `ds cog` for README regeneration
-- [#13] upgraded OpenSSL from 1.1.1u (EOL) to 3.5.4
 - [#52] build scripts use URLs from `versions.json`
 - [#53] standardized key ordering in JSON files
 - [#54] wide-ranging delinting and cleanup
@@ -58,9 +58,9 @@ These are changes that are on `main` that are not yet in `prod`.
 
 **Added**
 
+- [#13] OpenSSL 3.x support with Cosmopolitan compatibility
 - [#46] Python 3.14.2 support
 - [#47] `python.disabled` mapping in `versions.json` for yank feature
-- [#13] OpenSSL 3.x support with Cosmopolitan compatibility
 - [#48] GPG signature verification for upstream deps (xz, gdbm, ncurses, readline, bz2, openssl)
 - [#48] `keys.asc` with GPG public keys for upstream maintainers
 - [#48] per-version signing metadata (`sigstore`, `gpg`) in `versions.json`
@@ -85,34 +85,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#60] `versions.json` (replaced by `upstream.cdx.json`)
 - [#60] `ci/normalize.py` (replaced by `ci/cdx.py` and `ci/json_fmt.py`)
 
----
-
-[#19]: https://github.com/metaist/cosmo-python/issues/19
-[#20]: https://github.com/metaist/cosmo-python/issues/20
-[#21]: https://github.com/metaist/cosmo-python/issues/21
-[#22]: https://github.com/metaist/cosmo-python/issues/22
-[#23]: https://github.com/metaist/cosmo-python/issues/23
-[#24]: https://github.com/metaist/cosmo-python/issues/24
-[#25]: https://github.com/metaist/cosmo-python/issues/25
-[#26]: https://github.com/metaist/cosmo-python/issues/26
-[#27]: https://github.com/metaist/cosmo-python/issues/27
-[#28]: https://github.com/metaist/cosmo-python/issues/28
-[#29]: https://github.com/metaist/cosmo-python/issues/29
-[#30]: https://github.com/metaist/cosmo-python/issues/30
-[#31]: https://github.com/metaist/cosmo-python/issues/31
-[#32]: https://github.com/metaist/cosmo-python/issues/32
-[#33]: https://github.com/metaist/cosmo-python/issues/33
-[#34]: https://github.com/metaist/cosmo-python/issues/34
-[#35]: https://github.com/metaist/cosmo-python/issues/35
-[#36]: https://github.com/metaist/cosmo-python/issues/36
-[#37]: https://github.com/metaist/cosmo-python/issues/37
-[#38]: https://github.com/metaist/cosmo-python/issues/38
-[#39]: https://github.com/metaist/cosmo-python/issues/39
-[#40]: https://github.com/metaist/cosmo-python/issues/40
-[#41]: https://github.com/metaist/cosmo-python/issues/41
-[#43]: https://github.com/metaist/cosmo-python/issues/43
-[#44]: https://github.com/metaist/cosmo-python/issues/44
-[#45]: https://github.com/metaist/cosmo-python/issues/45
+[#13]: https://github.com/metaist/cosmo-python/issues/13
 [#46]: https://github.com/metaist/cosmo-python/issues/46
 [#47]: https://github.com/metaist/cosmo-python/issues/47
 [#48]: https://github.com/metaist/cosmo-python/issues/48
@@ -153,8 +126,8 @@ These are changes that are on `main` that are not yet in `prod`.
 [#90]: https://github.com/metaist/cosmo-python/issues/90
 [#91]: https://github.com/metaist/cosmo-python/issues/91
 [#92]: https://github.com/metaist/cosmo-python/issues/92
-[#13]: https://github.com/metaist/cosmo-python/issues/13
-[20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
+
+---
 
 ## [20260115-134426] - 2026-01-15
 
@@ -194,3 +167,31 @@ Initial release with Python 3.10.19, 3.11.14, 3.12.12, 3.13.11.
 - [#39] `01-deps/build.sh` as single source of truth for deps
 - [#41] consolidate APE/binfmt setup into `00-setup/cosmocc.sh`
 - [#44] attestations for manifest.json and checksums.txt
+
+[#19]: https://github.com/metaist/cosmo-python/issues/19
+[#20]: https://github.com/metaist/cosmo-python/issues/20
+[#21]: https://github.com/metaist/cosmo-python/issues/21
+[#22]: https://github.com/metaist/cosmo-python/issues/22
+[#23]: https://github.com/metaist/cosmo-python/issues/23
+[#24]: https://github.com/metaist/cosmo-python/issues/24
+[#25]: https://github.com/metaist/cosmo-python/issues/25
+[#26]: https://github.com/metaist/cosmo-python/issues/26
+[#27]: https://github.com/metaist/cosmo-python/issues/27
+[#28]: https://github.com/metaist/cosmo-python/issues/28
+[#29]: https://github.com/metaist/cosmo-python/issues/29
+[#30]: https://github.com/metaist/cosmo-python/issues/30
+[#31]: https://github.com/metaist/cosmo-python/issues/31
+[#32]: https://github.com/metaist/cosmo-python/issues/32
+[#33]: https://github.com/metaist/cosmo-python/issues/33
+[#34]: https://github.com/metaist/cosmo-python/issues/34
+[#35]: https://github.com/metaist/cosmo-python/issues/35
+[#36]: https://github.com/metaist/cosmo-python/issues/36
+[#37]: https://github.com/metaist/cosmo-python/issues/37
+[#38]: https://github.com/metaist/cosmo-python/issues/38
+[#39]: https://github.com/metaist/cosmo-python/issues/39
+[#40]: https://github.com/metaist/cosmo-python/issues/40
+[#41]: https://github.com/metaist/cosmo-python/issues/41
+[#43]: https://github.com/metaist/cosmo-python/issues/43
+[#44]: https://github.com/metaist/cosmo-python/issues/44
+[#45]: https://github.com/metaist/cosmo-python/issues/45
+[20260115-134426]: https://github.com/metaist/cosmo-python/releases/tag/20260115-134426
