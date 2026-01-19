@@ -73,7 +73,7 @@
       },
       {
         "name": "cosmo:latest:python:3.14",
-        "value": "3.14.2"
+        "value": "3.14.1"
       }
     ]
   },
