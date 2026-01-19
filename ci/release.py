@@ -3,6 +3,7 @@
 
 Usage:
     uv run -m ci.release <dist_dir> [--release-tag TAG] [--repo REPO] [--output FILE]
+                         [--update-changelog]
 
 Examples:
     # Preview release notes locally
@@ -11,8 +12,8 @@ Examples:
     # Output to file
     uv run -m ci.release dist --release-tag 20260119-120000 --output dist/release_notes.md
 
-    # For GitHub Actions (writes to GITHUB_OUTPUT)
-    uv run -m ci.release dist --release-tag ${{ github.ref_name }}
+    # For GitHub Actions (writes to GITHUB_OUTPUT and updates changelog)
+    uv run -m ci.release dist --release-tag ${{ github.ref_name }} --update-changelog
 """
 
 from __future__ import annotations
@@ -100,6 +101,75 @@ def generate_supply_chain_table(bom: cdx.Bom) -> str:
     return bom.upstream_table()
 
 
+def move_unreleased_to_release(
+    release_tag: str,
+    changelog_path: Path = CHANGELOG_PATH,
+    repo: str = DEFAULT_REPO,
+) -> None:
+    """Move Unreleased content to a dated release section.
+
+    Modifies the changelog in place:
+    - Moves content from Unreleased to new ## [TAG] - YYYY-MM-DD section
+    - Adds link definition for the new release
+    - Keeps Unreleased section header with empty content
+
+    Note: Assumes CHANGELOG format with issue links adjacent to sections,
+    not at the bottom of the file.
+    """
+    if not changelog_path.exists():
+        return
+
+    content = changelog_path.read_text()
+
+    # Extract unreleased content (including links)
+    unreleased_content = extract_unreleased_with_links(changelog_path)
+    if not unreleased_content:
+        return
+
+    # Get today's date
+    from datetime import datetime, timezone
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Find the Unreleased section and its content up to ---
+    # Pattern matches: header, link def, description, content, then ---
+    match = re.search(
+        r"(## \[Unreleased\]\s*\n"
+        r"\[unreleased\]:.*?\n\n"
+        r".*?\n\n)"  # header + link + description
+        r"(.*?)"  # content we want to move
+        r"(\n---)",
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+
+    if not match:  # pragma: no cover - regex matches same content as extract check
+        return
+
+    header_section = match.group(1)
+    # content is match.group(2) - same as unreleased_content
+    separator = match.group(3)
+
+    # Build new release section
+    new_section = f"## [{release_tag}] - {today}\n\n{unreleased_content}\n"
+    release_link = f"[{release_tag}]: https://github.com/{repo}/releases/tag/{release_tag}\n"
+
+    # Reconstruct: header (empty) + new section + separator
+    new_content = (
+        content[: match.start()]
+        + header_section
+        + "\n"  # empty Unreleased section
+        + new_section
+        + "\n"
+        + release_link
+        + separator
+        + content[match.end() :]
+    )
+
+    changelog_path.write_text(new_content)
+    log.info(f"Updated {changelog_path} for release {release_tag}")
+
+
 def generate_release_notes(
     dist_dir: Path,
     release_tag: str | None = None,
@@ -152,6 +222,7 @@ def main() -> int:
     release_tag: str | None = None
     repo = DEFAULT_REPO
     output_path: Path | None = None
+    update_changelog = False
 
     # Parse args
     args = sys.argv[2:]
@@ -166,6 +237,9 @@ def main() -> int:
         elif args[i] == "--output" and i + 1 < len(args):
             output_path = Path(args[i + 1])
             i += 2
+        elif args[i] == "--update-changelog":
+            update_changelog = True
+            i += 1
         else:
             i += 1
 
@@ -189,6 +263,10 @@ def main() -> int:
     version_table = generate_version_table(dist_dir, release_tag, repo)
     deps_table = generate_supply_chain_table(bom)
     changelog = extract_unreleased_with_links()
+
+    # Update changelog if requested (before writing output)
+    if update_changelog and release_tag:
+        move_unreleased_to_release(release_tag, CHANGELOG_PATH, repo)
 
     # Output to file if requested
     if output_path:

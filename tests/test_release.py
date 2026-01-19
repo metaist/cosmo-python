@@ -58,6 +58,40 @@ Previous release.
     return changelog
 
 
+class TestMoveUnreleasedToRelease:
+    """Tests for move_unreleased_to_release."""
+
+    def test_moves_content_to_release_section(self, tmp_changelog: Path) -> None:
+        """Should move Unreleased content to dated release section."""
+        release.move_unreleased_to_release(
+            "20260119-120000",
+            tmp_changelog,
+            "test/repo",
+        )
+
+        content = tmp_changelog.read_text()
+        assert "## [20260119-120000] -" in content
+        assert "[20260119-120000]: https://github.com/test/repo/releases/tag/20260119-120000" in content
+        # Original content should be in new section
+        assert "[#1] bug fix one" in content
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        """Should do nothing for missing file."""
+        missing = tmp_path / "missing.md"
+        release.move_unreleased_to_release("20260119-120000", missing)
+        assert not missing.exists()
+
+    def test_empty_unreleased(self, tmp_path: Path) -> None:
+        """Should do nothing when Unreleased is empty."""
+        changelog = tmp_path / "CHANGELOG.md"
+        changelog.write_text("# Changelog\n\n## [1.0.0] - 2026-01-01\n\nRelease.\n")
+        original = changelog.read_text()
+        release.move_unreleased_to_release("20260119-120000", changelog)
+        assert changelog.read_text() == original
+
+
+
+
 class TestExtractUnreleasedWithLinks:
     """Tests for extract_unreleased_with_links."""
 
@@ -334,3 +368,26 @@ class TestMain:
         ):
             result = release.main()
         assert result == 0
+
+    def test_update_changelog_flag(
+        self, tmp_dist: Path, tmp_changelog: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should update changelog when --update-changelog is specified."""
+        monkeypatch.setattr(release, "CHANGELOG_PATH", tmp_changelog)
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "release",
+                str(tmp_dist),
+                "--release-tag",
+                "20260119-120000",
+                "--update-changelog",
+            ],
+        ):
+            result = release.main()
+
+        assert result == 0
+        content = tmp_changelog.read_text()
+        assert "## [20260119-120000]" in content

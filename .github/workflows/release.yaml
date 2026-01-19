@@ -121,7 +121,7 @@ jobs:
       - name: Generate release notes
         id: versions
         run: |
-          uv run -m ci.release_notes dist \
+          uv run -m ci.release dist \
             --release-tag "${{ steps.tag.outputs.release_tag }}" \
             --repo "${{ github.repository }}" \
             --update-changelog
