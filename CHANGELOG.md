@@ -56,6 +56,7 @@ These are changes that are on `main` that are not yet in `prod`.
 - [#74] simplify trailing collapse heuristic (length + spaces)
 - [#75] `pr-build.yaml` uses approval-based workflow
 - [#93] consolidate release logic into `ci/release.py`
+- [#93] release links use compare URL to previous tag
 
 **Added**
 
