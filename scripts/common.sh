@@ -155,7 +155,9 @@ COSMO_DIR="${COSMO_DIR:-/tmp/cosmo}"
 DEPS_DIR="${DEPS_DIR:-${WORK_DIR}/deps}"
 
 # Version data CLI (uses upstream.cdx.json via ci/cdx.py)
-CDX_CLI="uv run -m ci.cdx"
+# Determine repo root relative to this script (scripts/common.sh -> repo root)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CDX_CLI="uv run --directory ${REPO_ROOT} -m ci.cdx"
 
 # Setup cosmocc compiler
 # Usage: setup_cosmocc (call after sourcing common.sh)
