@@ -207,6 +207,63 @@ def test_update_python_version_no_sigstore(mock_sha256: MagicMock, monkeypatch: 
 
 
 @patch("ci.check_updates.fetch_sha256")
+def test_update_python_version_existing_target(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_python_version uses existing component if target already exists."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+
+    mock_py = MagicMock()
+    mock_py.build_url.return_value = "http://py/Python-3.14.2.tgz"
+    mock_py.get_status.return_value = "bugfix"
+    mock_py.get_eol.return_value = "2030-10"
+
+    # Create bom where latest points to 3.14.1 but 3.14.2 already exists with sigstore
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.14.2", url="http://py/3.14.2.tgz",
+        sha256="existing", license="PSF-2.0", component_type="application",
+        sigstore_identity="release@python.org", sigstore_issuer="https://accounts.google.com",
+        eol="2030-10", status="bugfix"
+    ))
+    bom.set_default("python", "3.14")
+    bom.set_latest("python", "3.14", "3.14.1")  # Points to non-existent 3.14.1
+
+    result = update_python_version(bom, "3.14", "3.14.2", mock_py)
+
+    assert result is True
+    # Should use existing component, not create new one
+    comp = bom.get_component("python", "3.14.2")
+    assert comp is not None
+    assert comp.sigstore_identity == "release@python.org"  # Preserved from existing
+    assert comp.sha256 == "existing"  # Original sha256, not "newsha"
+    assert bom.get_latest_version("python", "3.14") == "3.14.2"
+
+
+@patch("ci.check_updates.fetch_sha256")
+def test_update_python_version_existing_target_no_sigstore(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """update_python_version handles existing component without sigstore."""
+    monkeypatch.setattr("ci.check_updates.DRY_RUN", False)
+    mock_sha256.return_value = "newsha"
+
+    mock_py = MagicMock()
+    mock_py.build_url.return_value = "http://py/Python-3.14.2.tgz"
+
+    # Create bom where 3.14.2 exists but has no sigstore
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(
+        name="python", version="3.14.2", url="http://py/3.14.2.tgz",
+        sha256="existing", license="PSF-2.0", component_type="application",
+        eol="2030-10", status="bugfix"
+    ))
+    bom.set_latest("python", "3.14", "3.14.1")
+
+    result = update_python_version(bom, "3.14", "3.14.2", mock_py)
+
+    assert result is True
+    assert bom.get_latest_version("python", "3.14") == "3.14.2"
+
+
+@patch("ci.check_updates.fetch_sha256")
 def test_update_python_version_new_minor(mock_sha256: MagicMock, monkeypatch: "pytest.MonkeyPatch") -> None:
     """update_python_version works for brand new minor version."""
     monkeypatch.setattr("ci.check_updates.DRY_RUN", False)

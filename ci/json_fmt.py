@@ -234,3 +234,83 @@ def dumps(obj: Any, indent: int = 2, max_line: int = 100) -> str:
     '[{ "name": "x", "value": "y" }]'
     """
     return _format_value(obj, indent, max_line, 0)
+
+
+def main(args: list[str] | None = None) -> int:
+    """CLI entry point for json_fmt.
+
+    Usage: python -m ci.json_fmt [OPTIONS] [FILE...]
+
+    Options:
+        -h, --help     Show this help message
+        -c, --check    Check if files are formatted (don't modify)
+        -              Read from stdin, write to stdout
+
+    If no files are given, reads from stdin and writes to stdout.
+    """
+    import sys
+
+    if args is None:
+        args = sys.argv[1:]
+
+    # Parse options
+    check_only = False
+    files: list[str] = []
+
+    for arg in args:
+        if arg in ("-h", "--help"):
+            print(main.__doc__)
+            return 0
+        elif arg in ("-c", "--check"):
+            check_only = True
+        else:
+            files.append(arg)
+
+    # Default to stdin if no files
+    if not files:
+        files = ["-"]
+
+    exit_code = 0
+    for path in files:
+        try:
+            if path == "-":
+                data = json.load(sys.stdin)
+                formatted = dumps(data) + "\n"
+                if check_only:
+                    # Can't check stdin, just format it
+                    sys.stdout.write(formatted)
+                else:
+                    sys.stdout.write(formatted)
+            else:
+                with open(path) as f:
+                    original = f.read()
+                data = json.loads(original)
+                formatted = dumps(data) + "\n"
+
+                if check_only:
+                    if original != formatted:
+                        print(f"{path}: not formatted", file=sys.stderr)
+                        exit_code = 1
+                    else:
+                        print(f"{path}: ok", file=sys.stderr)
+                else:
+                    if original != formatted:
+                        with open(path, "w") as f:
+                            f.write(formatted)
+                        print(f"{path}: formatted", file=sys.stderr)
+                    else:
+                        print(f"{path}: unchanged", file=sys.stderr)
+        except json.JSONDecodeError as e:
+            print(f"{path}: invalid JSON: {e}", file=sys.stderr)
+            exit_code = 1
+        except OSError as e:
+            print(f"{path}: {e}", file=sys.stderr)
+            exit_code = 1
+
+    return exit_code
+
+
+if __name__ == "__main__":  # pragma: no cover
+    import sys
+
+    sys.exit(main())

@@ -103,6 +103,16 @@ def update_python_version(
         log.info("  (dry-run) Would update upstream.cdx.json")
         return True
 
+    # Check if new version already exists (just need to update latest pointer)
+    existing = bom.get_component("python", new_version)
+    if existing:
+        log.info(f"  Component python@{new_version} already exists, updating latest pointer")
+        if existing.sigstore_identity:
+            log.info(f"  Sigstore: {existing.sigstore_identity} (existing)")
+        bom.set_latest("python", minor, new_version)
+        log.info(f"OK Updated Python {minor} to {new_version}")
+        return True
+
     # Get current version to copy metadata
     current_version = bom.get_latest_version("python", minor)
     current = bom.get_component("python", current_version) if current_version else None
@@ -128,6 +138,8 @@ def update_python_version(
 
     if comp.sigstore_identity:
         log.info(f"  Sigstore: {comp.sigstore_identity} (copied)")
+    else:
+        log.warning("  Sigstore: not available (manual entry may be needed)")
 
     bom.add_component(comp)
     bom.set_latest("python", minor, new_version)

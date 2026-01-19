@@ -21,7 +21,7 @@ def _fetch_endoflife_data() -> list[dict[str, Any]]:  # pragma: no cover
     return _ENDOFLIFE_CACHE
 
 
-def _fetch_releases() -> list[dict[str, Any]]:
+def _fetch_releases() -> list[dict[str, Any]]:  # pragma: no cover
     """Fetch all Python releases from python.org API (cached)."""
     global _RELEASES_CACHE
     if not _RELEASES_CACHE:
