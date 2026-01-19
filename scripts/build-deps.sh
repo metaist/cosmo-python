@@ -13,14 +13,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
-# Default to building deps for default Python version
-PYTHON_VERSION="${1:-$($CDX_CLI default python)}"
-
 # Install system dependencies first (not in toposort)
 "${SCRIPT_DIR}/setup.sh"
 
-# Get build order, excluding python (which is built separately)
-BUILD_ORDER=$($CDX_CLI build-order python "$PYTHON_VERSION" --exclude python)
+# Get build order for all Python versions (union of deps), excluding python itself
+# This ensures we build all deps needed by any Python version
+BUILD_ORDER=$($CDX_CLI build-order-all --exclude python)
 
 # Build a single dep by name
 build_dep() {

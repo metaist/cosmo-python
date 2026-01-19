@@ -23,6 +23,8 @@ def main() -> int:
         python -m ci.cdx versions                       # List all Python versions
         python -m ci.cdx build-order <pkg> <ver> [--exclude <name>...]
                                                         # Get deps in build order
+        python -m ci.cdx build-order-all [--exclude <name>...]
+                                                        # Get deps for all Python versions
     """
     args = sys.argv[1:]
     if not args:
@@ -106,6 +108,23 @@ def main() -> int:
                 i += 1
         ref = f"{pkg}@{version}"
         order = bom.build_order(ref)
+        for level, dep in order:
+            name = dep.split("@")[0]
+            if name not in excludes:
+                print(f"{level} {dep}")
+        return 0
+
+    if cmd == "build-order-all":
+        # Parse --exclude options
+        excludes = set()
+        i = 1
+        while i < len(args):
+            if args[i] == "--exclude" and i + 1 < len(args):
+                excludes.add(args[i + 1])
+                i += 2
+            else:
+                i += 1
+        order = bom.build_order_all_python()
         for level, dep in order:
             name = dep.split("@")[0]
             if name not in excludes:

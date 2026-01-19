@@ -159,6 +159,11 @@ run_test "import gzip" "import gzip; gzip.compress(b'test')"
 run_test "import bz2" "import bz2; bz2.compress(b'test')"
 run_test "import lzma" "import lzma; lzma.compress(b'test')"
 
+# zstd compression (Python 3.14+)
+if "$PYTHON" -c "import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)" 2>/dev/null; then
+  run_test "import compression.zstd" "from compression import zstd; zstd.compress(b'test')"
+fi
+
 echo ""
 echo "SQLite (our deps)..."
 

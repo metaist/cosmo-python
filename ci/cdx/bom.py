@@ -181,6 +181,42 @@ class Bom:
 
         return result
 
+    def build_order_all_python(self) -> list[tuple[int, str]]:
+        """Get union of deps for all Python versions in build order.
+
+        Useful for building all deps once to support multiple Python versions.
+        """
+        from graphlib import TopologicalSorter
+
+        graph: dict[str, set[str]] = {}
+
+        def add_deps(r: str) -> None:
+            if r in graph:
+                return
+            deps = self.get_dependencies(r)
+            graph[r] = set(deps)
+            for dep in deps:
+                add_deps(dep)
+
+        # Add deps from all Python versions
+        for version in self.python_versions():
+            ref = f"python@{version}"
+            add_deps(ref)
+
+        # Use iterative approach to get levels
+        ts = TopologicalSorter(graph)
+        ts.prepare()
+        result: list[tuple[int, str]] = []
+        level = 0
+        while ts.is_active():
+            ready = list(ts.get_ready())
+            for item in ready:
+                result.append((level, item))
+                ts.done(item)
+            level += 1
+
+        return result
+
     # Disabled versions
 
     def set_disabled(self, name: str, prefixes: list[str]) -> None:

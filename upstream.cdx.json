@@ -18,6 +18,7 @@
       { "name": "cosmo:default:readline", "value": "8.3" },
       { "name": "cosmo:default:sqlite", "value": "3.51.2" },
       { "name": "cosmo:default:xz", "value": "5.8.2" },
+      { "name": "cosmo:default:zstd", "value": "1.5.7" },
       { "name": "cosmo:latest:python:3.10", "value": "3.10.19" },
       { "name": "cosmo:latest:python:3.11", "value": "3.11.14" },
       { "name": "cosmo:latest:python:3.12", "value": "3.12.12" },
@@ -249,6 +250,15 @@
       "hashes": [{ "alg": "SHA-256", "content": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44" }],
       "licenses": [{ "license": { "id": "ISC", "url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip" }]
+    }, {
+      "type": "library",
+      "bom-ref": "zstd@1.5.7",
+      "name": "zstd",
+      "version": "1.5.7",
+      "purl": "pkg:github/facebook/zstd@v1.5.7",
+      "hashes": [{ "alg": "SHA-256", "content": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3" }],
+      "licenses": [{ "license": { "id": "BSD-3-Clause", "url": "https://github.com/facebook/zstd/blob/dev/LICENSE" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz" }]
     }
   ],
   "dependencies": [
@@ -320,7 +330,8 @@
         "openssl@3.5.4",
         "readline@8.3",
         "sqlite@3.51.2",
-        "xz@5.8.2"
+        "xz@5.8.2",
+        "zstd@1.5.7"
       ]
     },
     { "ref": "bzip2@1.0.8", "dependsOn": ["cosmocc@4.0.2"] },
@@ -330,6 +341,7 @@
     { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
     { "ref": "readline@8.3", "dependsOn": ["ncurses@6.6"] },
     { "ref": "sqlite@3.51.2", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "xz@5.8.2", "dependsOn": ["cosmocc@4.0.2"] }
+    { "ref": "xz@5.8.2", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "zstd@1.5.7", "dependsOn": ["cosmocc@4.0.2"] }
   ]
 }

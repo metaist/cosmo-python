@@ -48,6 +48,7 @@ for f in \
   scripts/readline.sh \
   scripts/sqlite.sh \
   scripts/xz.sh \
+  scripts/zstd.sh \
   scripts/python/build.sh \
   scripts/python/download.sh \
   scripts/python/compile.sh \

@@ -58,6 +58,7 @@ cog.outl(bom.upstream_table())
 | [OpenSSL](https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz) | 3.5.4 | SHA256 | GPG | [Apache-2.0](https://github.com/openssl/openssl/blob/master/LICENSE.txt) |
 | [sqlite](https://www.sqlite.org/2026/sqlite-autoconf-3510200.tar.gz) | 3.51.2 | SHA256 | — | [Public Domain](https://www.sqlite.org/copyright.html) |
 | [xz/liblzma](https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz) | 5.8.2 | SHA256 | GPG | [Public Domain](https://github.com/tukaani-project/xz/blob/master/COPYING) |
+| [zstd](https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz) | 1.5.7 | SHA256 | — | [BSD-3-Clause](https://github.com/facebook/zstd/blob/dev/LICENSE) |
 | [CA certs](https://curl.se/ca/cacert-2025-12-02.pem) | 2025-12-02 | SHA256 | — | [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) |
 | [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
 <!--[[[end]]]-->

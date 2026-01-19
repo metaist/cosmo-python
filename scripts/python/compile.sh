@@ -158,7 +158,9 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
   LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi" \
   LIBSQLITE3_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3"
+  LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3" \
+  LIBZSTD_CFLAGS="-I${DEPS_DIR}/include" \
+  LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd"
 else
   log_info "skipping configure (Makefile exists)"
 fi

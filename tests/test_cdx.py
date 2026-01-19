@@ -1376,3 +1376,74 @@ def test_load_dependency_with_empty_ref(tmp_path: Path) -> None:
     # Empty ref should be ignored
     assert bom.get_dependencies("") == []
     assert bom.get_dependencies("test@1.0") == []
+
+
+def test_build_order_all_python() -> None:
+    """build_order_all_python returns union of deps for all Python versions."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="python", version="3.14.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="libA", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="libB", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="zstd", version="1.0", url="x", sha256="a", license="BSD"))
+    # 3.13 needs libA and libB; 3.14 also needs zstd
+    bom.set_dependencies("python@3.13.0", ["libA@1.0", "libB@1.0"])
+    bom.set_dependencies("python@3.14.0", ["libA@1.0", "libB@1.0", "zstd@1.0"])
+
+    order = bom.build_order_all_python()
+    refs = [ref for _, ref in order]
+    # All deps should be included (union)
+    assert "libA@1.0" in refs
+    assert "libB@1.0" in refs
+    assert "zstd@1.0" in refs
+    assert "python@3.13.0" in refs
+    assert "python@3.14.0" in refs
+
+
+def test_cli_build_order_all(tmp_path: Path, monkeypatch: "pytest.MonkeyPatch") -> None:
+    """CLI build-order-all returns union of deps for all Python versions."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="python", version="3.14.0", url="x", sha256="a", license="PSF"))
+    bom.add_component(cdx.Component(name="lib", version="1.0", url="x", sha256="a", license="MIT"))
+    bom.add_component(cdx.Component(name="zstd", version="1.0", url="x", sha256="a", license="BSD"))
+    bom.set_dependencies("python@3.13.0", ["lib@1.0"])
+    bom.set_dependencies("python@3.14.0", ["lib@1.0", "zstd@1.0"])
+    cdx_file = tmp_path / "upstream.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "build-order-all", "--exclude", "python"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue()
+    assert "lib@1.0" in output
+    assert "zstd@1.0" in output
+    assert "python@" not in output  # excluded
+
+
+def test_cli_build_order_all_ignores_unknown_args(
+    tmp_path: Path, monkeypatch: "pytest.MonkeyPatch"
+) -> None:
+    """CLI build-order-all ignores unknown arguments."""
+    bom = cdx.Bom()
+    bom.add_component(cdx.Component(name="python", version="3.13.0", url="x", sha256="a", license="PSF"))
+    cdx_file = tmp_path / "upstream.cdx.json"
+    cdx.dump(bom, cdx_file)
+    monkeypatch.setattr("ci.common.CDX_FILE", cdx_file)
+    monkeypatch.setattr("sys.argv", ["cdx", "build-order-all", "--unknown", "arg"])
+
+    import io
+    import sys
+    captured = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+
+    result = cdx.main()
+    assert result == 0
+    output = captured.getvalue()
+    assert "python@3.13.0" in output

@@ -119,6 +119,7 @@
     "sunau",
     "idlelib",
     "ghijkl",
-    "toposorted"
+    "toposorted",
+    "zstd"
   ]
 }
