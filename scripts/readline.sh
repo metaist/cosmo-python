@@ -9,7 +9,7 @@
 # Dependencies: ncurses (run ncurses.sh first)
 # Outputs: ${DEPS_DIR}/lib/libreadline.a, ${DEPS_DIR}/include/readline/
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "readline" "$@"

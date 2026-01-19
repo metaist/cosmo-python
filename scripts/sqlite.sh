@@ -9,7 +9,7 @@
 # Dependencies: cosmocc
 # Outputs: ${DEPS_DIR}/lib/libsqlite3.a, ${DEPS_DIR}/include/sqlite3.h
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "sqlite" "$@"

@@ -6,7 +6,7 @@
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/liblzma.a, ${DEPS_DIR}/include/lzma.h
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "xz" "$@"

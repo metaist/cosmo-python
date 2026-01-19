@@ -6,7 +6,7 @@
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/libbz2.a, ${DEPS_DIR}/include/bzlib.h
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "bz2" "$@"

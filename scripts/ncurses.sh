@@ -9,7 +9,7 @@
 # Dependencies: none
 # Outputs: ${DEPS_DIR}/lib/libncurses.a, ${DEPS_DIR}/include/ncurses/
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "ncurses" "$@"

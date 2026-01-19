@@ -1,6 +1,6 @@
 #!/bin/bash
 # Common utilities for build scripts
-# Source this file: source "$(dirname "$0")/../common.sh"
+# Source this file: source "$(dirname "$0")/common.sh"
 
 set -euo pipefail
 

@@ -12,7 +12,7 @@
 #   - JSON/data processing
 #   - Subprocess execution
 
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 PYTHON="${1:-}"
 

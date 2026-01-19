@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install system dependencies required for building Python with cosmocc
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 log_info "checking system dependencies..."
 

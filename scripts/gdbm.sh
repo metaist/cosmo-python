@@ -6,7 +6,7 @@
 # gdbm provides a hash-based key-value store used by Python's dbm.gnu module.
 # We build with --enable-libgdbm-compat for ndbm compatibility.
 #
-source "$(dirname "$0")/../common.sh"
+source "$(dirname "$0")/common.sh"
 
 # Parse arguments
 parse_dep_args "gdbm" "$@"
