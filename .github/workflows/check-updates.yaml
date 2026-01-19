@@ -35,6 +35,8 @@ jobs:
 
       - name: Check for updates
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run -m ci.check_updates 2>&1 | tee /tmp/update-output.txt
 
