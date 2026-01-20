@@ -37,3 +37,19 @@ chmod +x python-3.14.2-cosmo.com
 ./python-3.14.2-cosmo.com --version
 ```
 <!--[[[end]]]-->
+
+## Acknowledgments
+
+This project builds upon the excellent work of:
+
+- **[Justine Tunney](https://justine.lol/)** ([@jart](https://github.com/jart)) — Creator of [Cosmopolitan libc](https://github.com/jart/cosmopolitan), the C library that makes truly portable executables.
+
+- **[Gautham Venkatasubramanian](https://ahgamut.github.io/)** ([@ahgamut](https://github.com/ahgamut)) — Creator and maintainer of [superconfigure](https://github.com/ahgamut/superconfigure), which provides build infrastructure for compiling Python with Cosmopolitan libc.
+
+- **[Gregory Szorc](https://gregoryszorc.com/)** ([@indygreg](https://github.com/indygreg)) — Creator of [python-build-standalone](https://github.com/astral-sh/python-build-standalone), now maintained by [Astral](https://astral.sh/). Inspiration for standalone Python distribution patterns.
+
+- **[Claude](https://www.anthropic.com/claude)** — AI assistant that wrote most of this codebase with steering from [@metaist](https://github.com/metaist).
+
+## License
+
+[MIT License](https://github.com/metaist/cosmo-python/blob/main/LICENSE.md)
