@@ -125,6 +125,8 @@
     "stripdir",
     "HACL",
     "SLSA",
-    "zizmor"
+    "zizmor",
+    "mkdocs",
+    "cooldown"
   ]
 }
