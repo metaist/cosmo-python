@@ -16,6 +16,26 @@ Sections order is: `Fixed`, `Changed`, `Added`, `Deprecated`, `Removed`, `Securi
 
 These are changes that are on `main` that are not yet in `prod`.
 
+**Added**
+
+- [#94] zizmor linter for GitHub Actions workflows
+- [#94] SHA-pinned GitHub Actions with version comments
+- [#94] GitHub Actions table in README (cog-generated)
+- [#97] MkDocs documentation site at docs.metaist.com/cosmo-python
+- [#97] `ds docs`, `ds mkdocs-build`, `ds mkdocs-serve` tasks
+
+**Changed**
+
+- [#94] workflow permissions moved to job-level (least privilege)
+- [#94] template injection fixes (use env vars instead of direct expansion)
+- [#94] dependabot cooldown configuration added
+- [#97] README trimmed to essentials with links to docs site
+- [#97] LIMITATIONS.md moved to docs/limitations.md
+- [#97] badges updated to shields.io style (matches cosmofy)
+
+[#94]: https://github.com/metaist/cosmo-python/issues/94
+[#97]: https://github.com/metaist/cosmo-python/issues/97
+
 
 ## [20260119-034107] - 2026-01-19
 
