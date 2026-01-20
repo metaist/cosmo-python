@@ -1,0 +1,64 @@
+site_name: cosmo-python
+site_url: https://docs.metaist.com/cosmo-python/
+site_description: Standalone Cosmopolitan Python builds
+site_author: Metaist LLC
+
+repo_url: https://github.com/metaist/cosmo-python
+repo_name: metaist/cosmo-python
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+nav:
+  - Home: index.md
+  - Supply Chain: supply-chain.md
+  - Releases: releases.md
+  - Building: building.md
+  - Limitations: limitations.md
+  - Contributing: https://github.com/metaist/cosmo-python/blob/main/CONTRIBUTING.md
+  - Changelog: https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - tables
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/metaist/cosmo-python

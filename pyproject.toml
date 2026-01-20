@@ -9,6 +9,7 @@ authors = [{ name = "Metaist LLC", email = "metaist@metaist.com" }]
 
 [project.urls]
 Homepage = "https://github.com/metaist/cosmo-python"
+Documentation = "https://docs.metaist.com/cosmo-python/"
 Repository = "https://github.com/metaist/cosmo-python.git"
 Changelog = "https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md"
 
@@ -16,6 +17,7 @@ Changelog = "https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md"
 dev = [
   "cogapp",
   "ds-run",
+  "mkdocs-material>=9.7.1",
   "mypy",
   "pip",  # for mypy
   "pyright",
@@ -98,8 +100,8 @@ yamllint.shell = "uv run yamllint -d '{extends: relaxed, rules: {line-length: di
 cdx-schema.help = "validate upstream.cdx.json against CycloneDX schema"
 cdx-schema.shell = "uvx check-jsonschema --schemafile https://cyclonedx.org/schema/bom-1.5.schema.json upstream.cdx.json"
 
-cog-check.help = "check if README.md needs regeneration"
-cog-check.shell = "uv run cog --check README.md"
+cog-check.help = "check if docs and README need regeneration"
+cog-check.shell = "uv run cog --check docs/*.md README.md"
 
 # Type Check
 types.help = "run type checkers on Python code"
@@ -136,8 +138,18 @@ smoke-all.shell = """
 dev.help = "lint, type-check, and unit tests"
 dev.composite = ["lint", "types", "test", "test-scripts"]
 
-cog.help = "regenerate dynamic content in README.md"
-cog.shell = "uv run cog -r README.md"
+cog.help = "regenerate dynamic content in docs and README"
+cog.shell = "uv run cog -r docs/*.md README.md"
+
+# Docs
+docs.help = "build documentation site"
+docs.composite = ["cog", "mkdocs-build"]
+
+mkdocs-build.help = "build mkdocs site"
+mkdocs-build.shell = "uv run mkdocs build"
+
+mkdocs-serve.help = "serve mkdocs site locally"
+mkdocs-serve.shell = "uv run mkdocs serve"
 
 # Release
 manifest.help = "generate manifest.cdx.json for a release"

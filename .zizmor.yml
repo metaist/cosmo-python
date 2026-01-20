@@ -8,6 +8,7 @@ rules:
       - build.yaml
       - check-updates.yaml
       - ci.yaml
+      - docs.yaml
       - release.yaml
 
   # Intentional: pull_request_target is protected by pr-approval environment gate

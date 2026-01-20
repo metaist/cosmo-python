@@ -66,8 +66,11 @@ GITHUB_ACTIONS: dict[str, str] = {
     "actions/attest-build-provenance": "Generate SLSA build provenance attestations",
     "actions/cache": "Cache dependencies between workflow runs",
     "actions/checkout": "Clone repository",
+    "actions/configure-pages": "Configure GitHub Pages",
+    "actions/deploy-pages": "Deploy to GitHub Pages",
     "actions/download-artifact": "Download workflow artifacts",
     "actions/upload-artifact": "Upload workflow artifacts",
+    "actions/upload-pages-artifact": "Upload GitHub Pages artifact",
     "astral-sh/setup-uv": "Install uv package manager",
 }
 

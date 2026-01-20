@@ -26,6 +26,7 @@ __pycache__
 *.egg-info
 /build
 /dist
+/site
 /work
 /python
 Python-*
