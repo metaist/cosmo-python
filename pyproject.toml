@@ -70,7 +70,10 @@ clean.shell = """
 
 # Lint
 lint.help = "lint shell, python, yaml, spelling"
-lint.composite = ["shellcheck", "ruff-*", "yamllint", "cspell", "cog-check", "cdx-schema"]
+lint.composite = ["zizmor", "shellcheck", "ruff-*", "yamllint", "cspell", "cog-check", "cdx-schema"]
+
+zizmor.help = "lint GitHub Actions workflows"
+zizmor.shell = "uvx zizmor --config .zizmor.yml .github"
 
 shellcheck.help = "lint shell scripts"
 # Excluded: SC1091 (dynamic source), SC2164 (cd || exit), SC2086 (unquoted), SC2103/SC2129 (style)

@@ -1,0 +1,16 @@
+# zizmor configuration
+# https://docs.zizmor.sh/configuration/
+
+rules:
+  # We don't upload credentials to artifacts
+  artipacked:
+    ignore:
+      - build.yaml
+      - check-updates.yaml
+      - ci.yaml
+      - release.yaml
+
+  # Intentional: pull_request_target is protected by pr-approval environment gate
+  dangerous-triggers:
+    ignore:
+      - pr-build.yaml

@@ -47,16 +47,18 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
       cosmocc_version: ${{ steps.versions.outputs.cosmocc_version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
         with:
           enable-cache: false
 
       - name: Determine versions to build
         id: versions
-        run: uv run -m ci.build_matrix "${{ inputs.python_version }}"
+        env:
+          PYTHON_VERSION: ${{ inputs.python_version }}
+        run: uv run -m ci.build_matrix "$PYTHON_VERSION"
 
   # Second job: build dependencies (cached)
   deps:
@@ -68,16 +70,16 @@ jobs:
       WORK_DIR: ${{ github.workspace }}/work
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
         with:
           enable-cache: false
 
       - name: Cache dependencies
         id: cache-deps
-        uses: actions/cache@v5
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5
         with:
           path: |
             /tmp/cosmo
@@ -103,10 +105,10 @@ jobs:
       DIST_DIR: ${{ github.workspace }}/dist
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Restore deps from cache
-        uses: actions/cache@v5
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5
         with:
           path: |
             /tmp/cosmo
@@ -115,13 +117,13 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
         with:
           enable-cache: false
 
       - name: Cache Python binary
         id: cache-python
-        uses: actions/cache@v5
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5
         with:
           path: |
             dist/python-${{ matrix.version }}-cosmo.com
@@ -133,13 +135,17 @@ jobs:
 
       - name: Build Python ${{ matrix.version }}
         if: steps.cache-python.outputs.cache-hit != 'true'
-        run: ./scripts/python/build.sh "${{ matrix.version }}"
+        env:
+          MATRIX_VERSION: ${{ matrix.version }}
+        run: ./scripts/python/build.sh "$MATRIX_VERSION"
 
       - name: Run smoke tests
-        run: ./scripts/smoke.sh "dist/python-${{ matrix.version }}-cosmo.com"
+        env:
+          MATRIX_VERSION: ${{ matrix.version }}
+        run: ./scripts/smoke.sh "dist/python-$MATRIX_VERSION-cosmo.com"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: python-${{ matrix.version }}-cosmo
           path: |

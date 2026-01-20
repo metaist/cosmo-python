@@ -63,6 +63,24 @@ cog.outl(bom.upstream_table())
 | [Cosmopolitan](https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip) | 4.0.2 | SHA256 | — | [ISC](https://github.com/jart/cosmopolitan/blob/master/LICENSE) |
 <!--[[[end]]]-->
 
+### GitHub Actions
+
+All GitHub Actions are pinned to SHA hashes and kept updated via [Dependabot](.github/dependabot.yml).
+
+<!--[[[cog
+from ci.common import github_actions_table
+cog.outl(github_actions_table())
+]]]-->
+| Action | Version | Purpose |
+|--------|---------|---------|
+| [actions/attest-build-provenance](https://github.com/actions/attest-build-provenance) | v3 | Generate SLSA build provenance attestations |
+| [actions/cache](https://github.com/actions/cache) | v5 | Cache dependencies between workflow runs |
+| [actions/checkout](https://github.com/actions/checkout) | v6 | Clone repository |
+| [actions/download-artifact](https://github.com/actions/download-artifact) | v7 | Download workflow artifacts |
+| [actions/upload-artifact](https://github.com/actions/upload-artifact) | v6 | Upload workflow artifacts |
+| [astral-sh/setup-uv](https://github.com/astral-sh/setup-uv) | v7 | Install uv package manager |
+<!--[[[end]]]-->
+
 ## Releases
 
 We use date-based releases (`YYYYMMDD-HHMMSS`) created through a semi-automated pipeline:

@@ -16,6 +16,9 @@ on:
       - "scripts/**"
       - "keys/**"
 
+permissions:
+  contents: read
+
 jobs:
   approve:
     name: Await Approval
@@ -27,6 +30,8 @@ jobs:
   build:
     name: Build All Versions
     needs: approve
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.yaml
     with:
       python_version: "all"

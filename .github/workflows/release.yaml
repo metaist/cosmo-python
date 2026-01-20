@@ -27,17 +27,15 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
-  actions: read # Required to download artifacts from other runs
+permissions: {}
 
 jobs:
   # Build all versions (if not downloading from existing run)
   build:
     name: Build All Versions
     if: ${{ inputs.from_run_id == '' }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.yaml
     with:
       python_version: "all"
@@ -50,14 +48,22 @@ jobs:
     # Run even if build was skipped (when using from_run_id)
     if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
 
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      actions: read # Required to download artifacts from other runs
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
       - name: Generate release tag
         id: tag
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          if [ -n "${{ inputs.release_tag }}" ]; then
-            TAG="${{ inputs.release_tag }}"
+          if [ -n "$INPUT_RELEASE_TAG" ]; then
+            TAG="$INPUT_RELEASE_TAG"
           else
             TAG=$(date -u +"%Y%m%d-%H%M%S")
           fi
@@ -66,7 +72,7 @@ jobs:
 
       - name: Download artifacts from build workflow
         if: ${{ inputs.from_run_id != '' }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           run-id: ${{ inputs.from_run_id }}
           path: artifacts
@@ -74,7 +80,7 @@ jobs:
 
       - name: Download artifacts from this workflow
         if: ${{ inputs.from_run_id == '' }}
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: artifacts
 
@@ -87,14 +93,16 @@ jobs:
           ls -la dist/
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
         with:
           enable-cache: false
 
       - name: Fetch previous manifest
         id: prev_manifest
+        env:
+          REPO: ${{ github.repository }}
         run: |
-          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/latest/download/manifest.cdx.json"
+          MANIFEST_URL="https://github.com/$REPO/releases/latest/download/manifest.cdx.json"
           if curl -fsSL "$MANIFEST_URL" -o /tmp/prev-manifest.cdx.json 2>/dev/null; then
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "Previous manifest found"
@@ -104,9 +112,11 @@ jobs:
           fi
 
       - name: Generate manifest
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+          PREV_MANIFEST_FOUND: ${{ steps.prev_manifest.outputs.found }}
         run: |
-          RELEASE_TAG="${{ steps.tag.outputs.release_tag }}"
-          if [ "${{ steps.prev_manifest.outputs.found }}" = "true" ]; then
+          if [ "$PREV_MANIFEST_FOUND" = "true" ]; then
             uv run -m ci.manifest "$RELEASE_TAG" --merge /tmp/prev-manifest.cdx.json
           else
             uv run -m ci.manifest "$RELEASE_TAG"
@@ -120,14 +130,17 @@ jobs:
 
       - name: Generate release notes
         id: versions
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+          REPO: ${{ github.repository }}
         run: |
           uv run -m ci.release dist \
-            --release-tag "${{ steps.tag.outputs.release_tag }}" \
-            --repo "${{ github.repository }}" \
+            --release-tag "$RELEASE_TAG" \
+            --repo "$REPO" \
             --update-changelog
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
         with:
           subject-path: |
             dist/checksums.txt
@@ -135,7 +148,7 @@ jobs:
             dist/python-*.com
 
       - name: Upload release artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: release-${{ steps.tag.outputs.release_tag }}
           path: |
@@ -145,6 +158,8 @@ jobs:
 
       - name: Commit changelog updates
         if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -152,7 +167,7 @@ jobs:
             echo "No changelog changes"
           else
             git add CHANGELOG.md
-            git commit -m "update: CHANGELOG.md for release ${{ steps.tag.outputs.release_tag }}"
+            git commit -m "update: CHANGELOG.md for release $RELEASE_TAG"
             git push
           fi
 
@@ -160,44 +175,50 @@ jobs:
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES: |
-            ## Cosmopolitan Python Release ${{ steps.tag.outputs.release_tag }}
-
-            ### Downloads
-
-            ${{ steps.versions.outputs.version_table }}
-
-            ### What's Changed
-
-            ${{ steps.versions.outputs.changelog }}
-
-            ### Dependencies
-
-            ${{ steps.versions.outputs.deps_table }}
-
-            ### Usage
-
-            ```bash
-            # Download
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.release_tag }}/python-${{ steps.versions.outputs.default_version }}-cosmo.com
-
-            # Make executable and run
-            chmod +x python-${{ steps.versions.outputs.default_version }}-cosmo.com
-            ./python-${{ steps.versions.outputs.default_version }}-cosmo.com --version
-            ```
-
-            ### Verification
-
-            ```bash
-            # Verify checksum
-            sha256sum -c checksums.txt
-
-            # Verify build attestation (requires gh CLI)
-            gh attestation verify python-${{ steps.versions.outputs.default_version }}-cosmo.com --repo ${{ github.repository }}
-            ```
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+          REPO: ${{ github.repository }}
+          VERSION_TABLE: ${{ steps.versions.outputs.version_table }}
+          CHANGELOG: ${{ steps.versions.outputs.changelog }}
+          DEPS_TABLE: ${{ steps.versions.outputs.deps_table }}
+          DEFAULT_VERSION: ${{ steps.versions.outputs.default_version }}
         run: |
-          gh release create "${{ steps.tag.outputs.release_tag }}" \
-            --title "${{ steps.tag.outputs.release_tag }}" \
+          RELEASE_NOTES="## Cosmopolitan Python Release $RELEASE_TAG
+
+          ### Downloads
+
+          $VERSION_TABLE
+
+          ### What's Changed
+
+          $CHANGELOG
+
+          ### Dependencies
+
+          $DEPS_TABLE
+
+          ### Usage
+
+          \`\`\`bash
+          # Download
+          curl -LO https://github.com/$REPO/releases/download/$RELEASE_TAG/python-$DEFAULT_VERSION-cosmo.com
+
+          # Make executable and run
+          chmod +x python-$DEFAULT_VERSION-cosmo.com
+          ./python-$DEFAULT_VERSION-cosmo.com --version
+          \`\`\`
+
+          ### Verification
+
+          \`\`\`bash
+          # Verify checksum
+          sha256sum -c checksums.txt
+
+          # Verify build attestation (requires gh CLI)
+          gh attestation verify python-$DEFAULT_VERSION-cosmo.com --repo $REPO
+          \`\`\`"
+
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
             --notes "$RELEASE_NOTES" \
             dist/checksums.txt \
             dist/manifest.cdx.json \

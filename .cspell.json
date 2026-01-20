@@ -123,6 +123,8 @@
     "zstd",
     "compileall",
     "stripdir",
-    "HACL"
+    "HACL",
+    "SLSA",
+    "zizmor"
   ]
 }

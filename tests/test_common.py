@@ -2,7 +2,7 @@
 
 import logging
 
-from ci.common import version_key, setup_logging, CDX_FILE
+from ci.common import version_key, setup_logging, CDX_FILE, github_actions_table, GITHUB_ACTIONS
 
 
 def test_version_key_two_digit_minor() -> None:
@@ -38,3 +38,30 @@ def test_setup_logging(capfd: "pytest.CaptureFixture[str]") -> None:
     assert "test message" in out
     assert "OK" in out  # green color code will be present
     assert "WARN" in out
+
+
+def test_github_actions_table() -> None:
+    """github_actions_table generates markdown table from workflow files."""
+    table = github_actions_table()
+
+    # Check table structure
+    lines = table.split("\n")
+    assert lines[0] == "| Action | Version | Purpose |"
+    assert lines[1] == "|--------|---------|---------|"
+
+    # Check that known actions are present
+    assert "actions/checkout" in table
+    assert "astral-sh/setup-uv" in table
+
+    # Check that versions are extracted
+    assert "| v" in table  # versions like "v6", "v7"
+
+    # Check that all actions in GITHUB_ACTIONS dict have purposes filled in
+    for repo in GITHUB_ACTIONS:
+        if repo in table:
+            # Should have the purpose, not "—"
+            assert GITHUB_ACTIONS[repo] in table
+
+    # Local workflow refs (like ./.github/workflows/build.yaml) are naturally
+    # excluded since they don't match the @sha # vN pattern
+    assert "./.github/workflows" not in table
