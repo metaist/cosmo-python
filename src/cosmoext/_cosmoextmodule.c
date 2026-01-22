@@ -584,55 +584,131 @@ cosmoext_load(PyObject *self, PyObject *args)
      * On macOS ARM64 with MAP_JIT, the entire region becomes non-writable
      * after pthread_jit_write_protect_np(1). We need to copy writable data
      * (module def, method tables, strings) to regular heap memory.
-     * 
-     * The data section typically starts after .text/.rodata and contains
-     * PyModuleDef and PyMethodDef structures that Python needs to write to.
      */
     void *heap_data = NULL;
-    size_t data_start = 0x1a0;  /* Start of data (after .text) */
-    size_t data_end = 0x340;    /* Start of trampolines */
+    size_t heap_data_size = 0;
     
 #ifdef __COSMOPOLITAN__
     if (use_jit_protect && IsAarch64()) {
-        size_t data_size = data_end - data_start;
-        
-        heap_data = PyMem_Malloc(data_size);
-        if (!heap_data) {
-            PyErr_NoMemory();
+        /* Read section headers to find writable sections */
+        /* Sections are at offset 72 (after v4 header), each is 24 bytes */
+        FILE *sf = fopen(path, "rb");
+        if (!sf) {
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
             goto error;
         }
         
-        /* Copy data to heap */
-        memcpy(heap_data, (char*)mapped + data_start, data_size);
+        /* Find writable sections and store their ranges */
+        #define MAX_WRITABLE_SECTIONS 8
+        struct { size_t start; size_t end; } writable_ranges[MAX_WRITABLE_SECTIONS];
+        int num_writable = 0;
+        size_t data_start = header.total_size;  /* Overall start (high) */
+        size_t data_end = 0;                     /* Overall end (low) */
         
-        if (verbose) {
-            fprintf(stderr, "[cosmoext] Copied %zu bytes of data to heap at %p\n", 
-                    data_size, heap_data);
-        }
-        
-        /* Update internal pointers to point to heap copy instead of JIT region */
-        /* Scan through internal relocations that target the data region */
-        uintptr_t heap_data_base = (uintptr_t)heap_data;
-        
-        for (uint64_t i = 0; i < header.num_relocs; i++) {
-            CosmoExtReloc *r = &relocs[i];
-            if (r->target_offset >= data_start && r->target_offset < data_end) {
-                /* This relocation points into the data region - update to heap */
-                uintptr_t old_value = (uintptr_t)mapped + r->target_offset;
-                uintptr_t new_value = heap_data_base + (r->target_offset - data_start);
-                if (r->size == 8) {
-                    memcpy((char*)mapped + r->blob_offset, &new_value, 8);
-                } else if (r->size == 4) {
-                    uint32_t val32 = (uint32_t)new_value;
-                    memcpy((char*)mapped + r->blob_offset, &val32, 4);
+        fseek(sf, 72, SEEK_SET);  /* Section headers start at byte 72 */
+        for (uint64_t i = 0; i < header.num_sections; i++) {
+            uint64_t sec_offset, sec_size;
+            uint32_t sec_flags;
+            if (fread(&sec_offset, 8, 1, sf) != 1 ||
+                fread(&sec_size, 8, 1, sf) != 1 ||
+                fread(&sec_flags, 4, 1, sf) != 1) {
+                fclose(sf);
+                PyErr_SetString(PyExc_ValueError, "Failed to read section header");
+                goto error;
+            }
+            fseek(sf, 4, SEEK_CUR);  /* Skip padding */
+            
+            /* Check if writable (flags & 2) and not executable (flags & 1) */
+            if ((sec_flags & 2) && !(sec_flags & 1) && sec_size > 0) {
+                if (num_writable < MAX_WRITABLE_SECTIONS) {
+                    writable_ranges[num_writable].start = sec_offset;
+                    writable_ranges[num_writable].end = sec_offset + sec_size;
+                    num_writable++;
                 }
+                if (sec_offset < data_start) data_start = sec_offset;
+                if (sec_offset + sec_size > data_end) data_end = sec_offset + sec_size;
                 if (verbose) {
-                    fprintf(stderr, "[cosmoext]   Redirected reloc at 0x%llx: 0x%llx -> 0x%llx\n",
-                            (unsigned long long)r->blob_offset,
-                            (unsigned long long)old_value,
-                            (unsigned long long)new_value);
+                    fprintf(stderr, "[cosmoext] Writable section %llu: offset=0x%llx, size=%llu\n",
+                            (unsigned long long)i, (unsigned long long)sec_offset, 
+                            (unsigned long long)sec_size);
                 }
             }
+        }
+        fclose(sf);
+        
+        /* Helper to check if offset is in a writable section */
+        #define IS_WRITABLE(off) ({ \
+            int _w = 0; \
+            for (int _i = 0; _i < num_writable; _i++) { \
+                if ((off) >= writable_ranges[_i].start && (off) < writable_ranges[_i].end) { \
+                    _w = 1; break; \
+                } \
+            } \
+            _w; \
+        })
+        
+        if (data_end > data_start) {
+            heap_data_size = data_end - data_start;
+            heap_data = PyMem_Malloc(heap_data_size);
+            if (!heap_data) {
+                PyErr_NoMemory();
+                goto error;
+            }
+            
+            /* Copy data to heap */
+            memcpy(heap_data, (char*)mapped + data_start, heap_data_size);
+            
+            if (verbose) {
+                fprintf(stderr, "[cosmoext] Copied %zu bytes of data (0x%zx-0x%zx) to heap at %p\n", 
+                        heap_data_size, data_start, data_end, heap_data);
+            }
+            
+            /* Update internal pointers to point to heap copy instead of JIT region */
+            uintptr_t heap_data_base = (uintptr_t)heap_data;
+            
+            for (uint64_t i = 0; i < header.num_relocs; i++) {
+                CosmoExtReloc *r = &relocs[i];
+                /* Only process relocations that target writable sections */
+                if (!IS_WRITABLE(r->target_offset)) continue;
+                
+                /* This relocation points into a writable section - update to heap */
+                uintptr_t old_value = (uintptr_t)mapped + r->target_offset;
+                uintptr_t new_value = heap_data_base + (r->target_offset - data_start);
+                
+                /* Update pointer in JIT region (code references to data) */
+                if (!IS_WRITABLE(r->blob_offset)) {
+                    if (r->size == 8) {
+                        memcpy((char*)mapped + r->blob_offset, &new_value, 8);
+                    } else if (r->size == 4) {
+                        uint32_t val32 = (uint32_t)new_value;
+                        memcpy((char*)mapped + r->blob_offset, &val32, 4);
+                    }
+                    if (verbose) {
+                        fprintf(stderr, "[cosmoext]   Redirected reloc at 0x%llx: 0x%llx -> 0x%llx\n",
+                                (unsigned long long)r->blob_offset,
+                                (unsigned long long)old_value,
+                                (unsigned long long)new_value);
+                    }
+                }
+                
+                /* Also update pointer in heap copy (data references to other data) */
+                if (IS_WRITABLE(r->blob_offset)) {
+                    size_t heap_offset = r->blob_offset - data_start;
+                    if (r->size == 8) {
+                        memcpy((char*)heap_data + heap_offset, &new_value, 8);
+                    } else if (r->size == 4) {
+                        uint32_t val32 = (uint32_t)new_value;
+                        memcpy((char*)heap_data + heap_offset, &val32, 4);
+                    }
+                    if (verbose) {
+                        fprintf(stderr, "[cosmoext]   Updated heap reloc at heap+0x%zx: -> 0x%llx\n",
+                                heap_offset, (unsigned long long)new_value);
+                    }
+                }
+            }
+            
+            #undef IS_WRITABLE
+            #undef MAX_WRITABLE_SECTIONS
         }
     }
 #endif
@@ -689,11 +765,36 @@ cosmoext_load(PyObject *self, PyObject *args)
     if (verbose) {
         fprintf(stderr, "[cosmoext] Calling init function at offset 0x%llx\n",
                 (unsigned long long)header.init_offset);
+        
+        /* Debug: dump first 32 bytes of init function */
+        unsigned char *init_bytes = (unsigned char*)mapped + header.init_offset;
+        fprintf(stderr, "[cosmoext] DEBUG: Init function at %p, bytes:\n", 
+                (void*)init_bytes);
+        for (int row = 0; row < 2; row++) {
+            fprintf(stderr, "[cosmoext]   %04llx:", 
+                    (unsigned long long)(header.init_offset + row * 16));
+            for (int col = 0; col < 16; col++) {
+                fprintf(stderr, " %02x", init_bytes[row * 16 + col]);
+            }
+            fprintf(stderr, "\n");
+        }
+        
+        fflush(stderr);
     }
     
     /* Call the init function */
     CosmoExtInitFunc init_func = (CosmoExtInitFunc)((char*)mapped + header.init_offset);
+    
+    if (verbose) {
+        fprintf(stderr, "[cosmoext] About to call init at %p\n", (void*)init_func);
+        fflush(stderr);
+    }
     void *init_result = init_func();
+    
+    if (verbose) {
+        fprintf(stderr, "[cosmoext] Init returned: %p\n", init_result);
+        fflush(stderr);
+    }
     
     /* Check for errors */
     if (PyErr_Occurred()) {
@@ -710,8 +811,30 @@ cosmoext_load(PyObject *self, PyObject *args)
     /* Handle different return types */
     if (init_result == (void*)1) {
         /* Shim intercepted PyModuleDef_Init (multi-phase) */
-        GetCapturedDefFunc get_def = (GetCapturedDefFunc)((char*)init_func + 0x90);
+        /* _cosmoext_get_captured_def is at a fixed offset from init.
+         * The offset depends on the architecture and build:
+         * - x86_64: init + 0x98 (smaller code due to different instruction encoding)
+         * - ARM64:  init + 0xE8 (larger due to ADRP/ADD sequences)
+         * TODO: Store this offset in the header for robustness.
+         */
+#if defined(__aarch64__)
+        size_t get_def_offset = 0xE8;
+#else
+        size_t get_def_offset = 0x98;
+#endif
+        GetCapturedDefFunc get_def = (GetCapturedDefFunc)((char*)init_func + get_def_offset);
+        
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] Calling get_def at %p (init+0x%zx)\n", (void*)get_def, get_def_offset);
+            fflush(stderr);
+        }
+        
         PyModuleDef *def = get_def();
+        
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] get_def returned: %p\n", (void*)def);
+            fflush(stderr);
+        }
         
         if (!def) {
             PyErr_SetString(PyExc_RuntimeError, "Shim captured NULL def");
