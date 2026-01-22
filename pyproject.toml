@@ -88,8 +88,8 @@ else
 fi
 """
 
-ruff-format = "uvx ruff format ${@:-ci}"
-ruff-lint = "uvx ruff check --fix ${@:-ci}"
+ruff-format = "uvx ruff format ${@:-ci src}"
+ruff-lint = "uvx ruff check --fix ${@:-ci src}"
 
 cspell.help = "check spelling"
 cspell.shell = "npx --yes cspell lint --unique --gitignore '**/*.{py,md}'"

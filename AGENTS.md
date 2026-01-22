@@ -8,7 +8,7 @@ This document captures preferences for AI agents (Claude, etc.) working on this 
 - Keep titles lowercase where possible
 - Use backticks for code references in titles
 - Add `aigen` label for AI-generated issues
-- Include "Created by {Model Name} during {code review | discussion with...}" at start of issue/comment body
+- Include "Created by {Model Name + Version} during {code review | discussion with...}" at start of issue/comment body
 - Prefer flat (or no) hierarchy in the markdown body; use bolding appropriately
 
 ## Development Commands
