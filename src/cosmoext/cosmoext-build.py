@@ -234,7 +234,13 @@ def main():
     args = parser.parse_args()
 
     # Find Cosmopolitan toolchain
-    compiler_name = "cosmoc++" if args.cxx else "cosmocc"
+    # For ARM64, we need to use the architecture-specific compiler
+    if args.arch == "aarch64":
+        compiler_suffix = "aarch64-linux-cosmo-"
+        compiler_name = compiler_suffix + ("c++" if args.cxx else "cc")
+    else:
+        # x86_64: use cosmocc/cosmoc++ which produces fat binaries
+        compiler_name = "cosmoc++" if args.cxx else "cosmocc"
     compiler = find_tool(compiler_name)
     if not compiler:
         print(f"Error: Could not find {compiler_name}", file=sys.stderr)
@@ -298,10 +304,15 @@ def main():
                 cmd = [
                     compiler,
                     "-c",
-                    "-fPIC",
-                    "-mcmodel=large",
                     "-fno-stack-protector",
                 ]
+                # Architecture-specific flags
+                if args.arch == "aarch64":
+                    # ARM64: -mcmodel=large without -fPIC (GCC doesn't support both together)
+                    cmd.append("-mcmodel=large")
+                else:
+                    # x86_64: both -fPIC and -mcmodel=large work together
+                    cmd.extend(["-fPIC", "-mcmodel=large"])
 
                 for inc in all_includes:
                     cmd.extend(["-I", inc])
@@ -328,10 +339,12 @@ def main():
             cmd = [
                 compiler,
                 "-c",
-                "-fPIC",
-                "-mcmodel=large",
                 "-fno-stack-protector",
             ]
+            if args.arch == "aarch64":
+                cmd.append("-mcmodel=large")
+            else:
+                cmd.extend(["-fPIC", "-mcmodel=large"])
             for inc in all_includes:
                 cmd.extend(["-I", inc])
             cmd.extend(["-o", shim_obj, SHIM_SOURCE])
@@ -365,13 +378,13 @@ def main():
             cmd = [
                 compiler,
                 "-c",
-                "-fPIC",
-                "-mcmodel=large",
                 "-fno-stack-protector",
-                "-o",
-                stubs_obj,
-                LIBC_STUBS,
             ]
+            if args.arch == "aarch64":
+                cmd.append("-mcmodel=large")
+            else:
+                cmd.extend(["-fPIC", "-mcmodel=large"])
+            cmd.extend(["-o", stubs_obj, LIBC_STUBS])
             run_cmd(cmd, args.verbose)
 
             # Re-link with stubs

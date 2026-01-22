@@ -35,7 +35,21 @@ R_X86_64_PLT32 = 4  # L + A - P (32-bit PLT-relative, same as PC32 for us)
 R_X86_64_32 = 10  # S + A (32-bit absolute, zero-extended)
 R_X86_64_32S = 11  # S + A (32-bit absolute, sign-extended)
 
-RELOC_NAMES = {
+# ARM64 (AArch64) relocation types
+R_AARCH64_NONE = 0
+R_AARCH64_ABS64 = 257  # S + A (64-bit absolute)
+R_AARCH64_CALL26 = 283  # S + A - P (26-bit PC-relative call)
+R_AARCH64_JUMP26 = 282  # S + A - P (26-bit PC-relative jump)
+R_AARCH64_ADR_PREL_PG_HI21 = 275  # Page(S + A) - Page(P) (ADRP)
+R_AARCH64_ADD_ABS_LO12_NC = 277  # S + A (low 12 bits, no check)
+R_AARCH64_LDST64_ABS_LO12_NC = 286  # S + A (low 12 bits for 64-bit load/store)
+R_AARCH64_LDST32_ABS_LO12_NC = 285  # S + A (low 12 bits for 32-bit load/store)
+R_AARCH64_LDST8_ABS_LO12_NC = 278  # S + A (low 12 bits for 8-bit load/store)
+R_AARCH64_ADR_GOT_PAGE = 311  # Page(G(S)) - Page(P) (GOT page)
+R_AARCH64_LD64_GOT_LO12_NC = 312  # G(S) (low 12 bits of GOT entry)
+R_AARCH64_PREL32 = 261  # S + A - P (32-bit PC-relative)
+
+RELOC_NAMES_X86_64 = {
     R_X86_64_NONE: "R_X86_64_NONE",
     R_X86_64_64: "R_X86_64_64",
     R_X86_64_PC32: "R_X86_64_PC32",
@@ -43,6 +57,49 @@ RELOC_NAMES = {
     R_X86_64_32: "R_X86_64_32",
     R_X86_64_32S: "R_X86_64_32S",
 }
+
+RELOC_NAMES_AARCH64 = {
+    R_AARCH64_NONE: "R_AARCH64_NONE",
+    R_AARCH64_ABS64: "R_AARCH64_ABS64",
+    R_AARCH64_CALL26: "R_AARCH64_CALL26",
+    R_AARCH64_JUMP26: "R_AARCH64_JUMP26",
+    R_AARCH64_ADR_PREL_PG_HI21: "R_AARCH64_ADR_PREL_PG_HI21",
+    R_AARCH64_ADD_ABS_LO12_NC: "R_AARCH64_ADD_ABS_LO12_NC",
+    R_AARCH64_LDST64_ABS_LO12_NC: "R_AARCH64_LDST64_ABS_LO12_NC",
+    R_AARCH64_LDST32_ABS_LO12_NC: "R_AARCH64_LDST32_ABS_LO12_NC",
+    R_AARCH64_LDST8_ABS_LO12_NC: "R_AARCH64_LDST8_ABS_LO12_NC",
+    R_AARCH64_PREL32: "R_AARCH64_PREL32",
+}
+
+# ARM64 trampoline: load address from literal pool and branch
+# ldr x16, #8  (load from PC+8)
+# br x16       (indirect branch)
+# .quad 0      (64-bit address placeholder)
+ARM64_TRAMPOLINE = bytes(
+    [
+        0x50,
+        0x00,
+        0x00,
+        0x58,  # ldr x16, #8
+        0x00,
+        0x02,
+        0x1F,
+        0xD6,  # br x16
+        0x00,
+        0x00,
+        0x00,
+        0x00,  # address low 32 bits
+        0x00,
+        0x00,
+        0x00,
+        0x00,  # address high 32 bits
+    ]
+)
+ARM64_TRAMPOLINE_SIZE = 16
+ARM64_TRAMPOLINE_ADDR_OFFSET = 8  # offset to the 64-bit address
+
+# ARM64 call/jump range: ±128MB (26 bits * 4 bytes)
+ARM64_CALL_RANGE = (1 << 25) * 4
 
 
 @dataclass
@@ -181,14 +238,23 @@ class CosmoExtBlob:
 
 def parse_object_file(
     path: Path,
-) -> tuple[dict[str, LoadableSection], list[Relocation], dict[str, int]]:
-    """Parse an ELF object file, returning sections, relocations, and local symbols."""
+) -> tuple[dict[str, LoadableSection], list[Relocation], dict[str, tuple[str, int]], str]:
+    """Parse an ELF object file.
+
+    Returns: (sections, relocations, local_symbols, arch)
+    where arch is "x86_64" or "aarch64"
+    """
 
     with open(path, "rb") as f:
         elf = ELFFile(f)
 
-        if elf.get_machine_arch() != "x64":
-            raise ValueError(f"Unsupported architecture: {elf.get_machine_arch()}")
+        machine_arch = elf.get_machine_arch()
+        if machine_arch == "x64":
+            arch = "x86_64"
+        elif machine_arch == "AArch64":
+            arch = "aarch64"
+        else:
+            raise ValueError(f"Unsupported architecture: {machine_arch}")
 
         sections: dict[str, LoadableSection] = {}
         relocations: list[Relocation] = []
@@ -277,7 +343,7 @@ def parse_object_file(
                     )
                 )
 
-        return sections, relocations, local_symbols
+        return sections, relocations, local_symbols, arch
 
 
 def layout_sections(sections: dict[str, LoadableSection], base_address: int) -> int:
@@ -307,12 +373,76 @@ def layout_sections(sections: dict[str, LoadableSection], base_address: int) -> 
     return offset
 
 
+def generate_arm64_trampolines(
+    relocations: list[Relocation],
+    sections: dict[str, LoadableSection],
+    local_symbols: dict[str, tuple[str, int]],
+    external_symbols: dict[str, int],
+    base_address: int,
+    total_size: int,
+) -> tuple[bytearray, dict[str, int]]:
+    """Generate ARM64 trampolines for external function calls.
+
+    Returns: (trampoline_data, symbol_to_trampoline_addr)
+    """
+    # Find external function calls that need trampolines
+    needs_trampoline: set[str] = set()
+
+    for reloc in relocations:
+        if reloc.type not in (R_AARCH64_CALL26, R_AARCH64_JUMP26):
+            continue
+        if not reloc.symbol or reloc.symbol in local_symbols:
+            continue
+        if reloc.symbol.startswith("."):
+            continue
+
+        # Check if target is within range
+        target_sec = sections.get(reloc.section)
+        if not target_sec:
+            continue
+
+        P = target_sec.vaddr + reloc.offset
+        S = external_symbols.get(reloc.symbol, 0)
+        if not S:
+            continue
+
+        offset = S + reloc.addend - P
+        if not (-(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE):
+            needs_trampoline.add(reloc.symbol)
+
+    if not needs_trampoline:
+        return bytearray(), {}
+
+    # Generate trampolines
+    # Place them right after the existing sections
+    tramp_base = base_address + total_size
+    # Align to 16 bytes
+    tramp_base = (tramp_base + 15) & ~15
+
+    tramp_data = bytearray()
+    tramp_addrs: dict[str, int] = {}
+
+    for sym in sorted(needs_trampoline):
+        addr = external_symbols[sym]
+        tramp_addr = tramp_base + len(tramp_data)
+        tramp_addrs[sym] = tramp_addr
+
+        # Build trampoline: ldr x16, #8; br x16; .quad addr
+        tramp = bytearray(ARM64_TRAMPOLINE)
+        struct.pack_into("<Q", tramp, ARM64_TRAMPOLINE_ADDR_OFFSET, addr)
+        tramp_data.extend(tramp)
+
+    return tramp_data, tramp_addrs
+
+
 def apply_relocations(
     sections: dict[str, LoadableSection],
     relocations: list[Relocation],
     local_symbols: dict[str, tuple[str, int]],
     external_symbols: dict[str, int],
     base_address: int,
+    arch: str = "x86_64",
+    trampolines: dict[str, int] | None = None,
 ) -> tuple[list[str], list[InternalRelocation]]:
     """Apply relocations, returning (errors, internal_relocs).
 
@@ -431,9 +561,110 @@ def apply_relocations(
             elif reloc.type == R_X86_64_NONE:
                 pass  # No action needed
 
+            # ARM64 relocations
+            elif reloc.type == R_AARCH64_ABS64:
+                # 64-bit absolute: S + A
+                value = S + A
+                struct.pack_into("<Q", target_sec.data, reloc.offset, value)
+
+                if is_internal:
+                    target_offset = (S + A) - base_address
+                    internal_relocs.append(
+                        InternalRelocation(
+                            section_offset=target_sec.offset + reloc.offset,
+                            size=8,
+                            target_offset=target_offset,
+                        )
+                    )
+
+            elif reloc.type in (R_AARCH64_CALL26, R_AARCH64_JUMP26):
+                # 26-bit PC-relative call/jump
+                # Range: ±128MB
+                offset = S + A - P
+                if -(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE:
+                    # Within range - patch directly
+                    # The offset is in bytes, instruction encodes offset/4
+                    imm26 = (offset >> 2) & 0x03FFFFFF
+                    # Read existing instruction and patch
+                    insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                    insn = (insn & 0xFC000000) | imm26
+                    struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+                elif trampolines and reloc.symbol in trampolines:
+                    # Use trampoline
+                    tramp_addr = trampolines[reloc.symbol]
+                    offset = tramp_addr - P
+                    if -(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE:
+                        imm26 = (offset >> 2) & 0x03FFFFFF
+                        insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                        insn = (insn & 0xFC000000) | imm26
+                        struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+                    else:
+                        errors.append(f"Trampoline for {reloc.symbol} still out of range")
+                else:
+                    errors.append(
+                        f"CALL26/JUMP26 out of range for {reloc.symbol}: "
+                        f"offset={offset}, range=±{ARM64_CALL_RANGE}"
+                    )
+
+            elif reloc.type == R_AARCH64_ADR_PREL_PG_HI21:
+                # ADRP: Page(S + A) - Page(P)
+                page_s = (S + A) & ~0xFFF
+                page_p = P & ~0xFFF
+                offset = page_s - page_p
+                # Encode into ADRP instruction (immhi:immlo)
+                imm = offset >> 12
+                immlo = imm & 0x3
+                immhi = (imm >> 2) & 0x7FFFF
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+                if is_internal:
+                    # ADRP needs page-level fixup
+                    internal_relocs.append(
+                        InternalRelocation(
+                            section_offset=target_sec.offset + reloc.offset,
+                            size=4,  # instruction size
+                            target_offset=(S + A) - base_address,
+                        )
+                    )
+
+            elif reloc.type == R_AARCH64_ADD_ABS_LO12_NC:
+                # ADD/SUB immediate: low 12 bits of S + A
+                imm12 = (S + A) & 0xFFF
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                insn = (insn & 0xFFC003FF) | (imm12 << 10)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+            elif reloc.type in (
+                R_AARCH64_LDST64_ABS_LO12_NC,
+                R_AARCH64_LDST32_ABS_LO12_NC,
+                R_AARCH64_LDST8_ABS_LO12_NC,
+            ):
+                # LDR/STR offset: low 12 bits, scaled by access size
+                addr = S + A
+                if reloc.type == R_AARCH64_LDST64_ABS_LO12_NC:
+                    imm12 = (addr >> 3) & 0x1FF  # 64-bit scaled
+                elif reloc.type == R_AARCH64_LDST32_ABS_LO12_NC:
+                    imm12 = (addr >> 2) & 0x3FF  # 32-bit scaled
+                else:
+                    imm12 = addr & 0xFFF  # 8-bit, no scaling
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                insn = (insn & 0xFFC003FF) | (imm12 << 10)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+            elif reloc.type == R_AARCH64_PREL32:
+                # 32-bit PC-relative
+                value = (S + A - P) & 0xFFFFFFFF
+                struct.pack_into("<I", target_sec.data, reloc.offset, value)
+
+            elif reloc.type == R_AARCH64_NONE:
+                pass
+
             else:
+                reloc_names = RELOC_NAMES_AARCH64 if arch == "aarch64" else RELOC_NAMES_X86_64
                 errors.append(
-                    f"Unsupported relocation type {reloc.type} ({RELOC_NAMES.get(reloc.type, '?')})"
+                    f"Unsupported relocation type {reloc.type} ({reloc_names.get(reloc.type, '?')})"
                 )
 
         except struct.error as e:
@@ -447,7 +678,7 @@ def build_cosmoext(
     symtab_path: Path,
     output_path: Path,
     load_address: int = 0x10000000,  # Default load address (256MB)
-    arch: str = "amd64",
+    arch: str | None = None,
     verbose: bool = False,
 ) -> bool:
     """Build a .cosmoext blob from an object file."""
@@ -456,15 +687,30 @@ def build_cosmoext(
     from symtab import SymbolTable
 
     print(f"Parsing object file: {obj_path}")
-    sections, relocations, local_symbols = parse_object_file(obj_path)
+    sections, relocations, local_symbols, obj_arch = parse_object_file(obj_path)
 
+    print(f"  Architecture: {obj_arch}")
     print(f"  Sections: {list(sections.keys())}")
     print(f"  Relocations: {len(relocations)}")
     print(f"  Local symbols: {len(local_symbols)}")
 
+    # Normalize arch names (CLI uses amd64/arm64, internal uses x86_64/aarch64)
+    arch_map = {"amd64": "x86_64", "arm64": "aarch64", "x86_64": "x86_64", "aarch64": "aarch64"}
+
+    # Use object file architecture if not specified
+    if arch is None:
+        arch = obj_arch
+    else:
+        arch = arch_map.get(arch, arch)
+        if arch != obj_arch:
+            raise ValueError(f"Architecture mismatch: object is {obj_arch}, requested {arch}")
+
     # Load symbol table from target binary
+    # Note: symtab uses amd64/arm64 naming, we use x86_64/aarch64 internally
+    symtab_arch_map = {"x86_64": "amd64", "aarch64": "arm64"}
+    symtab_arch = symtab_arch_map.get(arch, arch)
     print(f"\nLoading symbol table from: {symtab_path}")
-    st = SymbolTable.from_ape(symtab_path, arch=arch)
+    st = SymbolTable.from_ape(symtab_path, arch=symtab_arch)
     print(f"  {len(st.symbols)} symbols available")
 
     # Symbol aliases for Cosmopolitan's mangled names
@@ -506,10 +752,34 @@ def build_cosmoext(
     for sec in sections.values():
         print(f"    {sec.name}: offset={sec.offset}, vaddr=0x{sec.vaddr:x}, size={sec.size}")
 
+    # Generate ARM64 trampolines if needed
+    trampolines: dict[str, int] = {}
+    trampoline_data = bytearray()
+    trampoline_offset = 0
+    if obj_arch == "aarch64":
+        print("\nGenerating ARM64 trampolines...")
+        trampoline_data, trampolines = generate_arm64_trampolines(
+            relocations, sections, local_symbols, external_symbols, load_address, total_size
+        )
+        if trampolines:
+            print(f"  Generated {len(trampolines)} trampolines ({len(trampoline_data)} bytes)")
+            for sym, addr in sorted(trampolines.items()):
+                print(f"    {sym}: 0x{addr:x}")
+            # Calculate trampoline section offset (must match what generate_arm64_trampolines used)
+            trampoline_offset = (total_size + 15) & ~15
+            # Update total size to include trampolines
+            total_size = trampoline_offset + len(trampoline_data)
+
     # Apply relocations
     print(f"\nApplying {len(relocations)} relocations...")
     errors, internal_relocs = apply_relocations(
-        sections, relocations, local_symbols, external_symbols, load_address
+        sections,
+        relocations,
+        local_symbols,
+        external_symbols,
+        load_address,
+        arch=obj_arch,
+        trampolines=trampolines if trampolines else None,
     )
 
     if errors:
@@ -534,9 +804,26 @@ def build_cosmoext(
 
     print(f"\n  Init function: {init_func[0]} at 0x{init_func[1]:x}")
 
+    # Add trampoline section if needed
+    all_sections = list(sections.values())
+    if trampoline_data:
+        # Use the offset calculated during trampoline generation
+        tramp_offset = trampoline_offset
+        tramp_vaddr = load_address + tramp_offset
+        tramp_section = LoadableSection(
+            name=".trampolines",
+            data=trampoline_data,
+            offset=tramp_offset,
+            vaddr=tramp_vaddr,
+            flags=0x6,  # SHF_ALLOC | SHF_EXECINSTR
+            align=16,
+        )
+        all_sections.append(tramp_section)
+        print(f"  Trampolines section: offset={tramp_offset}, vaddr=0x{tramp_vaddr:x}")
+
     # Create blob
     blob = CosmoExtBlob(
-        sections=list(sections.values()),
+        sections=all_sections,
         init_offset=init_func[1] - load_address,
         total_size=total_size,
         load_address=load_address,
@@ -564,7 +851,12 @@ def main() -> int:
         default=0x10000000,
         help="Load address (default: 0x10000000)",
     )
-    parser.add_argument("--arch", default="amd64", choices=["amd64", "arm64"])
+    parser.add_argument(
+        "--arch",
+        default=None,
+        choices=["amd64", "arm64", "x86_64", "aarch64"],
+        help="Target architecture (auto-detected from object file if not specified)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
 
     args = parser.parse_args()
