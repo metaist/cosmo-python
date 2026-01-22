@@ -7,9 +7,9 @@
 
 This is the core of the cosmoext build process:
 1. Parse the object file's sections and relocations
-2. Resolve external symbols against the target binary's symbol table
-3. Apply relocations to produce position-dependent code
-4. Output a blob that can be loaded at a known address
+2. Validate external symbols against the target binary's symbol table
+3. Apply internal relocations to produce position-dependent code
+4. Output a blob with external symbol names for runtime resolution
 
 Usage:
     ./relocate.py testmod.o --symtab python.com --output testmod.cosmoext
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import struct
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
@@ -147,6 +147,14 @@ class InternalRelocation:
 
 
 @dataclass
+class ExternalSymbol:
+    """An external symbol that must be resolved at load time."""
+
+    name: str  # Symbol name (e.g., "PyModule_Create2")
+    patch_offset: int  # Offset in blob where to write the resolved address
+
+
+@dataclass
 class CosmoExtBlob:
     """The output blob ready for loading."""
 
@@ -155,18 +163,21 @@ class CosmoExtBlob:
     total_size: int
     load_address: int  # Address where this was designed to load
     internal_relocs: list[InternalRelocation]  # Relocations to apply at load time
+    external_symbols: list[ExternalSymbol] = field(default_factory=list)  # External symbols
 
     def write(self, f: BinaryIO) -> None:
-        """Write the blob to a file."""
-        # Format version 3:
+        """Write the blob to a file in format version 4."""
+        # Format version 4:
         # - 4 bytes: magic "CEXT"
-        # - 4 bytes: version (3)
+        # - 4 bytes: version (4)
         # - 8 bytes: load_address (designed)
         # - 8 bytes: total_size
         # - 8 bytes: init_offset
         # - 8 bytes: header_size (where blob data starts)
         # - 8 bytes: num_sections
         # - 8 bytes: num_internal_relocs
+        # - 8 bytes: num_external_symbols
+        # - 8 bytes: string_table_size
         # - For each section:
         #   - 8 bytes: offset
         #   - 8 bytes: size
@@ -177,27 +188,50 @@ class CosmoExtBlob:
         #   - 4 bytes: size (4 or 8)
         #   - 4 bytes: padding
         #   - 8 bytes: target_offset
+        # - For each external symbol:
+        #   - 8 bytes: patch_offset (where to write address in blob)
+        #   - 4 bytes: name_offset (offset into string table)
+        #   - 4 bytes: padding
+        # - String table (null-terminated symbol names)
         # - Padding to page boundary
         # - Raw section data concatenated
 
-        # First calculate header size to include in header
-        base_header_size = 56  # 4+4+8+8+8+8+8+8
+        # Build string table
+        string_table = bytearray()
+        name_offsets: dict[str, int] = {}
+        for ext_sym in self.external_symbols:
+            if ext_sym.name not in name_offsets:
+                name_offsets[ext_sym.name] = len(string_table)
+                string_table.extend(ext_sym.name.encode("utf-8"))
+                string_table.append(0)  # null terminator
+
+        # Calculate header size
+        base_header_size = 72  # 4+4+8*8 = 72 bytes
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
-        header_total = base_header_size + section_headers_size + reloc_data_size
+        external_sym_size = len(self.external_symbols) * 16
+        header_total = (
+            base_header_size
+            + section_headers_size
+            + reloc_data_size
+            + external_sym_size
+            + len(string_table)
+        )
         # Round up to nearest 4096
         header_size = ((header_total + 4095) // 4096) * 4096
 
         header = struct.pack(
-            "<4sIQQQQQQ",
+            "<4sIQQQQQQQQ",
             b"CEXT",
-            3,  # version
+            4,  # version
             self.load_address,
             self.total_size,
             self.init_offset,
             header_size,
             len(self.sections),
             len(self.internal_relocs),
+            len(self.external_symbols),
+            len(string_table),
         )
 
         section_headers = b""
@@ -217,13 +251,26 @@ class CosmoExtBlob:
                 "<QIxxxxQ", reloc.section_offset, reloc.size, reloc.target_offset
             )
 
+        external_sym_data = b""
+        for ext_sym in self.external_symbols:
+            name_off = name_offsets[ext_sym.name]
+            external_sym_data += struct.pack("<QIxxxx", ext_sym.patch_offset, name_off)
+
         # Pad to header_size
-        actual_header = len(header) + len(section_headers) + len(reloc_data)
+        actual_header = (
+            len(header)
+            + len(section_headers)
+            + len(reloc_data)
+            + len(external_sym_data)
+            + len(string_table)
+        )
         padding = header_size - actual_header
 
         f.write(header)
         f.write(section_headers)
         f.write(reloc_data)
+        f.write(external_sym_data)
+        f.write(bytes(string_table))
         f.write(b"\x00" * padding)
 
         # Write section data in offset order, with padding for alignment gaps
@@ -377,13 +424,15 @@ def generate_arm64_trampolines(
     relocations: list[Relocation],
     sections: dict[str, LoadableSection],
     local_symbols: dict[str, tuple[str, int]],
-    external_symbols: dict[str, int],
+    external_symbols: set[str],
     base_address: int,
     total_size: int,
-) -> tuple[bytearray, dict[str, int]]:
+) -> tuple[bytearray, dict[str, int], dict[str, int]]:
     """Generate ARM64 trampolines for external function calls.
 
-    Returns: (trampoline_data, symbol_to_trampoline_addr)
+    Returns: (trampoline_data, symbol_to_trampoline_vaddr, symbol_to_patch_offset)
+    - symbol_to_trampoline_vaddr: maps symbol to trampoline virtual address
+    - symbol_to_patch_offset: maps symbol to offset in blob where address should be patched
     """
     # Find external function calls that need trampolines
     needs_trampoline: set[str] = set()
@@ -395,65 +444,59 @@ def generate_arm64_trampolines(
             continue
         if reloc.symbol.startswith("."):
             continue
-
-        # Check if target is within range
-        target_sec = sections.get(reloc.section)
-        if not target_sec:
-            continue
-
-        P = target_sec.vaddr + reloc.offset
-        S = external_symbols.get(reloc.symbol, 0)
-        if not S:
-            continue
-
-        offset = S + reloc.addend - P
-        if not (-(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE):
+        if reloc.symbol in external_symbols:
+            # All external calls need trampolines on ARM64 since we don't know
+            # the actual address at build time
             needs_trampoline.add(reloc.symbol)
 
     if not needs_trampoline:
-        return bytearray(), {}
+        return bytearray(), {}, {}
 
     # Generate trampolines
     # Place them right after the existing sections
     tramp_base = base_address + total_size
     # Align to 16 bytes
     tramp_base = (tramp_base + 15) & ~15
+    tramp_blob_offset = tramp_base - base_address
 
     tramp_data = bytearray()
-    tramp_addrs: dict[str, int] = {}
+    tramp_vaddrs: dict[str, int] = {}
+    patch_offsets: dict[str, int] = {}
 
     for sym in sorted(needs_trampoline):
-        addr = external_symbols[sym]
-        tramp_addr = tramp_base + len(tramp_data)
-        tramp_addrs[sym] = tramp_addr
+        tramp_vaddr = tramp_base + len(tramp_data)
+        tramp_vaddrs[sym] = tramp_vaddr
 
-        # Build trampoline: ldr x16, #8; br x16; .quad addr
+        # The patch offset is where the 64-bit address lives in the trampoline
+        patch_off = tramp_blob_offset + len(tramp_data) + ARM64_TRAMPOLINE_ADDR_OFFSET
+        patch_offsets[sym] = patch_off
+
+        # Build trampoline with placeholder address (will be patched at load time)
         tramp = bytearray(ARM64_TRAMPOLINE)
-        struct.pack_into("<Q", tramp, ARM64_TRAMPOLINE_ADDR_OFFSET, addr)
+        # Leave address as 0 - loader will fill it in
         tramp_data.extend(tramp)
 
-    return tramp_data, tramp_addrs
+    return tramp_data, tramp_vaddrs, patch_offsets
 
 
 def apply_relocations(
     sections: dict[str, LoadableSection],
     relocations: list[Relocation],
     local_symbols: dict[str, tuple[str, int]],
-    external_symbols: dict[str, int],
+    external_symbols: set[str],
     base_address: int,
     arch: str = "x86_64",
     trampolines: dict[str, int] | None = None,
-) -> tuple[list[str], list[InternalRelocation]]:
-    """Apply relocations, returning (errors, internal_relocs).
+) -> tuple[list[str], list[InternalRelocation], list[ExternalSymbol]]:
+    """Apply relocations, returning (errors, internal_relocs, external_syms).
 
-    External symbols are resolved to absolute addresses.
-    Internal symbols are resolved, but we also return a list of internal
-    relocations that need to be re-applied at load time if the actual
-    load address differs from base_address.
+    Internal symbols are resolved. External symbols are recorded for runtime resolution.
     """
 
     errors = []
     internal_relocs = []
+    external_syms_list: list[ExternalSymbol] = []
+    seen_external: set[tuple[str, int]] = set()  # (name, offset) pairs we've recorded
 
     for reloc in relocations:
         target_sec = sections.get(reloc.section)
@@ -462,9 +505,10 @@ def apply_relocations(
 
         # Resolve symbol
         is_internal = False
-        if reloc.symbol in external_symbols:
-            sym_addr = external_symbols[reloc.symbol]
-        elif reloc.symbol in local_symbols:
+        is_external = False
+        sym_addr = 0
+
+        if reloc.symbol in local_symbols:
             sec_name, sec_offset = local_symbols[reloc.symbol]
             if sec_name in sections:
                 sym_addr = sections[sec_name].vaddr + sec_offset
@@ -484,13 +528,18 @@ def apply_relocations(
             # Empty symbol name - use section base
             sym_addr = target_sec.vaddr
             is_internal = True
+        elif reloc.symbol in external_symbols:
+            is_external = True
+            # For external symbols, we use 0 as placeholder
+            # The actual address will be patched at load time
+            sym_addr = 0
         else:
             errors.append(f"Unresolved symbol: {reloc.symbol}")
             continue
 
         # Apply relocation
         P = target_sec.vaddr + reloc.offset  # Address of the relocation
-        S = sym_addr  # Symbol address
+        S = sym_addr  # Symbol address (0 for external)
         A = reloc.addend
 
         try:
@@ -499,9 +548,7 @@ def apply_relocations(
                 value = S + A
                 struct.pack_into("<Q", target_sec.data, reloc.offset, value)
 
-                # Track internal relocations for load-time fixup
                 if is_internal:
-                    # Calculate target offset in blob
                     target_offset = (S + A) - base_address
                     internal_relocs.append(
                         InternalRelocation(
@@ -510,12 +557,24 @@ def apply_relocations(
                             target_offset=target_offset,
                         )
                     )
+                elif is_external:
+                    # Record external symbol for runtime resolution
+                    patch_off = target_sec.offset + reloc.offset
+                    key = (reloc.symbol, patch_off)
+                    if key not in seen_external:
+                        seen_external.add(key)
+                        external_syms_list.append(
+                            ExternalSymbol(name=reloc.symbol, patch_offset=patch_off)
+                        )
 
             elif reloc.type in (R_X86_64_PC32, R_X86_64_PLT32):
                 # 32-bit PC-relative: S + A - P
-                # These are position-independent (relative), no fixup needed
+                if is_external:
+                    errors.append(
+                        f"PC32/PLT32 relocation for external symbol {reloc.symbol} not supported"
+                    )
+                    continue
                 value = (S + A - P) & 0xFFFFFFFF
-                # Check for overflow
                 signed = struct.unpack("<i", struct.pack("<I", value))[0]
                 if signed < -(1 << 31) or signed >= (1 << 31):
                     errors.append(f"PC32 overflow for {reloc.symbol}: {signed}")
@@ -559,7 +618,7 @@ def apply_relocations(
                     )
 
             elif reloc.type == R_X86_64_NONE:
-                pass  # No action needed
+                pass
 
             # ARM64 relocations
             elif reloc.type == R_AARCH64_ABS64:
@@ -576,42 +635,52 @@ def apply_relocations(
                             target_offset=target_offset,
                         )
                     )
+                elif is_external:
+                    patch_off = target_sec.offset + reloc.offset
+                    key = (reloc.symbol, patch_off)
+                    if key not in seen_external:
+                        seen_external.add(key)
+                        external_syms_list.append(
+                            ExternalSymbol(name=reloc.symbol, patch_offset=patch_off)
+                        )
 
             elif reloc.type in (R_AARCH64_CALL26, R_AARCH64_JUMP26):
                 # 26-bit PC-relative call/jump
-                # Range: ±128MB
-                offset = S + A - P
-                if -(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE:
-                    # Within range - patch directly
-                    # The offset is in bytes, instruction encodes offset/4
-                    imm26 = (offset >> 2) & 0x03FFFFFF
-                    # Read existing instruction and patch
-                    insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
-                    insn = (insn & 0xFC000000) | imm26
-                    struct.pack_into("<I", target_sec.data, reloc.offset, insn)
-                elif trampolines and reloc.symbol in trampolines:
+                if is_external:
                     # Use trampoline
-                    tramp_addr = trampolines[reloc.symbol]
-                    offset = tramp_addr - P
+                    if trampolines and reloc.symbol in trampolines:
+                        tramp_addr = trampolines[reloc.symbol]
+                        offset = tramp_addr - P
+                        if -(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE:
+                            imm26 = (offset >> 2) & 0x03FFFFFF
+                            insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                            insn = (insn & 0xFC000000) | imm26
+                            struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+                        else:
+                            errors.append(f"Trampoline for {reloc.symbol} out of range")
+                    else:
+                        errors.append(f"No trampoline for external {reloc.symbol}")
+                else:
+                    # Internal call
+                    offset = S + A - P
                     if -(ARM64_CALL_RANGE) <= offset < ARM64_CALL_RANGE:
                         imm26 = (offset >> 2) & 0x03FFFFFF
                         insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                         insn = (insn & 0xFC000000) | imm26
                         struct.pack_into("<I", target_sec.data, reloc.offset, insn)
                     else:
-                        errors.append(f"Trampoline for {reloc.symbol} still out of range")
-                else:
-                    errors.append(
-                        f"CALL26/JUMP26 out of range for {reloc.symbol}: "
-                        f"offset={offset}, range=±{ARM64_CALL_RANGE}"
-                    )
+                        errors.append(
+                            f"CALL26/JUMP26 out of range for {reloc.symbol}: offset={offset}"
+                        )
 
             elif reloc.type == R_AARCH64_ADR_PREL_PG_HI21:
                 # ADRP: Page(S + A) - Page(P)
+                if is_external:
+                    errors.append(f"ADRP for external symbol {reloc.symbol} not supported")
+                    continue
                 page_s = (S + A) & ~0xFFF
                 page_p = P & ~0xFFF
                 offset = page_s - page_p
-                # Encode into ADRP instruction (immhi:immlo)
                 imm = offset >> 12
                 immlo = imm & 0x3
                 immhi = (imm >> 2) & 0x7FFFF
@@ -619,18 +688,11 @@ def apply_relocations(
                 insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
-                if is_internal:
-                    # ADRP needs page-level fixup
-                    internal_relocs.append(
-                        InternalRelocation(
-                            section_offset=target_sec.offset + reloc.offset,
-                            size=4,  # instruction size
-                            target_offset=(S + A) - base_address,
-                        )
-                    )
-
             elif reloc.type == R_AARCH64_ADD_ABS_LO12_NC:
-                # ADD/SUB immediate: low 12 bits of S + A
+                # ADD immediate: low 12 bits of S + A
+                if is_external:
+                    errors.append(f"ADD_ABS_LO12 for external symbol {reloc.symbol} not supported")
+                    continue
                 imm12 = (S + A) & 0xFFF
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
@@ -641,20 +703,25 @@ def apply_relocations(
                 R_AARCH64_LDST32_ABS_LO12_NC,
                 R_AARCH64_LDST8_ABS_LO12_NC,
             ):
-                # LDR/STR offset: low 12 bits, scaled by access size
+                if is_external:
+                    errors.append(f"LDST for external symbol {reloc.symbol} not supported")
+                    continue
                 addr = S + A
                 if reloc.type == R_AARCH64_LDST64_ABS_LO12_NC:
-                    imm12 = (addr >> 3) & 0x1FF  # 64-bit scaled
+                    imm12 = (addr >> 3) & 0x1FF
                 elif reloc.type == R_AARCH64_LDST32_ABS_LO12_NC:
-                    imm12 = (addr >> 2) & 0x3FF  # 32-bit scaled
+                    imm12 = (addr >> 2) & 0x3FF
                 else:
-                    imm12 = addr & 0xFFF  # 8-bit, no scaling
+                    imm12 = addr & 0xFFF
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
             elif reloc.type == R_AARCH64_PREL32:
                 # 32-bit PC-relative
+                if is_external:
+                    errors.append(f"PREL32 for external symbol {reloc.symbol} not supported")
+                    continue
                 value = (S + A - P) & 0xFFFFFFFF
                 struct.pack_into("<I", target_sec.data, reloc.offset, value)
 
@@ -670,7 +737,7 @@ def apply_relocations(
         except struct.error as e:
             errors.append(f"Relocation error at {reloc.offset}: {e}")
 
-    return errors, internal_relocs
+    return errors, internal_relocs, external_syms_list
 
 
 def build_cosmoext(
@@ -705,11 +772,10 @@ def build_cosmoext(
         if arch != obj_arch:
             raise ValueError(f"Architecture mismatch: object is {obj_arch}, requested {arch}")
 
-    # Load symbol table from target binary
-    # Note: symtab uses amd64/arm64 naming, we use x86_64/aarch64 internally
+    # Load symbol table from target binary for validation
     symtab_arch_map = {"x86_64": "amd64", "aarch64": "arm64"}
     symtab_arch = symtab_arch_map.get(arch, arch)
-    print(f"\nLoading symbol table from: {symtab_path}")
+    print(f"\nLoading symbol table from: {symtab_path} (for validation)")
     st = SymbolTable.from_ape(symtab_path, arch=symtab_arch)
     print(f"  {len(st.symbols)} symbols available")
 
@@ -721,28 +787,30 @@ def build_cosmoext(
         "isspace": "__isspace",
     }
 
-    # Build external symbol map
-    external_symbols = {}
+    # Identify external symbols and validate they exist
+    external_symbols: set[str] = set()
     unresolved = []
     for reloc in relocations:
         if reloc.symbol and reloc.symbol not in local_symbols and not reloc.symbol.startswith("."):
             if reloc.symbol not in external_symbols:
+                # Check if symbol exists (for validation)
                 addr = st.lookup(reloc.symbol)
                 if not addr and reloc.symbol in symbol_aliases:
                     addr = st.lookup(symbol_aliases[reloc.symbol])
                 if addr:
-                    external_symbols[reloc.symbol] = addr
+                    external_symbols.add(reloc.symbol)
                 else:
                     unresolved.append(reloc.symbol)
 
     if unresolved:
-        print("\n  WARNING: Unresolved external symbols:")
+        print("\n  ERROR: Unresolved external symbols:")
         for sym in sorted(set(unresolved)):
             print(f"    - {sym}")
+        return False
 
-    print("\n  Resolved external symbols:")
-    for name, addr in sorted(external_symbols.items()):
-        print(f"    {name}: 0x{addr:x}")
+    print(f"\n  External symbols (will be resolved at load time): {len(external_symbols)}")
+    for name in sorted(external_symbols):
+        print(f"    {name}")
 
     # Layout sections
     print(f"\nLaying out sections at base 0x{load_address:x}")
@@ -754,25 +822,26 @@ def build_cosmoext(
 
     # Generate ARM64 trampolines if needed
     trampolines: dict[str, int] = {}
+    trampoline_patch_offsets: dict[str, int] = {}
     trampoline_data = bytearray()
     trampoline_offset = 0
+
     if obj_arch == "aarch64":
         print("\nGenerating ARM64 trampolines...")
-        trampoline_data, trampolines = generate_arm64_trampolines(
+        trampoline_data, trampolines, trampoline_patch_offsets = generate_arm64_trampolines(
             relocations, sections, local_symbols, external_symbols, load_address, total_size
         )
         if trampolines:
             print(f"  Generated {len(trampolines)} trampolines ({len(trampoline_data)} bytes)")
-            for sym, addr in sorted(trampolines.items()):
-                print(f"    {sym}: 0x{addr:x}")
-            # Calculate trampoline section offset (must match what generate_arm64_trampolines used)
+            for sym, vaddr in sorted(trampolines.items()):
+                patch_off = trampoline_patch_offsets[sym]
+                print(f"    {sym}: vaddr=0x{vaddr:x}, patch_offset=0x{patch_off:x}")
             trampoline_offset = (total_size + 15) & ~15
-            # Update total size to include trampolines
             total_size = trampoline_offset + len(trampoline_data)
 
     # Apply relocations
     print(f"\nApplying {len(relocations)} relocations...")
-    errors, internal_relocs = apply_relocations(
+    errors, internal_relocs, external_syms = apply_relocations(
         sections,
         relocations,
         local_symbols,
@@ -782,6 +851,10 @@ def build_cosmoext(
         trampolines=trampolines if trampolines else None,
     )
 
+    # Add trampoline patch offsets to external symbols list
+    for sym, patch_off in trampoline_patch_offsets.items():
+        external_syms.append(ExternalSymbol(name=sym, patch_offset=patch_off))
+
     if errors:
         print("\n  Relocation errors:")
         for err in errors:
@@ -789,6 +862,7 @@ def build_cosmoext(
         return False
 
     print(f"  {len(internal_relocs)} internal relocations to apply at load time")
+    print(f"  {len(external_syms)} external symbols to resolve at load time")
 
     # Find PyInit_* function
     init_func = None
@@ -807,7 +881,6 @@ def build_cosmoext(
     # Add trampoline section if needed
     all_sections = list(sections.values())
     if trampoline_data:
-        # Use the offset calculated during trampoline generation
         tramp_offset = trampoline_offset
         tramp_vaddr = load_address + tramp_offset
         tramp_section = LoadableSection(
@@ -828,9 +901,10 @@ def build_cosmoext(
         total_size=total_size,
         load_address=load_address,
         internal_relocs=internal_relocs,
+        external_symbols=external_syms,
     )
 
-    print(f"\nWriting {output_path}")
+    print(f"\nWriting {output_path} (format v4)")
     with open(output_path, "wb") as f:
         blob.write(f)
 

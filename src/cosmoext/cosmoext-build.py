@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyelftools>=0.31"]
+# ///
 from __future__ import annotations
 
 import argparse
@@ -234,9 +238,10 @@ def main():
     args = parser.parse_args()
 
     # Find Cosmopolitan toolchain
-    # For ARM64, we need to use the architecture-specific compiler
+    # For ARM64, we need to use the architecture-specific compiler wrapper
+    # aarch64-unknown-cosmo-cc handles include paths properly (unlike aarch64-linux-cosmo-cc)
     if args.arch == "aarch64":
-        compiler_suffix = "aarch64-linux-cosmo-"
+        compiler_suffix = "aarch64-unknown-cosmo-"
         compiler_name = compiler_suffix + ("c++" if args.cxx else "cc")
     else:
         # x86_64: use cosmocc/cosmoc++ which produces fat binaries
@@ -309,11 +314,13 @@ def main():
                 # Architecture-specific flags
                 if args.arch == "aarch64":
                     # ARM64: -mcmodel=large without -fPIC (GCC doesn't support both together)
+                    # aarch64-unknown-cosmo-cc wrapper handles -nostdinc and -isystem
                     cmd.append("-mcmodel=large")
                 else:
                     # x86_64: both -fPIC and -mcmodel=large work together
                     cmd.extend(["-fPIC", "-mcmodel=large"])
 
+                # User includes
                 for inc in all_includes:
                     cmd.extend(["-I", inc])
 
