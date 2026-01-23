@@ -216,8 +216,8 @@ class CosmoExtBlob:
                 string_table.append(0)  # null terminator
 
         # Calculate header size
-        # v4: 72 bytes, v5: 80 bytes (adds get_def_offset)
-        base_header_size = 72  # 4+4+8*8 = 72 bytes (v4 format)
+        # v5: 80 bytes (4+4+8*9, includes get_def_offset)
+        base_header_size = 80  # 4+4+8*9 = 80 bytes (v5 format)
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
         external_sym_size = len(self.external_symbols) * 16
@@ -231,12 +231,10 @@ class CosmoExtBlob:
         # Round up to nearest 4096
         header_size = ((header_total + 4095) // 4096) * 4096
 
-        # Emit v4 format for now (v5 adds get_def_offset but requires rebuilt python.com)
-        # TODO: Switch to v5 once python.com is rebuilt with updated _cosmoextmodule.c
         header = struct.pack(
-            "<4sIQQQQQQQQ",  # spell-checker: disable-line
+            "<4sIQQQQQQQQQ",  # spell-checker: disable-line
             b"CEXT",
-            4,  # version
+            5,  # version
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -245,7 +243,7 @@ class CosmoExtBlob:
             len(self.internal_relocs),
             len(self.external_symbols),
             len(string_table),
-            # self.get_def_offset,  # v5 only
+            self.get_def_offset,
         )
 
         section_headers = b""
@@ -945,7 +943,7 @@ def build_cosmoext(
         get_def_offset=get_def_offset,
     )
 
-    print(f"\nWriting {output_path} (format v4)")
+    print(f"\nWriting {output_path} (format v5)")
     with open(output_path, "wb") as f:
         blob.write(f)
 

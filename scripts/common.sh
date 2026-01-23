@@ -52,6 +52,20 @@ log_build() {
   echo -e "${BLUE}[${_SCRIPT_NAME}]${RESET} ${BOLD}BUILD${RESET} $*"
 }
 
+# Portable sed -i (works on both GNU and BSD sed)
+# Usage: sed_i 's/old/new/' file
+# See: https://github.com/metaist/cosmo-python/issues/103
+sed_i() {
+  if sed --version 2>/dev/null | grep -q GNU; then
+    sed -i "$@"
+  else
+    # BSD sed requires empty string for no backup
+    local script="$1"
+    shift
+    sed -i '' "$script" "$@"
+  fi
+}
+
 # Idempotency helpers
 
 # Check if a file exists; if so, log skip and exit 0

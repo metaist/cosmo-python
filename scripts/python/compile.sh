@@ -10,12 +10,32 @@
 source "$(dirname "$0")/../common.sh"
 
 PYTHON_VERSION="${1:-}"
-FORCE_REBUILD="${2:-}"
+FORCE_REBUILD=""
+ENABLE_COSMOEXT=""
+
+# Parse arguments
+shift || true
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force)
+      FORCE_REBUILD="--force"
+      ;;
+    --cosmoext)
+      ENABLE_COSMOEXT="1"
+      ;;
+    *)
+      log_error "unknown option: $1"
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 if [ -z "$PYTHON_VERSION" ]; then
-  log_error "usage: $0 <python_version> [--force]"
+  log_error "usage: $0 <python_version> [--force] [--cosmoext]"
   log_error "example: $0 3.12.8"
-  log_error "example: $0 3.12.8 --force  # incremental rebuild"
+  log_error "example: $0 3.12.8 --force        # incremental rebuild"
+  log_error "example: $0 3.12.8 --cosmoext     # enable experimental cosmoext support"
   exit 1
 fi
 
@@ -96,6 +116,12 @@ export CFLAGS="-Os -D__USE_SYSTEM_ENDIAN_H__ -I${COSMO_DIR}/include/third_party/
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
 
+# Experimental cosmoext support: add C++ runtime for C++ extension support (e.g., ujson)
+if [ -n "$ENABLE_COSMOEXT" ]; then
+  log_info "cosmoext support enabled (experimental)"
+  export LIBS="$LIBS -Wl,--whole-archive -lcxx -Wl,--no-whole-archive"
+fi
+
 # Python 3.10's setup.py adds /usr/include to include paths unless cross-compiling.
 # Setting _PYTHON_HOST_PLATFORM triggers cross-compile mode, and --sysroot above
 # ensures sysroot_paths() won't find /usr/include (since $COSMO_DIR/usr/include
@@ -175,36 +201,36 @@ log_info "patching for static module building..."
 if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   # Python 3.11+: Patch Setup.stdlib to use *static* instead of *shared*
   SETUP_FILE="${BUILD_DIR}/Modules/Setup.stdlib"
-  sed -i 's/^\*shared\*/*static*/' "$SETUP_FILE"
+  sed_i 's/^\*shared\*/*static*/' "$SETUP_FILE"
 
   # Enable modules that configure might not have detected, and append library flags.
   # Setup.stdlib relies on makefile variables for flags, but those aren't set when
   # configure doesn't detect the library. We append -l flags directly.
   
   # readline
-  sed -i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
-  sed -i 's/^#readline /readline /' "$SETUP_FILE"
-  sed -i "s|^\(readline .*\)$|\1 -L${DEPS_DIR}/lib -lreadline -ltinfo|" "$SETUP_FILE"
+  sed_i 's/^#@MODULE_READLINE_TRUE@readline/readline/' "$SETUP_FILE"
+  sed_i 's/^#readline /readline /' "$SETUP_FILE"
+  sed_i "s|^\(readline .*\)$|\1 -L${DEPS_DIR}/lib -lreadline -ltinfo|" "$SETUP_FILE"
   
   # ctypes
-  sed -i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
-  sed -i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
-  sed -i "s|^\(_ctypes .*\)$|\1 -L${DEPS_DIR}/lib -lffi|" "$SETUP_FILE"
+  sed_i 's/^#@MODULE__CTYPES_TRUE@_ctypes/_ctypes/' "$SETUP_FILE"
+  sed_i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
+  sed_i "s|^\(_ctypes .*\)$|\1 -L${DEPS_DIR}/lib -lffi|" "$SETUP_FILE"
   
   # curses
-  sed -i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
-  sed -i 's/^#_curses /_curses /' "$SETUP_FILE"
-  sed -i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
+  sed_i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
+  sed_i 's/^#_curses /_curses /' "$SETUP_FILE"
+  sed_i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
   
   # curses panel
-  sed -i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
-  sed -i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
-  sed -i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
+  sed_i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
+  sed_i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
+  sed_i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
   
   # sqlite3 (our sqlite is built without shared cache support)
-  sed -i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
-  sed -i 's/^#_sqlite3 /_sqlite3 /' "$SETUP_FILE"
-  sed -i "s|^\(_sqlite3 .*\)$|\1 -DSQLITE_OMIT_SHARED_CACHE -L${DEPS_DIR}/lib -lsqlite3|" "$SETUP_FILE"
+  sed_i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
+  sed_i 's/^#_sqlite3 /_sqlite3 /' "$SETUP_FILE"
+  sed_i "s|^\(_sqlite3 .*\)$|\1 -DSQLITE_OMIT_SHARED_CACHE -L${DEPS_DIR}/lib -lsqlite3|" "$SETUP_FILE"
 
   # Remove modules that need unavailable headers/libraries
   #
@@ -228,7 +254,7 @@ if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   #
   DISABLE_MODULES="_crypt _uuid _dbm"
   for mod in $DISABLE_MODULES; do
-    sed -i "s/^${mod} /#${mod} /" "$SETUP_FILE"
+    sed_i "s/^${mod} /#${mod} /" "$SETUP_FILE"
   done
   
   cp "${BUILD_DIR}/Modules/Setup.stdlib" "${BUILD_DIR}/Modules/Setup.local"
@@ -260,6 +286,21 @@ else
   fi
 fi
 
+# Experimental cosmoext support: copy _cosmoextmodule.c and add to Setup.local
+if [ -n "$ENABLE_COSMOEXT" ]; then
+  COSMOEXT_SRC="${SCRIPT_DIR}/../../src/cosmoext/_cosmoextmodule.c"
+  if [ -f "$COSMOEXT_SRC" ]; then
+    log_info "adding _cosmoext module (experimental)..."
+    cp "$COSMOEXT_SRC" "${SRC_DIR}/Modules/_cosmoextmodule.c"
+    echo "" >> "${BUILD_DIR}/Modules/Setup.local"
+    echo "# Experimental cosmoext loader for dynamic C extension loading" >> "${BUILD_DIR}/Modules/Setup.local"
+    echo "_cosmoext _cosmoextmodule.c" >> "${BUILD_DIR}/Modules/Setup.local"
+  else
+    log_error "_cosmoextmodule.c not found at ${COSMOEXT_SRC}"
+    exit 1
+  fi
+fi
+
 # Regenerate Makefile
 log_info "regenerating Makefile..."
 make Makefile
@@ -270,7 +311,7 @@ make Makefile
 # included by each individual hash module. Fix by removing the duplicates.
 if grep -q "^LIBHACL_HMAC_LIB_SHARED=\$(LIBHACL_HMAC_OBJS)" Makefile 2>/dev/null; then
   log_info "patching Makefile for HACL static linking..."
-  sed -i 's|^LIBHACL_HMAC_LIB_SHARED=.*|LIBHACL_HMAC_LIB_SHARED=Modules/_hacl/Hacl_HMAC.o Modules/_hacl/Hacl_Streaming_HMAC.o|' Makefile
+  sed_i 's|^LIBHACL_HMAC_LIB_SHARED=.*|LIBHACL_HMAC_LIB_SHARED=Modules/_hacl/Hacl_HMAC.o Modules/_hacl/Hacl_Streaming_HMAC.o|' Makefile
 fi
 
 log_info "compiling (this may take several minutes)..."
