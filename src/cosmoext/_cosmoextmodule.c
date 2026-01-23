@@ -1011,14 +1011,19 @@ cosmoext_load(PyObject *self, PyObject *args)
     
     if (PyModule_Check(init_result)) {
         /* Single-phase init returned a module directly.
-         * Register it with PyState_AddModule so PyState_FindModule works. */
+         * Check if we need to register with PyState_AddModule.
+         * Some extensions already do this themselves (e.g., ujson). */
         PyObject *module = (PyObject*)init_result;
         PyModuleDef *def = PyModule_GetDef(module);
         if (def != NULL && def->m_slots == NULL) {
             /* Only for single-phase init (no slots) */
-            if (PyState_AddModule(module, def) < 0) {
-                /* Not fatal - just means PyState_FindModule won't work */
-                PyErr_Clear();
+            /* Check if already registered by seeing if FindModule returns this module */
+            PyObject *found = PyState_FindModule(def);
+            if (found != module) {
+                if (PyState_AddModule(module, def) < 0) {
+                    /* Not fatal - just means PyState_FindModule won't work */
+                    PyErr_Clear();
+                }
             }
         }
         return module;
@@ -1057,7 +1062,8 @@ cosmoext_load(PyObject *self, PyObject *args)
             munmap(mapped, map_size);
             return NULL;
         }
-        /* Register single-phase init module so PyState_FindModule works */
+        /* Register single-phase init module so PyState_FindModule works.
+         * Note: We created this module ourselves, so it's definitely not registered. */
         if (PyState_AddModule(module, def) < 0) {
             /* Not fatal - just means PyState_FindModule won't work */
             PyErr_Clear();
