@@ -193,7 +193,8 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   LIBSQLITE3_CFLAGS="-I${DEPS_DIR}/include" \
   LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3" \
   LIBZSTD_CFLAGS="-I${DEPS_DIR}/include" \
-  LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd"
+  LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd" \
+
 else
   log_info "skipping configure (Makefile exists)"
 fi
@@ -298,26 +299,6 @@ else
   fi
 fi
 
-# Experimental cosmoext support: copy _cosmoextmodule.c and add to Setup.local
-if [ -n "$ENABLE_COSMOEXT" ]; then
-  COSMOEXT_SRC="${SCRIPT_DIR}/../../src/cosmoext/_cosmoextmodule.c"
-  if [ -f "$COSMOEXT_SRC" ]; then
-    log_info "adding _cosmoext module (experimental)..."
-    cp "$COSMOEXT_SRC" "${SRC_DIR}/Modules/_cosmoextmodule.c"
-    echo "" >> "${BUILD_DIR}/Modules/Setup.local"
-    echo "# Experimental cosmoext loader for dynamic C extension loading" >> "${BUILD_DIR}/Modules/Setup.local"
-    echo "_cosmoext _cosmoextmodule.c" >> "${BUILD_DIR}/Modules/Setup.local"
-    # Force regeneration of Modules/config.c to include the new module
-    # We need to regenerate config.c since we added a new module to Setup.local
-    log_info "regenerating Modules/config.c..."
-    rm -f Modules/config.c
-    make Modules/config.c
-  else
-    log_error "_cosmoextmodule.c not found at ${COSMOEXT_SRC}"
-    exit 1
-  fi
-fi
-
 # Note: We don't regenerate Makefile here because:
 # 1. Configure already created it with all modules from Setup.stdlib.in
 # 2. config.status would recreate Setup.stdlib from .in, overwriting our patches
@@ -339,6 +320,34 @@ fi
 if grep -q "\-latomic" Makefile 2>/dev/null; then
   log_info "removing -latomic from Makefile..."
   sed_i 's/ -latomic//g' Makefile
+fi
+
+# Remove system libb2 references - we want Python's built-in blake2 implementation
+# for portability. System libb2 might be detected via pkg-config on macOS/Linux.
+if grep -q "HAVE_LIBB2" pyconfig.h 2>/dev/null; then
+  log_info "removing system libb2 (using built-in blake2)..."
+  # Remove from Makefile
+  sed_i 's/MODULE__BLAKE2_CFLAGS=.*/MODULE__BLAKE2_CFLAGS=/g' Makefile
+  sed_i 's/MODULE__BLAKE2_LDFLAGS=.*/MODULE__BLAKE2_LDFLAGS=/g' Makefile
+  # Remove from pyconfig.h so code uses built-in implementation
+  sed_i 's/#define HAVE_LIBB2 1/\/* #undef HAVE_LIBB2 *\//g' pyconfig.h
+fi
+
+# Experimental cosmoext support: copy _cosmoextmodule.c and add to Setup.local
+# Note: We only ADD the module here. The actual config.c regeneration happens
+# AFTER all Makefile patching is complete (see below)
+if [ -n "$ENABLE_COSMOEXT" ]; then
+  COSMOEXT_SRC="${SCRIPT_DIR}/../../src/cosmoext/_cosmoextmodule.c"
+  if [ -f "$COSMOEXT_SRC" ]; then
+    log_info "adding _cosmoext module (experimental)..."
+    cp "$COSMOEXT_SRC" "${SRC_DIR}/Modules/_cosmoextmodule.c"
+    echo "" >> "${BUILD_DIR}/Modules/Setup.local"
+    echo "# Experimental cosmoext loader for dynamic C extension loading" >> "${BUILD_DIR}/Modules/Setup.local"
+    echo "_cosmoext _cosmoextmodule.c" >> "${BUILD_DIR}/Modules/Setup.local"
+  else
+    log_error "_cosmoextmodule.c not found at ${COSMOEXT_SRC}"
+    exit 1
+  fi
 fi
 
 # Remove disabled modules from Makefile (they were already disabled in Setup.local,
@@ -377,6 +386,27 @@ fi
 if grep -q "^LIBHACL_HMAC_LIB_SHARED=\$(LIBHACL_HMAC_OBJS)" Makefile 2>/dev/null; then
   log_info "patching Makefile for HACL static linking..."
   sed_i 's|^LIBHACL_HMAC_LIB_SHARED=.*|LIBHACL_HMAC_LIB_SHARED=Modules/_hacl/Hacl_HMAC.o Modules/_hacl/Hacl_Streaming_HMAC.o|' Makefile
+fi
+
+# Experimental cosmoext: add _cosmoext to config.c and Makefile
+# Instead of regenerating with makesetup (which breaks many things), we manually
+# patch the files to add just the _cosmoext module.
+if [ -n "$ENABLE_COSMOEXT" ]; then
+  log_info "patching config.c and Makefile for _cosmoext..."
+  
+  # Add extern declaration for PyInit__cosmoext to config.c
+  sed_i 's|extern PyObject\* PyInit__string(void);|extern PyObject* PyInit__string(void);\nextern PyObject* PyInit__cosmoext(void);|' Modules/config.c
+  
+  # Add _cosmoext entry before the sentinel in _PyImport_Inittab
+  sed_i 's|{0, 0}|{"_cosmoext", PyInit__cosmoext},\n    {0, 0}|' Modules/config.c
+  
+  # Add _cosmoext to MODOBJS in Makefile
+  # shellcheck disable=SC2016
+  sed_i 's|^MODOBJS=|MODOBJS=Modules/_cosmoextmodule.o |' Makefile
+  
+  # Add build rule for _cosmoextmodule.o
+  # shellcheck disable=SC2016
+  echo 'Modules/_cosmoextmodule.o: $(srcdir)/Modules/_cosmoextmodule.c $(MODULE_DEPS_STATIC) $(PYTHON_HEADERS); $(CC) $(PY_BUILTIN_MODULE_CFLAGS) -c $(srcdir)/Modules/_cosmoextmodule.c -o Modules/_cosmoextmodule.o' >> Makefile
 fi
 
 log_info "compiling (this may take several minutes)..."
