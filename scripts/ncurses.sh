@@ -72,7 +72,7 @@ cd "${NCURSES_DIR}"
 PRIV_H="ncurses/curses.priv.h"
 if [ -f "${PRIV_H}" ] && ! grep -q "__COSMOPOLITAN__" "${PRIV_H}"; then
   log_info "applying Cosmopolitan unicode patch..."
-  sed -i '/#include <nc_panel.h>/a\
+  sed_i '/#include <nc_panel.h>/a\
 #ifdef __COSMOPOLITAN__\
 #include "libc/str/unicode.h"\
 #endif' "${PRIV_H}"

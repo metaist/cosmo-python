@@ -121,8 +121,8 @@ else
 fi
 WRAPPER_EOF
 
-  sed -i "s|COSMO_DIR_PLACEHOLDER|${COSMO_DIR}|g" "${WRAPPER_PATH}"
-  sed -i "s|ARCH_PLACEHOLDER|${ARCH}|g" "${WRAPPER_PATH}"
+  sed_i "s|COSMO_DIR_PLACEHOLDER|${COSMO_DIR}|g" "${WRAPPER_PATH}"
+  sed_i "s|ARCH_PLACEHOLDER|${ARCH}|g" "${WRAPPER_PATH}"
   chmod +x "${WRAPPER_PATH}"
 }
 

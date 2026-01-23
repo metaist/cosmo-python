@@ -305,6 +305,21 @@ fi
 log_info "regenerating Makefile..."
 make Makefile
 
+# Python 3.11+: Fix _decimal module CFLAGS for libmpdec
+# Configure can't detect 64-bit config for cross-compilation, so we set it manually.
+# -DCONFIG_64: Use 64-bit limbs (uint64_t)
+# -DHAVE_UINT128_T: Use __uint128_t for efficient 128-bit arithmetic
+# -DANSI: Use standard C (not K&R)
+# Note: $(srcdir) is a Makefile variable, not a shell variable
+# Both MODULE__DECIMAL_CFLAGS (for _decimal.c) and LIBMPDEC_CFLAGS (for libmpdec/*.c) need patching
+if grep -q "^MODULE__DECIMAL_CFLAGS=" Makefile 2>/dev/null; then
+  log_info "patching Makefile for _decimal module..."
+  # shellcheck disable=SC2016
+  sed_i 's|^MODULE__DECIMAL_CFLAGS=.*|MODULE__DECIMAL_CFLAGS=-I$(srcdir)/Modules/_decimal/libmpdec -DCONFIG_64 -DANSI -DHAVE_UINT128_T|' Makefile
+  # shellcheck disable=SC2016
+  sed_i 's|^LIBMPDEC_CFLAGS=.*|LIBMPDEC_CFLAGS=-I$(srcdir)/Modules/_decimal/libmpdec -DCONFIG_64 -DANSI -DHAVE_UINT128_T $(PY_STDMODULE_CFLAGS) $(CCSHARED)|' Makefile
+fi
+
 # Python 3.14+: Fix HACL HMAC duplicate object file issue
 # When building statically, LIBHACL_HMAC_OBJS includes all hash objects which
 # causes "multiple definition" linker errors since those objects are also

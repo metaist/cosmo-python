@@ -59,10 +59,8 @@ sed_i() {
   if sed --version 2>/dev/null | grep -q GNU; then
     sed -i "$@"
   else
-    # BSD sed requires empty string for no backup
-    local script="$1"
-    shift
-    sed -i '' "$script" "$@"
+    # BSD sed requires empty string for no backup extension
+    sed -i '' "$@"
   fi
 }
 

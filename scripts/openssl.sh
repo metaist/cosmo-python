@@ -97,8 +97,8 @@ if [ "$OPENSSL_MAJOR" = "1" ]; then
   if ! grep -q "Force getrandom for Cosmopolitan" "${RAND_FILE}" 2>/dev/null; then
     log_info "applying getrandom patch..."
     if grep -q "defined(__linux)" "${RAND_FILE}"; then
-      sed -i 's/#  if defined(__linux) && defined(__NR_getrandom)/#  if 1 \/\* Force getrandom for Cosmopolitan \*\/ || (defined(__linux) \&\& defined(__NR_getrandom))/' "${RAND_FILE}"
-      sed -i 's/syscall(__NR_getrandom, buf, buflen, 0)/getrandom(buf, buflen, 0)/' "${RAND_FILE}"
+      sed_i 's/#  if defined(__linux) && defined(__NR_getrandom)/#  if 1 \/\* Force getrandom for Cosmopolitan \*\/ || (defined(__linux) \&\& defined(__NR_getrandom))/' "${RAND_FILE}"
+      sed_i 's/syscall(__NR_getrandom, buf, buflen, 0)/getrandom(buf, buflen, 0)/' "${RAND_FILE}"
     else
       log_warn "expected pattern not found in ${RAND_FILE}"
     fi
@@ -154,7 +154,7 @@ else
 fi
 
 # Patch Makefile for static module building
-sed -i 's/^\*shared\*/*static*/' Makefile 2>/dev/null || true
+sed_i 's/^\*shared\*/*static*/' Makefile 2>/dev/null || true
 
 log_info "compiling (this may take a few minutes)..."
 timed run_dep_make -j"$(nproc)" build_libs
