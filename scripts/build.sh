@@ -9,10 +9,14 @@
 #   ./scripts/build.sh <version1> <version2> ...  # Build multiple versions
 #   ./scripts/build.sh --all                      # Build all versions
 #
+# Options:
+#   --cosmoext    Include _cosmoext module for loading C extensions at runtime
+#
 # Examples:
 #   ./scripts/build.sh 3.12.8
 #   ./scripts/build.sh 3.11.11 3.12.8 3.13.1
 #   ./scripts/build.sh --all
+#   ./scripts/build.sh 3.12.8 --cosmoext
 #
 # Build phases:
 #   1: Deps       System deps, cosmocc, library dependencies
@@ -26,12 +30,24 @@ source "${SCRIPT_DIR}/common.sh"
 
 # Parse arguments
 VERSIONS=()
+COSMOEXT_FLAG=""
 
 if [ $# -eq 0 ]; then
-  log_error "usage: $0 <python_version> [version2 ...]"
-  log_error "       $0 --all"
+  log_error "usage: $0 <python_version> [version2 ...] [--cosmoext]"
+  log_error "       $0 --all [--cosmoext]"
   exit 1
 fi
+
+# Parse --cosmoext flag from anywhere in args
+ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--cosmoext" ]; then
+    COSMOEXT_FLAG="--cosmoext"
+  else
+    ARGS+=("$arg")
+  fi
+done
+set -- "${ARGS[@]}"
 
 if [ "$1" = "--all" ]; then
   all_versions=$($CDX_CLI versions)
@@ -78,7 +94,7 @@ echo "  Phase 2: Python"
 echo "========================================"
 
 for version in "${VERSIONS[@]}"; do
-  "${SCRIPT_DIR}/python/build.sh" "${version}"
+  "${SCRIPT_DIR}/python/build.sh" "${version}" ${COSMOEXT_FLAG}
 done
 
 echo ""
