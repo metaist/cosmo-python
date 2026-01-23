@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
 # dependencies = ["pyelftools>=0.31"]
@@ -24,10 +24,10 @@ from pathlib import Path
 from typing import BinaryIO
 
 from elftools.elf.elffile import ELFFile  # type: ignore[import-untyped,import-not-found]
-from elftools.elf.relocation import (  # type: ignore[import-not-found] # ty: ignore[unresolved-import]  # pyright: ignore[reportMissingImports]
+from elftools.elf.relocation import (  # type: ignore[import-not-found] # pyright: ignore[reportMissingImports]
     RelocationSection,
 )
-from elftools.elf.sections import (  # type: ignore[import-not-found] # ty: ignore[unresolved-import]  # pyright: ignore[reportMissingImports]
+from elftools.elf.sections import (  # type: ignore[import-not-found] # pyright: ignore[reportMissingImports]
     SymbolTableSection,
 )
 
