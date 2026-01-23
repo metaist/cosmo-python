@@ -155,7 +155,12 @@ SETUP
 # Skip configure if Makefile exists (for incremental rebuilds)
 if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   log_info "configuring..."
+  
   # Set pkg-config vars to empty to prevent detection of system libs
+  # Note: We do NOT use --host for cross-compilation because:
+  # 1. It requires --with-build-python (a host Python to freeze modules)
+  # 2. Cosmocc produces APE binaries that run on the build machine anyway
+  # Instead, we patch Darwin-specific flags out of the Makefile after configure
   "${SRC_DIR}/configure" \
   --disable-shared \
   --disable-ipv6 \

@@ -5,6 +5,13 @@
     "/\\(sum: [A-Za-z0-9/+]+\\)/"
   ],
   "words": [
+    "BUILDEXE",
+    "CFLAGS",
+    "latomic",
+    "libpython",
+    "libreadline",
+    "multiarch",
+    "scproxy",
     "addralign",
     "addrs",
     "ADRP",

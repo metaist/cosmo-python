@@ -38,6 +38,7 @@ nav:
   - Supply Chain: supply-chain.md
   - Releases: releases.md
   - Building: building.md
+  - Build Internals: build-process.md
   - Limitations: limitations.md
   - Contributing: https://github.com/metaist/cosmo-python/blob/main/CONTRIBUTING.md
   - Changelog: https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md
