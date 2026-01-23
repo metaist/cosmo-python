@@ -109,6 +109,13 @@ PYTHONPATH="${PWD}/lib/python${PYTHON_MAJOR_MINOR}" \
 log_info "removing source files (keeping .pyc only)..."
 find lib/python${PYTHON_MAJOR_MINOR} -name '*.py' -delete
 
+# Add cosmoext import hook for loading .cosmoext extensions
+# Keep the .py source file since .pyc-only imports need special handling
+if [ -f "${REPO_ROOT}/src/cosmoext/_cosmoext_importer.py" ]; then
+  log_info "including cosmoext import hook..."
+  cp "${REPO_ROOT}/src/cosmoext/_cosmoext_importer.py" "lib/python${PYTHON_MAJOR_MINOR}/"
+fi
+
 # Add CA certificates for SSL verification
 # These will be accessible at /zip/share/ssl/ inside the binary
 if [ -d "${DEPS_DIR}/share/ssl" ]; then
