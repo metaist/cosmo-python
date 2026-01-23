@@ -78,7 +78,10 @@ cp bzlib.h "${DEPS_DIR}/include/"
 if [ -d ".aarch64" ] && ls .aarch64/*.o 1> /dev/null 2>&1; then
   log_info "creating aarch64 library..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
-  ar rcs "${DEPS_DIR}/lib/.aarch64/libbz2.a" .aarch64/*.o
+  # Must use aarch64-linux-cosmo-ar (GNU ar) to create archive with proper symbol
+  # table that the aarch64-linux-cosmo linker can read. The system ar on macOS
+  # creates BSD-format archives with __.SYMDEF symbol tables which GNU ld ignores.
+  "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libbz2.a" .aarch64/*.o
 fi
 
 log_ok "bzip2 ${BZ2_VERSION} installed"

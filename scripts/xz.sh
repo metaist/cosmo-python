@@ -94,7 +94,7 @@ cp -r src/liblzma/api/lzma.h src/liblzma/api/lzma "${DEPS_DIR}/include/"
 if find src/liblzma -name ".aarch64" -type d | head -1 | grep -q .; then
   log_info "creating aarch64 library..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
-  find src/liblzma -path "*/.aarch64/*.o" -exec ar rcs "${DEPS_DIR}/lib/.aarch64/liblzma.a" {} + 2>/dev/null || true
+  find src/liblzma -path "*/.aarch64/*.o" -exec "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/liblzma.a" {} + 2>/dev/null || true
 fi
 
 log_ok "xz/liblzma ${XZ_VERSION} installed"

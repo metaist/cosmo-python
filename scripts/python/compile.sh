@@ -113,7 +113,11 @@ log_build "compiling Python ${PYTHON_VERSION} (fat APE: x86_64 + aarch64)"
 # DO NOT mix system headers - they conflict with cosmopolitan
 setup_cosmocc
 export CFLAGS="-Os -D__USE_SYSTEM_ENDIAN_H__ -I${COSMO_DIR}/include/third_party/zlib -I${DEPS_DIR}/include --sysroot=${COSMO_DIR}"
-export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
+# --allow-multiple-definition is needed because cosmocc generates stub
+# functions for external symbols used in function pointer comparisons
+# (e.g., `if (ffi_closure_alloc != NULL)`). These stubs conflict with
+# the real implementations in libffi.a.
+export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib -Wl,--allow-multiple-definition"
 export LIBS="-lreadline -ltinfo -lffi"
 
 # Experimental cosmoext support

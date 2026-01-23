@@ -95,7 +95,7 @@ make install
 if [ -f ".aarch64/sqlite3.o" ]; then
   log_info "creating aarch64 library..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
-  ar rcs "${DEPS_DIR}/lib/.aarch64/libsqlite3.a" .aarch64/sqlite3.o
+  "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libsqlite3.a" .aarch64/sqlite3.o
 fi
 
 log_ok "sqlite ${SQLITE_VERSION} installed"

@@ -205,7 +205,7 @@ if [ -d "${NCURSES_DIR}/objects/.aarch64" ]; then
   log_info "creating aarch64 libraries..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
   cd "${NCURSES_DIR}"
-  find objects/.aarch64 -name "*.o" -exec ar rcs "${DEPS_DIR}/lib/.aarch64/libncursesw.a" {} +
+  find objects/.aarch64 -name "*.o" -exec "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libncursesw.a" {} +
   cd "${DEPS_DIR}/lib/.aarch64"
   # Create all the symlinks that x86_64 has
   ln -sf libncursesw.a libncurses.a 2>/dev/null || true

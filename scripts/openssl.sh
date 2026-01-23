@@ -186,7 +186,7 @@ if find . -name ".aarch64" -type d | head -1 | grep -q .; then
     done
     if [ -n "$OBJS" ]; then
       # shellcheck disable=SC2086
-      ar rcs "${DEPS_DIR}/lib/.aarch64/${lib}.a" $OBJS
+      "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/${lib}.a" $OBJS
     fi
   done
 fi

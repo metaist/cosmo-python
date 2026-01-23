@@ -84,7 +84,7 @@ if [ -n "$AARCH64_OBJS" ]; then
   log_info "creating aarch64 library..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
   # shellcheck disable=SC2086
-  ar rcs "${DEPS_DIR}/lib/.aarch64/libzstd.a" $AARCH64_OBJS
+  "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libzstd.a" $AARCH64_OBJS
 fi
 
 log_ok "zstd ${ZSTD_VERSION} installed"

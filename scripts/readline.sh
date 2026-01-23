@@ -102,7 +102,7 @@ if ls shlib/.aarch64/*.o 1> /dev/null 2>&1 || ls .aarch64/*.o 1> /dev/null 2>&1;
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
   READLINE_OBJS=$(find . -path "*/.aarch64/*.o" -name "*.o" 2>/dev/null)
   if [ -n "${READLINE_OBJS}" ]; then
-    ar rcs "${DEPS_DIR}/lib/.aarch64/libreadline.a" ${READLINE_OBJS}
+    "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libreadline.a" ${READLINE_OBJS}
   fi
 fi
 
