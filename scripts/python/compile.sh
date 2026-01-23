@@ -313,11 +313,12 @@ fi
 
 # macOS: Remove macOS-specific flags that configure adds when building on macOS
 # Cosmopolitan doesn't support macOS frameworks or linker flags
-if grep -q "framework CoreFoundation\|stack_size" Makefile 2>/dev/null; then
+if grep -q -- "-framework \|-Wl,-stack_size" Makefile 2>/dev/null; then
   log_info "removing macOS-specific flags from Makefile..."
-  sed_i 's/ -framework CoreFoundation//g' Makefile
+  # Remove all -framework X flags (CoreFoundation, SystemConfiguration, etc.)
+  sed_i 's/ -framework [A-Za-z_][A-Za-z_]*//g' Makefile
   # -Wl,-stack_size,N is macOS linker syntax; cosmocc sets stack size differently
-  sed_i 's/-Wl,-stack_size,[0-9]*//g' Makefile
+  sed_i 's/ -Wl,-stack_size,[0-9]*//g' Makefile
 fi
 
 # Python 3.13+: Remove -latomic from LIBS
