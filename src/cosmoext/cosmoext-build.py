@@ -41,15 +41,13 @@ LIBC_STUBS = SCRIPT_DIR / "libc_stubs.c"
 RELOCATE_PY = SCRIPT_DIR / "relocate.py"
 
 # Symbols that need stubs (not exported from python.com)
+# Symbols that need stubs because they're NOT exported in python.com's symtab.
+# Note: isspace, memmove, isupper, tolower ARE exported and don't need stubs.
 STUB_SYMBOLS = {
     "iscntrl",
     "ispunct",
-    "isspace",
-    "memmove",
     "memcpy",
     "isalnum",
-    "isupper",
-    "tolower",
     "toupper",
     "ceil",
 }

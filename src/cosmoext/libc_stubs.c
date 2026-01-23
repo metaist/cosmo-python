@@ -18,11 +18,13 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 
 /*
- * Cosmopolitan libc ctype functions for cosmoext extensions.
+ * Libc stub functions for cosmoext extensions.
  *
- * These are copied from https://github.com/jart/cosmopolitan/tree/master/libc/str
- * because the pre-built libcosmo.a wasn't compiled with -mcmodel=large,
- * which is required for position-independent extension loading.
+ * These provide implementations for libc functions that are NOT exported
+ * in python.com's embedded symbol table. Functions like isspace, memmove,
+ * isupper, and tolower ARE exported and don't need stubs.
+ *
+ * Based on code from https://github.com/jart/cosmopolitan/tree/master/libc/str
  *
  * Compile with: cosmocc -c -fPIC -mcmodel=large -fno-stack-protector
  */
@@ -43,34 +45,7 @@ int ispunct(int c) {
 }
 
 /**
- * Returns nonzero if c is space, \t, \r, \n, \f, or \v.
- * @see isblank()
- */
-int isspace(int c) {
-  return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' ||
-         c == '\v';
-}
-
-/**
- * Copies n bytes from src to dest, handling overlap correctly.
- */
-void *memmove(void *dest, const void *src, unsigned long n) {
-  char *d = dest;
-  const char *s = src;
-  if (d < s) {
-    while (n--) *d++ = *s++;
-  } else {
-    d += n;
-    s += n;
-    while (n--) *--d = *--s;
-  }
-  return dest;
-}
-
-/**
  * memcpy - Copy n bytes from src to dest (non-overlapping).
- *
- * Standard implementation. Regions must not overlap.
  */
 void *memcpy(void *dest, const void *src, unsigned long n) {
   char *d = dest;
@@ -86,21 +61,6 @@ int isalnum(int c) {
   return (c >= 'A' && c <= 'Z') ||
          (c >= 'a' && c <= 'z') ||
          (c >= '0' && c <= '9');
-}
-
-/**
- * isupper - Check if character is uppercase letter.
- */
-int isupper(int c) {
-  return c >= 'A' && c <= 'Z';
-}
-
-/**
- * tolower - Convert character to lowercase.
- */
-int tolower(int c) {
-  if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
-  return c;
 }
 
 /**
