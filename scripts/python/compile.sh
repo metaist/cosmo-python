@@ -170,6 +170,15 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   # 1. It requires --with-build-python (a host Python to freeze modules)
   # 2. Cosmocc produces APE binaries that run on the build machine anyway
   # Instead, we patch Darwin-specific flags out of the Makefile after configure
+  
+  # Patch configure to not add -framework CoreFoundation on macOS
+  # This is needed because configure's OpenSSL test fails with cosmocc if
+  # CoreFoundation is in LIBS. We remove all framework refs from Makefile later anyway.
+  if grep -q 'LIBS="\$LIBS -framework CoreFoundation"' "${SRC_DIR}/configure"; then
+    log_info "patching configure to skip CoreFoundation..."
+    sed_i 's/LIBS="\$LIBS -framework CoreFoundation"/: # LIBS CoreFoundation disabled for cosmocc/' "${SRC_DIR}/configure"
+  fi
+  
   "${SRC_DIR}/configure" \
   --disable-shared \
   --disable-ipv6 \
@@ -193,14 +202,17 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   PANEL_LIBS="-L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfow" \
   GDBM_CFLAGS="-I${DEPS_DIR}/include" \
   GDBM_LIBS="-L${DEPS_DIR}/lib -lgdbm" \
-  OPENSSL_CFLAGS="-I${DEPS_DIR}/include" \
-  OPENSSL_LIBS="-L${DEPS_DIR}/lib -lssl -lcrypto" \
+  --with-openssl="${DEPS_DIR}" \
+  OPENSSL_INCLUDES="-I${DEPS_DIR}/include" \
+  OPENSSL_LDFLAGS="-L${DEPS_DIR}/lib" \
+  OPENSSL_LIBS="-lssl -lcrypto" \
   LIBFFI_CFLAGS="-I${DEPS_DIR}/include" \
   LIBFFI_LIBS="-L${DEPS_DIR}/lib -lffi" \
   LIBSQLITE3_CFLAGS="-I${DEPS_DIR}/include" \
   LIBSQLITE3_LIBS="-L${DEPS_DIR}/lib -lsqlite3" \
   LIBZSTD_CFLAGS="-I${DEPS_DIR}/include" \
   LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd" \
+  LIBS="-lreadline -ltinfo -lffi" \
 
 else
   log_info "skipping configure (Makefile exists)"
