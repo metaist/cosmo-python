@@ -228,17 +228,14 @@ if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   sed_i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
   sed_i "s|^\(_ctypes .*\)$|\1 -L${DEPS_DIR}/lib -lffi|" "$SETUP_FILE"
   
-  # curses - DISABLED: ncurses build has missing _nc_fallback2 symbol
-  # see: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
-  # TODO: Fix ncurses build to include fallback data
-  # sed_i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
-  # sed_i 's/^#_curses /_curses /' "$SETUP_FILE"
-  # sed_i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
+  # curses - DISABLED: our ncurses build doesn't include full terminfo fallback data
+  # The ncurses 6.6 terminfo.src can't be compiled by macOS's older tic (ncurses 6.0),
+  # so we generate a stub fallback.c. This works for readline but curses module needs
+  # more complete terminfo support. Comment out the lines to disable curses.
+  sed_i 's/^_curses /#_curses /' "$SETUP_FILE"
   
-  # curses panel - DISABLED: we don't build ncurses panel library
-  # sed_i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
-  # sed_i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
-  # sed_i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
+  # curses panel - DISABLED: we don't build ncurses panel library (no panel.h)
+  sed_i 's/^_curses_panel /#_curses_panel /' "$SETUP_FILE"
   
   # sqlite3 (our sqlite is built without shared cache support)
   sed_i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
