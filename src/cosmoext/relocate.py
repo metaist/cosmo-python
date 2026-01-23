@@ -168,12 +168,13 @@ class CosmoExtBlob:
     load_address: int  # Address where this was designed to load
     internal_relocs: list[InternalRelocation]  # Relocations to apply at load time
     external_symbols: list[ExternalSymbol] = field(default_factory=list)  # External symbols
+    get_def_offset: int = 0  # Offset from init to _cosmoext_get_captured_def (0 if not using shim)
 
     def write(self, f: BinaryIO) -> None:
-        """Write the blob to a file in format version 4."""
-        # Format version 4:
+        """Write the blob to a file in format version 5."""
+        # Format version 5:
         # - 4 bytes: magic "CEXT"
-        # - 4 bytes: version (4)
+        # - 4 bytes: version (5)
         # - 8 bytes: load_address (designed)
         # - 8 bytes: total_size
         # - 8 bytes: init_offset
@@ -182,6 +183,7 @@ class CosmoExtBlob:
         # - 8 bytes: num_internal_relocs
         # - 8 bytes: num_external_symbols
         # - 8 bytes: string_table_size
+        # - 8 bytes: get_def_offset (offset from init to _cosmoext_get_captured_def, 0 if no shim)
         # - For each section:
         #   - 8 bytes: offset
         #   - 8 bytes: size
@@ -210,7 +212,7 @@ class CosmoExtBlob:
                 string_table.append(0)  # null terminator
 
         # Calculate header size
-        base_header_size = 72  # 4+4+8*8 = 72 bytes
+        base_header_size = 80  # 4+4+8*9 = 80 bytes (v5 adds get_def_offset)
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
         external_sym_size = len(self.external_symbols) * 16
@@ -225,9 +227,9 @@ class CosmoExtBlob:
         header_size = ((header_total + 4095) // 4096) * 4096
 
         header = struct.pack(
-            "<4sIQQQQQQQQ",  # spell-checker: disable-line
+            "<4sIQQQQQQQQQ",  # spell-checker: disable-line
             b"CEXT",
-            4,  # version
+            5,  # version
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -236,6 +238,7 @@ class CosmoExtBlob:
             len(self.internal_relocs),
             len(self.external_symbols),
             len(string_table),
+            self.get_def_offset,
         )
 
         section_headers = b""
@@ -882,6 +885,24 @@ def build_cosmoext(
 
     print(f"\n  Init function: {init_func[0]} at 0x{init_func[1]:x}")
 
+    # Find _cosmoext_get_captured_def if present (for shim-based extensions)
+    get_def_func = None
+    for name, (sec_name, offset) in local_symbols.items():
+        if name == "_cosmoext_get_captured_def":
+            if sec_name in sections:
+                get_def_func = (name, sections[sec_name].vaddr + offset)
+                break
+
+    # Calculate get_def_offset (offset from init to _cosmoext_get_captured_def)
+    get_def_offset = 0
+    if get_def_func:
+        get_def_offset = get_def_func[1] - init_func[1]
+        get_def_addr = get_def_func[1]
+        print(
+            f"  get_def function: {get_def_func[0]} at 0x{get_def_addr:x} "
+            f"(offset: 0x{get_def_offset:x})"
+        )
+
     # Add trampoline section if needed
     all_sections = list(sections.values())
     if trampoline_data:
@@ -906,9 +927,10 @@ def build_cosmoext(
         load_address=load_address,
         internal_relocs=internal_relocs,
         external_symbols=external_syms,
+        get_def_offset=get_def_offset,
     )
 
-    print(f"\nWriting {output_path} (format v4)")
+    print(f"\nWriting {output_path} (format v5)")
     with open(output_path, "wb") as f:
         blob.write(f)
 

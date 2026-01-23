@@ -22,7 +22,7 @@
 #define COSMOEXT_VERSION_3 3
 #define COSMOEXT_VERSION_4 4
 
-/* Format v3/v4 header */
+/* Format v3/v4/v5 header */
 typedef struct {
     uint32_t magic;
     uint32_t version;
@@ -35,6 +35,8 @@ typedef struct {
     /* v4 adds: */
     uint64_t num_external_symbols;
     uint64_t string_table_size;
+    /* v5 adds: */
+    uint64_t get_def_offset;  /* Offset from init to _cosmoext_get_captured_def, 0 if no shim */
 } CosmoExtHeader;
 
 typedef struct {
@@ -337,17 +339,28 @@ cosmoext_load(PyObject *self, PyObject *args)
         goto error;
     }
     
-    int is_v4 = 0;
-    if (header.version == COSMOEXT_VERSION_4) {
-        is_v4 = 1;
+    int format_version = 0;
+    if (header.version == 5) {
+        format_version = 5;
+        /* Read remaining v5 fields (v4 fields + get_def_offset) */
+        if (fread(&header.num_external_symbols, 1, 24, f) != 24) {
+            PyErr_SetString(PyExc_ValueError, "Failed to read v5 header");
+            goto error;
+        }
+    } else if (header.version == COSMOEXT_VERSION_4) {
+        format_version = 4;
         /* Read remaining v4 fields */
         if (fread(&header.num_external_symbols, 1, 16, f) != 16) {
             PyErr_SetString(PyExc_ValueError, "Failed to read v4 header");
             goto error;
         }
+        header.get_def_offset = 0;  /* v4 doesn't have this, will use hardcoded fallback */
     } else if (header.version != COSMOEXT_VERSION_3) {
         PyErr_Format(PyExc_ValueError, "Unsupported version: %u", header.version);
         goto error;
+    } else {
+        format_version = 3;
+        header.get_def_offset = 0;
     }
     
     if (verbose) {
@@ -355,19 +368,23 @@ cosmoext_load(PyObject *self, PyObject *args)
         fprintf(stderr, "[cosmoext] Total size: %llu bytes\n", (unsigned long long)header.total_size);
         fprintf(stderr, "[cosmoext] Sections: %llu, Internal relocs: %llu\n",
                 (unsigned long long)header.num_sections, (unsigned long long)header.num_relocs);
-        if (is_v4) {
+        if (format_version >= 4) {
             fprintf(stderr, "[cosmoext] External symbols: %llu, String table: %llu bytes\n",
                     (unsigned long long)header.num_external_symbols,
                     (unsigned long long)header.string_table_size);
         }
+        if (format_version >= 5 && header.get_def_offset > 0) {
+            fprintf(stderr, "[cosmoext] get_def_offset: 0x%llx\n",
+                    (unsigned long long)header.get_def_offset);
+        }
     }
     
     /* Calculate offsets for different parts of the header */
-    size_t actual_header_size = is_v4 ? 72 : 56;
+    size_t actual_header_size = format_version >= 5 ? 80 : (format_version >= 4 ? 72 : 56);
     size_t section_headers_offset = actual_header_size;
     size_t reloc_offset = section_headers_offset + header.num_sections * 24;
     size_t ext_sym_offset = reloc_offset + header.num_relocs * 24;
-    size_t string_table_offset = ext_sym_offset + (is_v4 ? header.num_external_symbols * 16 : 0);
+    size_t string_table_offset = ext_sym_offset + (format_version >= 4 ? header.num_external_symbols * 16 : 0);
     
     /* Skip section headers (we don't need them for loading) */
     if (fseek(f, reloc_offset, SEEK_SET) != 0) {
@@ -389,7 +406,7 @@ cosmoext_load(PyObject *self, PyObject *args)
     }
     
     /* Read external symbols (v4 only) */
-    if (is_v4 && header.num_external_symbols > 0) {
+    if (format_version >= 4 && header.num_external_symbols > 0) {
         ext_syms = PyMem_Malloc(header.num_external_symbols * sizeof(CosmoExtExternalSym));
         if (!ext_syms) {
             PyErr_NoMemory();
@@ -438,7 +455,7 @@ cosmoext_load(PyObject *self, PyObject *args)
     /* Load symbol table for external symbol resolution (v4) */
     SimpleSymbolTable *symtab = NULL;
     
-    if (is_v4 && header.num_external_symbols > 0) {
+    if (format_version >= 4 && header.num_external_symbols > 0) {
         /* Get path to current executable */
         const char *exe_path = NULL;
 #ifdef __COSMOPOLITAN__
@@ -549,7 +566,7 @@ cosmoext_load(PyObject *self, PyObject *args)
     }
     
     /* Resolve and apply external symbols (v4 only) */
-    if (is_v4 && header.num_external_symbols > 0) {
+    if (format_version >= 4 && header.num_external_symbols > 0) {
         if (verbose) {
             fprintf(stderr, "[cosmoext] Resolving %llu external symbols\n",
                     (unsigned long long)header.num_external_symbols);
@@ -811,17 +828,18 @@ cosmoext_load(PyObject *self, PyObject *args)
     /* Handle different return types */
     if (init_result == (void*)1) {
         /* Shim intercepted PyModuleDef_Init (multi-phase) */
-        /* _cosmoext_get_captured_def is at a fixed offset from init.
-         * The offset depends on the architecture and build:
-         * - x86_64: init + 0x98 (smaller code due to different instruction encoding)
-         * - ARM64:  init + 0xE8 (larger due to ADRP/ADD sequences)
-         * TODO: Store this offset in the header for robustness.
+        /* _cosmoext_get_captured_def offset from init is stored in header (v5+).
+         * For older formats, fall back to architecture-specific hardcoded values.
          */
+        size_t get_def_offset = header.get_def_offset;
+        if (get_def_offset == 0) {
+            /* Fallback for v3/v4 formats without get_def_offset */
 #if defined(__aarch64__)
-        size_t get_def_offset = 0xE8;
+            get_def_offset = 0xE8;  /* ARM64: larger due to ADRP/ADD sequences */
 #else
-        size_t get_def_offset = 0x98;
+            get_def_offset = 0x98;  /* x86_64: smaller code */
 #endif
+        }
         GetCapturedDefFunc get_def = (GetCapturedDefFunc)((char*)init_func + get_def_offset);
         
         if (verbose) {
