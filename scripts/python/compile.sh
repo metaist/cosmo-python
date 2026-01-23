@@ -305,6 +305,15 @@ fi
 log_info "regenerating Makefile..."
 make Makefile
 
+# macOS: Remove macOS-specific flags that configure adds when building on macOS
+# Cosmopolitan doesn't support macOS frameworks or linker flags
+if grep -q "framework CoreFoundation\|stack_size" Makefile 2>/dev/null; then
+  log_info "removing macOS-specific flags from Makefile..."
+  sed_i 's/ -framework CoreFoundation//g' Makefile
+  # -Wl,-stack_size,N is macOS linker syntax; cosmocc sets stack size differently
+  sed_i 's/-Wl,-stack_size,[0-9]*//g' Makefile
+fi
+
 # Python 3.11+: Fix _decimal module CFLAGS for libmpdec
 # Configure can't detect 64-bit config for cross-compilation, so we set it manually.
 # -DCONFIG_64: Use 64-bit limbs (uint64_t)
@@ -338,7 +347,8 @@ if [ ! -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   log_info "adding _math.o to library..."
   ${COSMO_DIR}/bin/cosmoar rcs "libpython${PYTHON_MAJOR_MINOR}.a" Modules/_math.o
   # Now build python binary
-  timed run_python_make -j"$(nproc)" python
+  # Note: cosmocc sets BUILDEXE=.exe so target is python.exe, not python
+  timed run_python_make -j"$(nproc)" python.exe
 else
   timed run_python_make -j"$(nproc)"
 fi
