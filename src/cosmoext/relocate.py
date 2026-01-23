@@ -221,7 +221,7 @@ class CosmoExtBlob:
         header_size = ((header_total + 4095) // 4096) * 4096
 
         header = struct.pack(
-            "<4sIQQQQQQQQ",
+            "<4sIQQQQQQQQ",  # spell-checker: disable-line
             b"CEXT",
             4,  # version
             self.load_address,
