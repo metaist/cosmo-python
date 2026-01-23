@@ -1010,7 +1010,18 @@ cosmoext_load(PyObject *self, PyObject *args)
     }
     
     if (PyModule_Check(init_result)) {
-        return (PyObject*)init_result;
+        /* Single-phase init returned a module directly.
+         * Register it with PyState_AddModule so PyState_FindModule works. */
+        PyObject *module = (PyObject*)init_result;
+        PyModuleDef *def = PyModule_GetDef(module);
+        if (def != NULL && def->m_slots == NULL) {
+            /* Only for single-phase init (no slots) */
+            if (PyState_AddModule(module, def) < 0) {
+                /* Not fatal - just means PyState_FindModule won't work */
+                PyErr_Clear();
+            }
+        }
+        return module;
     }
     
     /* Assume it's a PyModuleDef* */
@@ -1045,6 +1056,11 @@ cosmoext_load(PyObject *self, PyObject *args)
         if (!module) {
             munmap(mapped, map_size);
             return NULL;
+        }
+        /* Register single-phase init module so PyState_FindModule works */
+        if (PyState_AddModule(module, def) < 0) {
+            /* Not fatal - just means PyState_FindModule won't work */
+            PyErr_Clear();
         }
     }
     

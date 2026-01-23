@@ -20,9 +20,9 @@
 /*
  * Libc stub functions for cosmoext extensions.
  *
- * These provide implementations for libc functions that are NOT exported
- * in python.com's embedded symbol table. Functions like isspace, memmove,
- * isupper, and tolower ARE exported and don't need stubs.
+ * These provide implementations for libc functions that may NOT be exported
+ * in python.com's embedded symbol table. The exact set of exported symbols
+ * varies by build, so we include common functions that extensions may need.
  *
  * Based on code from https://github.com/jart/cosmopolitan/tree/master/libc/str
  *
@@ -45,6 +45,30 @@ int ispunct(int c) {
 }
 
 /**
+ * Returns nonzero if c is space, \t, \r, \n, \f, or \v.
+ */
+int isspace(int c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' ||
+         c == '\v';
+}
+
+/**
+ * Copies n bytes from src to dest, handling overlap correctly.
+ */
+void *memmove(void *dest, const void *src, unsigned long n) {
+  char *d = dest;
+  const char *s = src;
+  if (d < s) {
+    while (n--) *d++ = *s++;
+  } else {
+    d += n;
+    s += n;
+    while (n--) *--d = *--s;
+  }
+  return dest;
+}
+
+/**
  * memcpy - Copy n bytes from src to dest (non-overlapping).
  */
 void *memcpy(void *dest, const void *src, unsigned long n) {
@@ -61,6 +85,21 @@ int isalnum(int c) {
   return (c >= 'A' && c <= 'Z') ||
          (c >= 'a' && c <= 'z') ||
          (c >= '0' && c <= '9');
+}
+
+/**
+ * isupper - Check if character is uppercase letter.
+ */
+int isupper(int c) {
+  return c >= 'A' && c <= 'Z';
+}
+
+/**
+ * tolower - Convert character to lowercase.
+ */
+int tolower(int c) {
+  if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
+  return c;
 }
 
 /**
