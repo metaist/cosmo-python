@@ -252,7 +252,12 @@ if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   #   gdbm's --enable-libgdbm-compat provides ndbm API compatibility,
   #   but Python's _dbm module specifically wants ndbm.h which we don't have.
   #
-  DISABLE_MODULES="_crypt _uuid _dbm"
+  # Disable modules that require unavailable headers/libraries:
+  # - _crypt: Deprecated 3.11, removed 3.13 (requires libxcrypt, security concerns)
+  # - _uuid: Requires libuuid (Python fallback is sufficient for uuid4)
+  # - _dbm: Requires specific dbm libraries that conflict with gdbm
+  # - _scproxy: macOS-only (SystemConfiguration framework for proxy settings)
+  DISABLE_MODULES="_crypt _uuid _dbm _scproxy"
   for mod in $DISABLE_MODULES; do
     sed_i "s/^${mod} /#${mod} /" "$SETUP_FILE"
   done
@@ -301,9 +306,10 @@ if [ -n "$ENABLE_COSMOEXT" ]; then
   fi
 fi
 
-# Regenerate Makefile
-log_info "regenerating Makefile..."
-make Makefile
+# Note: We don't regenerate Makefile here because:
+# 1. Configure already created it with all modules from Setup.stdlib.in
+# 2. config.status would recreate Setup.stdlib from .in, overwriting our patches
+# Instead, we directly patch the Makefile below to remove disabled modules
 
 # macOS: Remove macOS-specific flags that configure adds when building on macOS
 # Cosmopolitan doesn't support macOS frameworks or linker flags
@@ -312,6 +318,27 @@ if grep -q "framework CoreFoundation\|stack_size" Makefile 2>/dev/null; then
   sed_i 's/ -framework CoreFoundation//g' Makefile
   # -Wl,-stack_size,N is macOS linker syntax; cosmocc sets stack size differently
   sed_i 's/-Wl,-stack_size,[0-9]*//g' Makefile
+fi
+
+# Python 3.13+: Remove -latomic from LIBS
+# Cosmopolitan provides atomic operations built-in; there's no separate libatomic
+if grep -q "\-latomic" Makefile 2>/dev/null; then
+  log_info "removing -latomic from Makefile..."
+  sed_i 's/ -latomic//g' Makefile
+fi
+
+# Remove disabled modules from Makefile (they were already disabled in Setup.local,
+# but configure bakes module lists into the Makefile before our patches apply)
+# _scproxy is macOS-only (requires SystemConfiguration framework)
+if grep -q "_scproxy" Makefile 2>/dev/null; then
+  log_info "removing _scproxy module from Makefile..."
+  # Remove from various module lists (space or end-of-line delimited)
+  sed_i 's/ _scproxy / /g' Makefile
+  sed_i 's/ _scproxy$//g' Makefile
+  # Remove the build rules for _scproxy
+  sed_i '/Modules\/_scproxy\.o:/d' Makefile
+  # shellcheck disable=SC2016
+  sed_i '/Modules\/_scproxy\$(EXT_SUFFIX)/d' Makefile
 fi
 
 # Python 3.11+: Fix _decimal module CFLAGS for libmpdec
