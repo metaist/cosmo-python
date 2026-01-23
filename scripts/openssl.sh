@@ -174,21 +174,25 @@ if find . -name ".aarch64" -type d | head -1 | grep -q .; then
   # because there are multiple object files with different prefixes (libssl-lib-, libcrypto-lib-, etc.)
   # Simply finding all .o files would include duplicates
   
-  # Create aarch64 archives by finding the aarch64 counterpart of each x86_64 object
-  for lib in libssl libcrypto; do
-    OBJS=""
-    for obj in $(ar -t "${lib}.a"); do
-      # Find the aarch64 version of this object
-      aarch64_obj=$(find . -path "*/.aarch64/${obj}" -type f 2>/dev/null | head -1)
-      if [ -n "$aarch64_obj" ]; then
-        OBJS="$OBJS $aarch64_obj"
-      fi
-    done
-    if [ -n "$OBJS" ]; then
-      # shellcheck disable=SC2086
-      "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/${lib}.a" $OBJS
-    fi
-  done
+  # Create aarch64 archives by finding all relevant aarch64 objects
+  # OpenSSL builds include libcrypto-*, libdefault-*, libcommon-* objects for crypto
+  # and libssl-* objects for ssl
+  
+  # libcrypto.a includes crypto, default provider, and common objects
+  CRYPTO_OBJS=$(find . -path "*/.aarch64/libcrypto-*.o" \
+                    -o -path "*/.aarch64/libdefault-*.o" \
+                    -o -path "*/.aarch64/libcommon-*.o" | tr '\n' ' ')
+  if [ -n "$CRYPTO_OBJS" ]; then
+    # shellcheck disable=SC2086
+    "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libcrypto.a" $CRYPTO_OBJS
+  fi
+  
+  # libssl.a includes ssl objects only
+  SSL_OBJS=$(find . -path "*/.aarch64/libssl-*.o" | tr '\n' ' ')
+  if [ -n "$SSL_OBJS" ]; then
+    # shellcheck disable=SC2086
+    "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libssl.a" $SSL_OBJS
+  fi
 fi
 
 log_ok "openssl ${OPENSSL_VERSION} installed"
