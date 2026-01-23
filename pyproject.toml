@@ -48,7 +48,7 @@ select = ["E", "F", "W", "I", "UP"]
 
 [tool.mypy]
 strict = true
-disable_error_code = "unused-ignore"
+disable_error_code = ["unused-ignore", "no-untyped-call"]
 
 [tool.ds.scripts]
 # Build

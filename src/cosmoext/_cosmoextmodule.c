@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include "third_party/zlib/zlib.h"
 
 /* OS and architecture detection at runtime for Cosmopolitan */
 #ifdef __COSMOPOLITAN__
@@ -92,37 +93,34 @@ static void free_simple_symtab(SimpleSymbolTable *st) {
     }
 }
 
-/* Decompress deflate data (simplified - uses Python's zlib) */
+/* Decompress raw deflate data using zlib */
 static unsigned char* inflate_data(const unsigned char *comp_data, size_t comp_size, 
                                     size_t uncomp_size) {
-    PyObject *zlib = PyImport_ImportModule("zlib");
-    if (!zlib) return NULL;
-    
-    PyObject *decompress = PyObject_GetAttrString(zlib, "decompress");
-    Py_DECREF(zlib);
-    if (!decompress) return NULL;
-    
-    /* zlib.decompress(data, -15) for raw deflate */
-    PyObject *data = PyBytes_FromStringAndSize((char*)comp_data, comp_size);
-    if (!data) { Py_DECREF(decompress); return NULL; }
-    
-    PyObject *result = PyObject_CallFunction(decompress, "Oi", data, -15);
-    Py_DECREF(data);
-    Py_DECREF(decompress);
-    
-    if (!result) return NULL;
-    
     unsigned char *output = malloc(uncomp_size);
-    if (output && PyBytes_Check(result)) {
-        Py_ssize_t size = PyBytes_GET_SIZE(result);
-        if ((size_t)size <= uncomp_size) {
-            memcpy(output, PyBytes_AS_STRING(result), size);
-        } else {
-            free(output);
-            output = NULL;
-        }
+    if (!output) return NULL;
+    
+    z_stream strm;
+    memset(&strm, 0, sizeof(strm));
+    strm.next_in = (Bytef*)comp_data;
+    strm.avail_in = comp_size;
+    strm.next_out = output;
+    strm.avail_out = uncomp_size;
+    
+    /* -15 = raw deflate (no zlib header) */
+    int ret = inflateInit2(&strm, -15);
+    if (ret != Z_OK) {
+        free(output);
+        return NULL;
     }
-    Py_DECREF(result);
+    
+    ret = inflate(&strm, Z_FINISH);
+    inflateEnd(&strm);
+    
+    if (ret != Z_STREAM_END) {
+        free(output);
+        return NULL;
+    }
+    
     return output;
 }
 
@@ -314,7 +312,7 @@ cosmoext_load(PyObject *self, PyObject *args)
     CosmoExtReloc *relocs = NULL;
     CosmoExtExternalSym *ext_syms = NULL;
     char *string_table = NULL;
-    int verbose = 0;  /* Set to 1 or pass verbose=True to enable debug output */
+    int verbose = 0;  /* Set to 1 for debug */: Enable debug output */
     
     if (!PyArg_ParseTuple(args, "s", &path))
         return NULL;
