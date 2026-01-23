@@ -121,3 +121,16 @@ double ceil(double x) {
     return (double)(long long)x;
   }
 }
+
+/*
+ * Py_Version - Python version constant.
+ * This should be 0x030c0cf0 for Python 3.12.12 but we use a macro to
+ * compute it at compile time based on the included headers.
+ * Note: This is only needed for Cython-generated code that checks the version.
+ */
+#ifdef PY_VERSION_HEX
+const unsigned long Py_Version = PY_VERSION_HEX;
+#else
+/* Fallback for Python 3.12.x */
+const unsigned long Py_Version = 0x030c00f0;
+#endif

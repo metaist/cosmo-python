@@ -55,6 +55,7 @@ STUB_SYMBOLS = {
     "tolower",
     "toupper",
     "ceil",
+    "Py_Version",  # Needed by Cython-generated code
 }
 
 
