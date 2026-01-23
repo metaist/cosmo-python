@@ -50,3 +50,19 @@ int isspace(int c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' ||
          c == '\v';
 }
+
+/**
+ * Copies n bytes from src to dest, handling overlap correctly.
+ */
+void *memmove(void *dest, const void *src, unsigned long n) {
+  char *d = dest;
+  const char *s = src;
+  if (d < s) {
+    while (n--) *d++ = *s++;
+  } else {
+    d += n;
+    s += n;
+    while (n--) *--d = *--s;
+  }
+  return dest;
+}

@@ -46,9 +46,11 @@ R_AARCH64_CALL26 = 283  # S + A - P (26-bit PC-relative call)
 R_AARCH64_JUMP26 = 282  # S + A - P (26-bit PC-relative jump)
 R_AARCH64_ADR_PREL_PG_HI21 = 275  # Page(S + A) - Page(P) (ADRP)
 R_AARCH64_ADD_ABS_LO12_NC = 277  # S + A (low 12 bits, no check)
-R_AARCH64_LDST64_ABS_LO12_NC = 286  # S + A (low 12 bits for 64-bit load/store)
-R_AARCH64_LDST32_ABS_LO12_NC = 285  # S + A (low 12 bits for 32-bit load/store)
 R_AARCH64_LDST8_ABS_LO12_NC = 278  # S + A (low 12 bits for 8-bit load/store)
+R_AARCH64_LDST16_ABS_LO12_NC = 284  # S + A (low 12 bits for 16-bit load/store)
+R_AARCH64_LDST32_ABS_LO12_NC = 285  # S + A (low 12 bits for 32-bit load/store)
+R_AARCH64_LDST64_ABS_LO12_NC = 286  # S + A (low 12 bits for 64-bit load/store)
+R_AARCH64_LDST128_ABS_LO12_NC = 299  # S + A (low 12 bits for 128-bit load/store, SIMD)
 R_AARCH64_ADR_GOT_PAGE = 311  # Page(G(S)) - Page(P) (GOT page)
 R_AARCH64_LD64_GOT_LO12_NC = 312  # G(S) (low 12 bits of GOT entry)
 R_AARCH64_PREL32 = 261  # S + A - P (32-bit PC-relative)
@@ -69,9 +71,11 @@ RELOC_NAMES_AARCH64 = {
     R_AARCH64_JUMP26: "R_AARCH64_JUMP26",
     R_AARCH64_ADR_PREL_PG_HI21: "R_AARCH64_ADR_PREL_PG_HI21",
     R_AARCH64_ADD_ABS_LO12_NC: "R_AARCH64_ADD_ABS_LO12_NC",
-    R_AARCH64_LDST64_ABS_LO12_NC: "R_AARCH64_LDST64_ABS_LO12_NC",
-    R_AARCH64_LDST32_ABS_LO12_NC: "R_AARCH64_LDST32_ABS_LO12_NC",
     R_AARCH64_LDST8_ABS_LO12_NC: "R_AARCH64_LDST8_ABS_LO12_NC",
+    R_AARCH64_LDST16_ABS_LO12_NC: "R_AARCH64_LDST16_ABS_LO12_NC",
+    R_AARCH64_LDST32_ABS_LO12_NC: "R_AARCH64_LDST32_ABS_LO12_NC",
+    R_AARCH64_LDST64_ABS_LO12_NC: "R_AARCH64_LDST64_ABS_LO12_NC",
+    R_AARCH64_LDST128_ABS_LO12_NC: "R_AARCH64_LDST128_ABS_LO12_NC",
     R_AARCH64_PREL32: "R_AARCH64_PREL32",
 }
 
@@ -212,7 +216,8 @@ class CosmoExtBlob:
                 string_table.append(0)  # null terminator
 
         # Calculate header size
-        base_header_size = 80  # 4+4+8*9 = 80 bytes (v5 adds get_def_offset)
+        # v4: 72 bytes, v5: 80 bytes (adds get_def_offset)
+        base_header_size = 72  # 4+4+8*8 = 72 bytes (v4 format)
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
         external_sym_size = len(self.external_symbols) * 16
@@ -226,10 +231,12 @@ class CosmoExtBlob:
         # Round up to nearest 4096
         header_size = ((header_total + 4095) // 4096) * 4096
 
+        # Emit v4 format for now (v5 adds get_def_offset but requires rebuilt python.com)
+        # TODO: Switch to v5 once python.com is rebuilt with updated _cosmoextmodule.c
         header = struct.pack(
-            "<4sIQQQQQQQQQ",  # spell-checker: disable-line
+            "<4sIQQQQQQQQ",  # spell-checker: disable-line
             b"CEXT",
-            5,  # version
+            4,  # version
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -238,7 +245,7 @@ class CosmoExtBlob:
             len(self.internal_relocs),
             len(self.external_symbols),
             len(string_table),
-            self.get_def_offset,
+            # self.get_def_offset,  # v5 only
         )
 
         section_headers = b""
@@ -706,20 +713,28 @@ def apply_relocations(
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
             elif reloc.type in (
+                R_AARCH64_LDST128_ABS_LO12_NC,
                 R_AARCH64_LDST64_ABS_LO12_NC,
                 R_AARCH64_LDST32_ABS_LO12_NC,
+                R_AARCH64_LDST16_ABS_LO12_NC,
                 R_AARCH64_LDST8_ABS_LO12_NC,
             ):
                 if is_external:
                     errors.append(f"LDST for external symbol {reloc.symbol} not supported")
                     continue
                 addr = S + A
-                if reloc.type == R_AARCH64_LDST64_ABS_LO12_NC:
-                    imm12 = (addr >> 3) & 0x1FF
+                # Extract low 12 bits, scaled by access size
+                # The imm12 field encodes offset / access_size
+                if reloc.type == R_AARCH64_LDST128_ABS_LO12_NC:
+                    imm12 = (addr >> 4) & 0xFF  # 128-bit = 16 bytes, shift by 4
+                elif reloc.type == R_AARCH64_LDST64_ABS_LO12_NC:
+                    imm12 = (addr >> 3) & 0x1FF  # 64-bit = 8 bytes, shift by 3
                 elif reloc.type == R_AARCH64_LDST32_ABS_LO12_NC:
-                    imm12 = (addr >> 2) & 0x3FF
-                else:
-                    imm12 = addr & 0xFFF
+                    imm12 = (addr >> 2) & 0x3FF  # 32-bit = 4 bytes, shift by 2
+                elif reloc.type == R_AARCH64_LDST16_ABS_LO12_NC:
+                    imm12 = (addr >> 1) & 0x7FF  # 16-bit = 2 bytes, shift by 1
+                else:  # LDST8
+                    imm12 = addr & 0xFFF  # 8-bit = 1 byte, no shift
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
@@ -930,7 +945,7 @@ def build_cosmoext(
         get_def_offset=get_def_offset,
     )
 
-    print(f"\nWriting {output_path} (format v5)")
+    print(f"\nWriting {output_path} (format v4)")
     with open(output_path, "wb") as f:
         blob.write(f)
 

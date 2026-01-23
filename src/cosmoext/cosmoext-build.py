@@ -41,7 +41,7 @@ LIBC_STUBS = SCRIPT_DIR / "libc_stubs.c"
 RELOCATE_PY = SCRIPT_DIR / "relocate.py"
 
 # Symbols that need stubs (not exported from python.com)
-STUB_SYMBOLS = {"iscntrl", "ispunct", "isspace"}
+STUB_SYMBOLS = {"iscntrl", "ispunct", "isspace", "memmove"}
 
 
 def find_tool(name: str, search_paths: list[Path] | None = None) -> Path | None:
