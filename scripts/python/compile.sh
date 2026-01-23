@@ -374,10 +374,17 @@ if [ ! -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   log_info "adding _math.o to library..."
   ${COSMO_DIR}/bin/cosmoar rcs "libpython${PYTHON_MAJOR_MINOR}.a" Modules/_math.o
   # Now build python binary
-  # Note: cosmocc sets BUILDEXE=.exe so target is python.exe, not python
+  # Note: On case-insensitive filesystems (macOS), configure sets BUILDEXE=.exe
   timed run_python_make -j"$(nproc)" python.exe
 else
   timed run_python_make -j"$(nproc)"
+fi
+
+# Rename to .com (cosmopolitan convention)
+# On case-insensitive filesystems, configure produces python.exe instead of python.com
+if [ -f "${BUILD_DIR}/python.exe" ] && [ ! -f "${BUILD_DIR}/python.com" ]; then
+  log_info "renaming python.exe to python.com..."
+  mv "${BUILD_DIR}/python.exe" "${BUILD_DIR}/python.com"
 fi
 
 log_ok "Python ${PYTHON_VERSION} compiled"
