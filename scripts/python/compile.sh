@@ -146,13 +146,15 @@ cd "${BUILD_DIR}"
 # - _dbm: requires ndbm/gdbm library
 # - _gdbm: requires GNU dbm library  
 # - nis: deprecated, requires NIS/YP (network service)
-# - _curses/_curses_panel: ncurses build incomplete, missing symbols
+# - _curses_panel: requires ncurses panel library (panel.h) which we don't build
 #   see: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
 cat > "${SRC_DIR}/Modules/Setup.local" << 'SETUP'
 *disabled*
 _tkinter
 _dbm
 nis
+_curses
+_curses_panel
 SETUP
 
 # Skip configure if Makefile exists (for incremental rebuilds)
@@ -226,15 +228,17 @@ if [ -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   sed_i 's/^#_ctypes /_ctypes /' "$SETUP_FILE"
   sed_i "s|^\(_ctypes .*\)$|\1 -L${DEPS_DIR}/lib -lffi|" "$SETUP_FILE"
   
-  # curses
-  sed_i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
-  sed_i 's/^#_curses /_curses /' "$SETUP_FILE"
-  sed_i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
+  # curses - DISABLED: ncurses build has missing _nc_fallback2 symbol
+  # see: https://github.com/jart/cosmopolitan/tree/master/third_party/ncurses
+  # TODO: Fix ncurses build to include fallback data
+  # sed_i 's/^#@MODULE__CURSES_TRUE@_curses/_curses/' "$SETUP_FILE"
+  # sed_i 's/^#_curses /_curses /' "$SETUP_FILE"
+  # sed_i "s|^\(_curses .*\)$|\1 -L${DEPS_DIR}/lib -lncursesw -ltinfo|" "$SETUP_FILE"
   
-  # curses panel
-  sed_i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
-  sed_i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
-  sed_i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
+  # curses panel - DISABLED: we don't build ncurses panel library
+  # sed_i 's/^#@MODULE__CURSES_PANEL_TRUE@_curses_panel/_curses_panel/' "$SETUP_FILE"
+  # sed_i 's/^#_curses_panel /_curses_panel /' "$SETUP_FILE"
+  # sed_i "s|^\(_curses_panel .*\)$|\1 -L${DEPS_DIR}/lib -lpanelw -lncursesw -ltinfo|" "$SETUP_FILE"
   
   # sqlite3 (our sqlite is built without shared cache support)
   sed_i 's/^#@MODULE__SQLITE3_TRUE@_sqlite3/_sqlite3/' "$SETUP_FILE"
@@ -300,10 +304,17 @@ else
   fi
 fi
 
-# Note: We don't regenerate Makefile here because:
-# 1. Configure already created it with all modules from Setup.stdlib.in
-# 2. config.status would recreate Setup.stdlib from .in, overwriting our patches
-# Instead, we directly patch the Makefile below to remove disabled modules
+# Regenerate Modules/config.c to include all modules from Setup.local
+# This is critical: configure generates config.c with only bootstrap modules,
+# but we need all stdlib modules (math, datetime, etc.) to be built-in.
+# Note: This also regenerates Makefile from Makefile.pre via makesetup,
+# but does NOT run config.status (which would overwrite our Setup.local patches).
+# 
+# We must remove config.c to force regeneration, because configure generates
+# both Makefile and config.c at the same time, and Makefile is a dependency.
+log_info "regenerating config.c with all modules..."
+rm -f Modules/config.c
+make Modules/config.c
 
 # macOS: Remove macOS-specific flags that configure adds when building on macOS
 # Cosmopolitan doesn't support macOS frameworks or linker flags
