@@ -66,3 +66,15 @@ void *memmove(void *dest, const void *src, unsigned long n) {
   }
   return dest;
 }
+
+/**
+ * memcpy - Copy n bytes from src to dest (non-overlapping).
+ *
+ * Standard implementation. Regions must not overlap.
+ */
+void *memcpy(void *dest, const void *src, unsigned long n) {
+  char *d = dest;
+  const char *s = src;
+  while (n--) *d++ = *s++;
+  return dest;
+}

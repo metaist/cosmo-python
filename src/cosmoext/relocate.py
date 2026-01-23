@@ -147,11 +147,17 @@ class Relocation:
 
 @dataclass
 class InternalRelocation:
-    """A relocation that must be applied at load time."""
+    """A relocation that must be applied at load time.
 
-    section_offset: int  # Offset in the blob
-    size: int  # 4 or 8 bytes
-    target_offset: int  # Offset in the blob that this points to
+    For format v5 and earlier: size indicates 4 or 8 byte absolute patch.
+    For format v6+: reloc_type specifies the exact relocation type for
+    architecture-specific patching (e.g., ARM64 ADRP/ADD_LO12).
+    """
+
+    section_offset: int  # Offset in the blob to patch
+    size: int  # 4 or 8 bytes (v5 compatibility)
+    target_offset: int  # Target address (relative to load base)
+    reloc_type: int = 0  # Relocation type (v6+): R_X86_64_*, R_AARCH64_*
 
 
 @dataclass
@@ -175,10 +181,14 @@ class CosmoExtBlob:
     get_def_offset: int = 0  # Offset from init to _cosmoext_get_captured_def (0 if not using shim)
 
     def write(self, f: BinaryIO) -> None:
-        """Write the blob to a file in format version 5."""
-        # Format version 5:
+        """Write the blob to a file in format version 6.
+
+        v6 changes from v5:
+        - Internal relocs now include reloc_type for arch-specific patching
+        """
+        # Format version 6:
         # - 4 bytes: magic "CEXT"
-        # - 4 bytes: version (5)
+        # - 4 bytes: version (6)
         # - 8 bytes: load_address (designed)
         # - 8 bytes: total_size
         # - 8 bytes: init_offset
@@ -193,10 +203,10 @@ class CosmoExtBlob:
         #   - 8 bytes: size
         #   - 4 bytes: flags (1=exec, 2=write)
         #   - 4 bytes: padding
-        # - For each internal reloc:
+        # - For each internal reloc (v6):
         #   - 8 bytes: section_offset
-        #   - 4 bytes: size (4 or 8)
-        #   - 4 bytes: padding
+        #   - 4 bytes: reloc_type (R_X86_64_*, R_AARCH64_*)
+        #   - 4 bytes: size (4 or 8, for v5 compatibility fallback)
         #   - 8 bytes: target_offset
         # - For each external symbol:
         #   - 8 bytes: patch_offset (where to write address in blob)
@@ -234,7 +244,7 @@ class CosmoExtBlob:
         header = struct.pack(
             "<4sIQQQQQQQQQ",  # spell-checker: disable-line
             b"CEXT",
-            5,  # version
+            6,  # version (v6: relocs include type)
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -258,9 +268,13 @@ class CosmoExtBlob:
 
         reloc_data = b""
         for reloc in self.internal_relocs:
-            # C struct has 4 bytes padding after size due to uint64_t alignment
+            # v6 format: section_offset(8) + reloc_type(4) + size(4) + target_offset(8) = 24 bytes
             reloc_data += struct.pack(
-                "<QIxxxxQ", reloc.section_offset, reloc.size, reloc.target_offset
+                "<QIIQ",  # spell-checker: disable-line
+                reloc.section_offset,
+                reloc.reloc_type,
+                reloc.size,
+                reloc.target_offset,
             )
 
         external_sym_data = b""
@@ -567,6 +581,7 @@ def apply_relocations(
                             section_offset=target_sec.offset + reloc.offset,
                             size=8,
                             target_offset=target_offset,
+                            reloc_type=R_X86_64_64,
                         )
                     )
                 elif is_external:
@@ -645,6 +660,7 @@ def apply_relocations(
                             section_offset=target_sec.offset + reloc.offset,
                             size=8,
                             target_offset=target_offset,
+                            reloc_type=R_AARCH64_ABS64,
                         )
                     )
                 elif is_external:
@@ -687,6 +703,7 @@ def apply_relocations(
 
             elif reloc.type == R_AARCH64_ADR_PREL_PG_HI21:
                 # ADRP: Page(S + A) - Page(P)
+                # This is PC-relative, so must be re-applied at load time
                 if is_external:
                     errors.append(f"ADRP for external symbol {reloc.symbol} not supported")
                     continue
@@ -700,6 +717,17 @@ def apply_relocations(
                 insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
+                # Record for load-time patching (v6 format)
+                target_offset = (S + A) - base_address
+                internal_relocs.append(
+                    InternalRelocation(
+                        section_offset=target_sec.offset + reloc.offset,
+                        size=4,
+                        target_offset=target_offset,
+                        reloc_type=R_AARCH64_ADR_PREL_PG_HI21,
+                    )
+                )
+
             elif reloc.type == R_AARCH64_ADD_ABS_LO12_NC:
                 # ADD immediate: low 12 bits of S + A
                 if is_external:
@@ -709,6 +737,17 @@ def apply_relocations(
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+                # Record for load-time patching (v6 format)
+                target_offset = (S + A) - base_address
+                internal_relocs.append(
+                    InternalRelocation(
+                        section_offset=target_sec.offset + reloc.offset,
+                        size=4,
+                        target_offset=target_offset,
+                        reloc_type=R_AARCH64_ADD_ABS_LO12_NC,
+                    )
+                )
 
             elif reloc.type in (
                 R_AARCH64_LDST128_ABS_LO12_NC,
@@ -736,6 +775,17 @@ def apply_relocations(
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+                # Record for load-time patching (v6 format)
+                target_offset = (S + A) - base_address
+                internal_relocs.append(
+                    InternalRelocation(
+                        section_offset=target_sec.offset + reloc.offset,
+                        size=4,
+                        target_offset=target_offset,
+                        reloc_type=reloc.type,
+                    )
+                )
 
             elif reloc.type == R_AARCH64_PREL32:
                 # 32-bit PC-relative
@@ -943,7 +993,7 @@ def build_cosmoext(
         get_def_offset=get_def_offset,
     )
 
-    print(f"\nWriting {output_path} (format v5)")
+    print(f"\nWriting {output_path} (format v6)")
     with open(output_path, "wb") as f:
         blob.write(f)
 

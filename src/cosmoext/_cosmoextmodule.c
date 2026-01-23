@@ -22,8 +22,23 @@
 #define COSMOEXT_MAGIC 0x54584543
 #define COSMOEXT_VERSION_3 3
 #define COSMOEXT_VERSION_4 4
+#define COSMOEXT_VERSION_5 5
+#define COSMOEXT_VERSION_6 6
 
-/* Format v3/v4/v5 header */
+/* ARM64 relocation types (for v6 format) */
+#define R_AARCH64_ABS64 257
+#define R_AARCH64_ADR_PREL_PG_HI21 275
+#define R_AARCH64_ADD_ABS_LO12_NC 277
+#define R_AARCH64_LDST8_ABS_LO12_NC 278
+#define R_AARCH64_LDST16_ABS_LO12_NC 284
+#define R_AARCH64_LDST32_ABS_LO12_NC 285
+#define R_AARCH64_LDST64_ABS_LO12_NC 286
+#define R_AARCH64_LDST128_ABS_LO12_NC 299
+
+/* x86_64 relocation types */
+#define R_X86_64_64 1
+
+/* Format v3/v4/v5/v6 header */
 typedef struct {
     uint32_t magic;
     uint32_t version;
@@ -47,10 +62,19 @@ typedef struct {
     /* 4 bytes padding */
 } CosmoExtSection;
 
+/* v5 and earlier reloc format */
 typedef struct {
     uint64_t blob_offset;
     uint32_t size;
     /* 4 bytes padding */
+    uint64_t target_offset;
+} CosmoExtReloc_v5;
+
+/* v6 reloc format - includes relocation type */
+typedef struct {
+    uint64_t blob_offset;
+    uint32_t reloc_type;  /* R_X86_64_*, R_AARCH64_* */
+    uint32_t size;        /* For v5 compat: 4 or 8 bytes */
     uint64_t target_offset;
 } CosmoExtReloc;
 
@@ -312,7 +336,7 @@ cosmoext_load(PyObject *self, PyObject *args)
     CosmoExtReloc *relocs = NULL;
     CosmoExtExternalSym *ext_syms = NULL;
     char *string_table = NULL;
-    int verbose = 0;  /* Set to 1 for debug */: Enable debug output */
+    int verbose = 0;  /* Set to 1 for debug output */
     
     if (!PyArg_ParseTuple(args, "s", &path))
         return NULL;
@@ -338,11 +362,11 @@ cosmoext_load(PyObject *self, PyObject *args)
     }
     
     int format_version = 0;
-    if (header.version == 5) {
-        format_version = 5;
-        /* Read remaining v5 fields (v4 fields + get_def_offset) */
+    if (header.version == COSMOEXT_VERSION_6 || header.version == COSMOEXT_VERSION_5) {
+        format_version = header.version;
+        /* Read remaining v5/v6 fields (v4 fields + get_def_offset) */
         if (fread(&header.num_external_symbols, 1, 24, f) != 24) {
-            PyErr_SetString(PyExc_ValueError, "Failed to read v5 header");
+            PyErr_SetString(PyExc_ValueError, "Failed to read v5/v6 header");
             goto error;
         }
     } else if (header.version == COSMOEXT_VERSION_4) {
@@ -545,21 +569,122 @@ cosmoext_load(PyObject *self, PyObject *args)
     
     /* Apply internal relocations */
     uintptr_t actual_addr = (uintptr_t)mapped;
+    uintptr_t base_addr = header.load_address;  /* Original load address from build */
     
     if (verbose && header.num_relocs > 0) {
-        fprintf(stderr, "[cosmoext] Applying %llu internal relocations\n",
-                (unsigned long long)header.num_relocs);
+        fprintf(stderr, "[cosmoext] Applying %llu internal relocations (v%d)\n",
+                (unsigned long long)header.num_relocs, format_version);
     }
     
     for (uint64_t i = 0; i < header.num_relocs; i++) {
         CosmoExtReloc *r = &relocs[i];
-        uintptr_t new_value = actual_addr + r->target_offset;
+        uintptr_t target = actual_addr + r->target_offset;
+        uintptr_t patch_addr = actual_addr + r->blob_offset;  /* Where this instruction will be */
         
-        if (r->size == 8) {
-            memcpy((char*)blob + r->blob_offset, &new_value, 8);
-        } else if (r->size == 4) {
-            uint32_t val32 = (uint32_t)new_value;
-            memcpy((char*)blob + r->blob_offset, &val32, 4);
+        (void)patch_addr;  /* Used in debug but silence warning */
+        
+        if (format_version >= COSMOEXT_VERSION_6) {
+            /* v6: dispatch based on relocation type */
+            switch (r->reloc_type) {
+                case R_X86_64_64:
+                case R_AARCH64_ABS64:
+                    /* 64-bit absolute */
+                    memcpy((char*)blob + r->blob_offset, &target, 8);
+                    break;
+                    
+                case R_AARCH64_ADR_PREL_PG_HI21: {
+                    /* ADRP: Page(S + A) - Page(P) */
+                    uint64_t page_s = target & ~0xFFFULL;
+                    uint64_t page_p = patch_addr & ~0xFFFULL;
+                    int64_t page_offset = (int64_t)(page_s - page_p);
+                    int64_t imm = page_offset >> 12;
+                    uint32_t immlo = imm & 0x3;
+                    uint32_t immhi = (imm >> 2) & 0x7FFFF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_ADD_ABS_LO12_NC: {
+                    /* ADD immediate: low 12 bits of target */
+                    uint32_t imm12 = target & 0xFFF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_LDST64_ABS_LO12_NC: {
+                    /* LDR/STR 64-bit: low 12 bits scaled by 8 */
+                    uint32_t imm12 = (target >> 3) & 0x1FF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_LDST32_ABS_LO12_NC: {
+                    /* LDR/STR 32-bit: low 12 bits scaled by 4 */
+                    uint32_t imm12 = (target >> 2) & 0x3FF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_LDST16_ABS_LO12_NC: {
+                    /* LDR/STR 16-bit: low 12 bits scaled by 2 */
+                    uint32_t imm12 = (target >> 1) & 0x7FF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_LDST8_ABS_LO12_NC: {
+                    /* LDR/STR 8-bit: low 12 bits, no scaling */
+                    uint32_t imm12 = target & 0xFFF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                case R_AARCH64_LDST128_ABS_LO12_NC: {
+                    /* LDR/STR 128-bit: low 12 bits scaled by 16 */
+                    uint32_t imm12 = (target >> 4) & 0xFF;
+                    uint32_t insn;
+                    memcpy(&insn, (char*)blob + r->blob_offset, 4);
+                    insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                    memcpy((char*)blob + r->blob_offset, &insn, 4);
+                    break;
+                }
+                    
+                default:
+                    /* Fallback for unknown types: use size field */
+                    if (r->size == 8) {
+                        memcpy((char*)blob + r->blob_offset, &target, 8);
+                    } else if (r->size == 4) {
+                        uint32_t val32 = (uint32_t)target;
+                        memcpy((char*)blob + r->blob_offset, &val32, 4);
+                    }
+                    break;
+            }
+        } else {
+            /* v5 and earlier: use size field only */
+            if (r->size == 8) {
+                memcpy((char*)blob + r->blob_offset, &target, 8);
+            } else if (r->size == 4) {
+                uint32_t val32 = (uint32_t)target;
+                memcpy((char*)blob + r->blob_offset, &val32, 4);
+            }
         }
     }
     
@@ -620,7 +745,7 @@ cosmoext_load(PyObject *self, PyObject *args)
         size_t data_start = header.total_size;  /* Overall start (high) */
         size_t data_end = 0;                     /* Overall end (low) */
         
-        fseek(sf, 72, SEEK_SET);  /* Section headers start at byte 72 */
+        fseek(sf, actual_header_size, SEEK_SET);  /* Section headers start after header */
         for (uint64_t i = 0; i < header.num_sections; i++) {
             uint64_t sec_offset, sec_size;
             uint32_t sec_flags;
