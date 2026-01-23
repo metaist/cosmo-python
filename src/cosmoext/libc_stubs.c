@@ -78,3 +78,35 @@ void *memcpy(void *dest, const void *src, unsigned long n) {
   while (n--) *d++ = *s++;
   return dest;
 }
+
+/**
+ * isalnum - Check if character is alphanumeric.
+ */
+int isalnum(int c) {
+  return (c >= 'A' && c <= 'Z') ||
+         (c >= 'a' && c <= 'z') ||
+         (c >= '0' && c <= '9');
+}
+
+/**
+ * isupper - Check if character is uppercase letter.
+ */
+int isupper(int c) {
+  return c >= 'A' && c <= 'Z';
+}
+
+/**
+ * tolower - Convert character to lowercase.
+ */
+int tolower(int c) {
+  if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
+  return c;
+}
+
+/**
+ * toupper - Convert character to uppercase.
+ */
+int toupper(int c) {
+  if (c >= 'a' && c <= 'z') return c - ('a' - 'A');
+  return c;
+}
