@@ -51,6 +51,7 @@ STUB_SYMBOLS = {
     "isupper",
     "tolower",
     "toupper",
+    "ceil",
 }
 
 

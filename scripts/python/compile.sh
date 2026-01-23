@@ -117,11 +117,12 @@ export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
 
 # Experimental cosmoext support
-# Note: C++ runtime (-lcxx) is NOT added here. Extensions that need C++ (like ujson)
-# will need to be built with C++ support separately. The _cosmoext module itself
-# is pure C and doesn't need C++.
+# When enabled, we add the C++ runtime to support C++ extensions like ujson.
+# This adds ~1.5MB to the binary but enables loading C++ extensions at runtime.
 if [ -n "$ENABLE_COSMOEXT" ]; then
   log_info "cosmoext support enabled (experimental)"
+  log_info "adding C++ runtime for extension support (~1.5MB)"
+  export LDFLAGS="${LDFLAGS} -Wl,--whole-archive -lcxx -Wl,--no-whole-archive"
 fi
 
 # Python 3.10's setup.py adds /usr/include to include paths unless cross-compiling.

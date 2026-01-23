@@ -110,3 +110,15 @@ int toupper(int c) {
   if (c >= 'a' && c <= 'z') return c - ('a' - 'A');
   return c;
 }
+
+/**
+ * ceil - Round up to nearest integer.
+ */
+double ceil(double x) {
+  if (x >= 0) {
+    long long i = (long long)x;
+    return (double)i + (x > (double)i ? 1.0 : 0.0);
+  } else {
+    return (double)(long long)x;
+  }
+}
