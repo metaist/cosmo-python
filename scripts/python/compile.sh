@@ -116,10 +116,12 @@ export CFLAGS="-Os -D__USE_SYSTEM_ENDIAN_H__ -I${COSMO_DIR}/include/third_party/
 export LDFLAGS="-L${COSMO_DIR}/lib -L${DEPS_DIR}/lib"
 export LIBS="-lreadline -ltinfo -lffi"
 
-# Experimental cosmoext support: add C++ runtime for C++ extension support (e.g., ujson)
+# Experimental cosmoext support
+# Note: C++ runtime (-lcxx) is NOT added here. Extensions that need C++ (like ujson)
+# will need to be built with C++ support separately. The _cosmoext module itself
+# is pure C and doesn't need C++.
 if [ -n "$ENABLE_COSMOEXT" ]; then
   log_info "cosmoext support enabled (experimental)"
-  export LIBS="$LIBS -Wl,--whole-archive -lcxx -Wl,--no-whole-archive"
 fi
 
 # Python 3.10's setup.py adds /usr/include to include paths unless cross-compiling.
@@ -305,6 +307,11 @@ if [ -n "$ENABLE_COSMOEXT" ]; then
     echo "" >> "${BUILD_DIR}/Modules/Setup.local"
     echo "# Experimental cosmoext loader for dynamic C extension loading" >> "${BUILD_DIR}/Modules/Setup.local"
     echo "_cosmoext _cosmoextmodule.c" >> "${BUILD_DIR}/Modules/Setup.local"
+    # Force regeneration of Modules/config.c to include the new module
+    # We need to regenerate config.c since we added a new module to Setup.local
+    log_info "regenerating Modules/config.c..."
+    rm -f Modules/config.c
+    make Modules/config.c
   else
     log_error "_cosmoextmodule.c not found at ${COSMOEXT_SRC}"
     exit 1
@@ -323,7 +330,8 @@ if grep -q -- "-framework \|-Wl,-stack_size" Makefile 2>/dev/null; then
   # Remove all -framework X flags (CoreFoundation, SystemConfiguration, etc.)
   sed_i 's/ -framework [A-Za-z_][A-Za-z_]*//g' Makefile
   # -Wl,-stack_size,N is macOS linker syntax; cosmocc sets stack size differently
-  sed_i 's/ -Wl,-stack_size,[0-9]*//g' Makefile
+  # Match with optional leading whitespace (tab or space) or start of value
+  sed_i 's/-Wl,-stack_size,[0-9]* *//g' Makefile
 fi
 
 # Python 3.13+: Remove -latomic from LIBS
