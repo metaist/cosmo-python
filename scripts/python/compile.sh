@@ -213,6 +213,7 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   LIBZSTD_CFLAGS="-I${DEPS_DIR}/include" \
   LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd" \
   LIBS="-lreadline -ltinfo -lffi" \
+  MACHDEP="cosmo" \
 
 else
   log_info "skipping configure (Makefile exists)"
@@ -449,11 +450,28 @@ else
   timed run_python_make -j"$(nproc)"
 fi
 
-# Rename to .com (cosmopolitan convention)
+# Copy to .com (cosmopolitan convention)
 # On case-insensitive filesystems, configure produces python.exe instead of python.com
+# We COPY instead of rename because make uses python.exe as a target and renaming
+# would trigger unnecessary rebuilds during 'make install'.
 if [ -f "${BUILD_DIR}/python.exe" ] && [ ! -f "${BUILD_DIR}/python.com" ]; then
-  log_info "renaming python.exe to python.com..."
-  mv "${BUILD_DIR}/python.exe" "${BUILD_DIR}/python.com"
+  log_info "copying python.exe to python.com..."
+  cp "${BUILD_DIR}/python.exe" "${BUILD_DIR}/python.com"
+fi
+
+# Fix pybuilddir.txt for MACHDEP=cosmo
+# The generate-posix-vars step may leave pybuilddir.txt as "none" because
+# sysconfig can't find its own config data during the first generation.
+# The actual build dir with _sysconfigdata__cosmo_.py exists, so fix the reference.
+# We also touch it after writing to ensure it's newer than its make dependencies,
+# preventing regeneration during 'make install'.
+if [ -f "${BUILD_DIR}/pybuilddir.txt" ]; then
+  actual_builddir=$(ls -d "${BUILD_DIR}/build/lib."*"-${PYTHON_MAJOR_MINOR}" 2>/dev/null | head -1)
+  if [ -n "$actual_builddir" ]; then
+    echo "build/$(basename "$actual_builddir")" > "${BUILD_DIR}/pybuilddir.txt"
+    sleep 1  # Ensure timestamp is clearly newer
+    touch "${BUILD_DIR}/pybuilddir.txt"
+  fi
 fi
 
 log_ok "Python ${PYTHON_VERSION} compiled"
