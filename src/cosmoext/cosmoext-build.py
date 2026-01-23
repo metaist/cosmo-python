@@ -120,7 +120,7 @@ def run_cmd(
     verbose: bool = False,
     check: bool = True,
     capture: bool = True,
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[str]:
     """Run a command, optionally capturing output.
 
     Uses shell=True to handle APE (Actually Portable Executable) binaries
@@ -167,7 +167,7 @@ def get_undefined_symbols(obj_path: Path, nm_path: Path | None = None) -> set[st
     return symbols
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build .cosmoext files from C/C++ extension source",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -306,7 +306,7 @@ def main():
                 # Compile it
                 obj_path = tmpdir / (src_path.stem + ".o")
 
-                cmd = [
+                cmd: list[str | Path] = [
                     compiler,
                     "-c",
                     "-fno-stack-protector",
@@ -364,7 +364,7 @@ def main():
         # Initial link to combine object files
         combined_obj = tmpdir / "combined.o"
         if len(object_files) > 1:
-            cmd = [linker, "-r", "-o", combined_obj] + object_files
+            cmd = [linker, "-r", "-o", combined_obj, *object_files]
             if args.verbose:
                 print("Linking objects...")
             run_cmd(cmd, args.verbose)
