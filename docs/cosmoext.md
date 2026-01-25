@@ -260,7 +260,7 @@ Cython extensions that do relative imports during init work thanks to
 
 ### C++ Extensions
 
-Simple C++ extensions **work**, but with significant limitations.
+Simple C++ extensions **work**, but STL templates currently don't.
 
 **What works:**
 
@@ -270,39 +270,48 @@ Simple C++ extensions **work**, but with significant limitations.
 - Basic exception handling (throw/catch)
 - Operators new/delete
 
-**What doesn't work:**
+**What doesn't work (yet):**
 
-- **STL algorithms**: `std::sort`, `std::find`, etc. - template instantiations not in python.com
-- **Many std::string methods**: Only methods used by Python itself are available
-- **Other STL containers**: `std::map`, `std::set` operations may fail
+- **STL algorithms**: `std::sort`, `std::find`, etc.
+- **STL container methods**: `std::string::append()`, `std::vector::push_back()`, etc.
+- Any C++ standard library templates
 
-**Root cause:**
+**Why C is different from C++:**
 
-The C++ runtime in python.com comes from Cosmopolitan's `-lcxx`. Only symbols that are
-**actually used** during the Python build are included. C++ templates are instantiated
-on-demand, so if Python never uses `std::sort<long*>`, that function won't exist.
+C extensions resolve symbols **at runtime**. When you call `PyModule_Create`, the
+cosmoext loader finds that symbol in python.com's symbol table and patches the address
+into your code. This works because `PyModule_Create` is actual compiled code sitting
+in python.com.
 
-**Example - works:**
-```cpp
-class Counter {
-    int value;
-public:
-    Counter() : value(0) {}
-    void increment() { value++; }
-    int get() { return value; }
-};
+C++ templates are different. When you write `std::sort<int>(...)`, the compiler generates
+code *in your object file* by instantiating the template from the headers. That generated
+code calls internal helper functions from the C++ runtime library (libcxx.a). Those helpers
+aren't in python.com because Python itself never used them.
+
+```
+C extension:           C++ extension:
+                       
+myext.o                myext.o
+  │                      │
+  │ PyModule_Create      │ PyModule_Create    ✓ in python.com
+  │ ───────────────►     │ std::sort<int>     ✗ NOT in python.com
+  │ resolved at          │ (needs libcxx.a)
+  │ runtime from         │
+  │ python.com           │
+  ▼                      ▼
+WORKS                  FAILS
 ```
 
-**Example - fails:**
-```cpp
-#include <algorithm>
-#include <vector>
-std::vector<int> v = {3, 1, 2};
-std::sort(v.begin(), v.end());  // Error: symbol not found
-```
+**Future fix:**
 
-**Recommendation:** For C++ extensions, stick to simple classes and avoid STL algorithms.
-Consider using C-style code for performance-critical parts that would otherwise use STL.
+The [cosmofy](https://github.com/metaist/cosmofy) tool will handle C++ extensions by
+linking against libcxx.a at build time (before creating the .cosmoext), so template
+instantiations get their dependencies resolved. The cosmocc toolchain includes both
+the C++ headers and libcxx.a needed for this.
+
+**Current workaround:**
+
+For now, avoid STL in cosmoext C++ extensions. Use C-style code or simple C++ classes.
 
 ### Symbol Availability
 
