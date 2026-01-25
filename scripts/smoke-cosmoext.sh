@@ -144,11 +144,41 @@ TEST_DIR=$(mktemp -d)
 trap 'rm -rf $TEST_DIR' EXIT
 
 # Paths
-PY_SRC_INCLUDE="${SCRIPT_DIR}/../work/Python-${PY_MINOR}/Include"
-PY_BUILD_INCLUDE="${SCRIPT_DIR}/../work/build-${PY_MINOR}-x86_64"
 COSMOEXT_BUILD="${SCRIPT_DIR}/../src/cosmoext/cosmoext-build.py"
 COSMOCC="/tmp/cosmo/bin/cosmocc"
 COSMOCXX="/tmp/cosmo/bin/cosmoc++"
+
+# Try to extract embedded headers from python.com first
+EMBEDDED_INCLUDE=""
+if "$PYTHON" -c "
+import zipfile, sys
+with zipfile.ZipFile(sys.executable) as zf:
+    if any(f.startswith('.cosmoext/include/') for f in zf.namelist()):
+        sys.exit(0)
+sys.exit(1)
+" 2>/dev/null; then
+  EMBEDDED_INCLUDE="$TEST_DIR/embedded"
+  mkdir -p "$EMBEDDED_INCLUDE"
+  "$PYTHON" -c "
+import zipfile, sys, os
+with zipfile.ZipFile(sys.executable) as zf:
+    for name in zf.namelist():
+        if name.startswith('.cosmoext/'):
+            zf.extract(name, '$EMBEDDED_INCLUDE')
+"
+  # Move headers to expected location
+  if [ -d "$EMBEDDED_INCLUDE/.cosmoext/include" ]; then
+    PY_SRC_INCLUDE="$EMBEDDED_INCLUDE/.cosmoext/include"
+    PY_BUILD_INCLUDE="$EMBEDDED_INCLUDE/.cosmoext/include"  # pyconfig.h is here too
+    log_info "using embedded headers from python.com"
+  fi
+fi
+
+# Fall back to work/ directory if no embedded headers
+if [ -z "$EMBEDDED_INCLUDE" ] || [ ! -d "$PY_SRC_INCLUDE" ]; then
+  PY_SRC_INCLUDE="${SCRIPT_DIR}/../work/Python-${PY_MINOR}/Include"
+  PY_BUILD_INCLUDE="${SCRIPT_DIR}/../work/build-${PY_MINOR}-x86_64"
+fi
 
 # Helper: download and extract tarball
 download_and_extract() {
@@ -243,9 +273,9 @@ else
   exit 0
 fi
 
-# Check Python source
+# Check Python headers available (embedded or work/)
 if [ ! -d "$PY_SRC_INCLUDE" ]; then
-  skip "Python source not found at $PY_SRC_INCLUDE (need to keep work/ after build)"
+  skip "Python headers not found (not embedded and work/ cleaned)"
   echo ""
   echo "=== Summary ==="
   echo "  Passed:  $PASS"
@@ -254,7 +284,11 @@ if [ ! -d "$PY_SRC_INCLUDE" ]; then
   exit 0
 fi
 
-pass "Python headers available"
+if [ -n "$EMBEDDED_INCLUDE" ]; then
+  pass "Python headers available (embedded)"
+else
+  pass "Python headers available (work/)"
+fi
 
 ###############################################################################
 # Dummy test extension (always runs)

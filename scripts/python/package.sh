@@ -123,6 +123,27 @@ if [ -f "${REPO_ROOT}/src/stubs/_scproxy.py" ]; then
   cp "${REPO_ROOT}/src/stubs/_scproxy.py" "lib/python${PYTHON_MAJOR_MINOR}/"
 fi
 
+# Embed Python headers for building C extensions with cosmoext
+# This allows cosmofy to extract headers directly from python.com
+PYTHON_SRC_DIR="${WORK_DIR}/Python-${PYTHON_VERSION}"
+if [ -d "${PYTHON_SRC_DIR}/Include" ]; then
+  log_info "including Python headers for cosmoext..."
+  mkdir -p .cosmoext/include
+  cp -r "${PYTHON_SRC_DIR}/Include/"* .cosmoext/include/
+  # Also need pyconfig.h from build directory
+  if [ -f "${BUILD_DIR}/pyconfig.h" ]; then
+    cp "${BUILD_DIR}/pyconfig.h" .cosmoext/include/
+  fi
+  log_info "  headers size: $(du -sh .cosmoext/include | cut -f1)"
+fi
+
+# Embed libc_stubs.c for cosmoext builds
+if [ -f "${REPO_ROOT}/src/cosmoext/libc_stubs.c" ]; then
+  log_info "including libc_stubs.c for cosmoext..."
+  mkdir -p .cosmoext
+  cp "${REPO_ROOT}/src/cosmoext/libc_stubs.c" .cosmoext/
+fi
+
 # Add CA certificates for SSL verification
 # These will be accessible at /zip/share/ssl/ inside the binary
 if [ -d "${DEPS_DIR}/share/ssl" ]; then
@@ -134,7 +155,12 @@ fi
 
 # Use zip with -r recursive, -q quiet
 # Could use -0 (store, no compression) for faster startup at cost of size
-zip -9 -r -q "${STDLIB_ZIP}" lib/ share/
+# Include .cosmoext/ if it exists (headers, stubs for extension building)
+if [ -d ".cosmoext" ]; then
+  zip -9 -r -q "${STDLIB_ZIP}" lib/ share/ .cosmoext/
+else
+  zip -9 -r -q "${STDLIB_ZIP}" lib/ share/
+fi
 
 log_info "stdlib ZIP size: $(du -sh "${STDLIB_ZIP}" | cut -f1)"
 

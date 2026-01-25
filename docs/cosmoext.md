@@ -326,6 +326,39 @@ Current stub symbols (implemented in libc_stubs.c):
 | Windows | ❓ Untested | Should work with VirtualAlloc |
 | FreeBSD | ❓ Untested | Should work like Linux |
 
+## Embedded Files
+
+Each `python.com` binary includes files needed to build C extensions:
+
+```
+.cosmoext/
+  include/           # Python headers (Python.h, cpython/, etc.)
+    Python.h
+    pyconfig.h       # Generated config for this build
+    cpython/
+    internal/
+    ...
+  libc_stubs.c       # Stub implementations for missing symbols
+```
+
+Extract with:
+```python
+import zipfile, sys
+with zipfile.ZipFile(sys.executable) as zf:
+    for name in zf.namelist():
+        if name.startswith('.cosmoext/'):
+            zf.extract(name, '/path/to/output')
+```
+
+Or via command line:
+```bash
+python.com -c "
+import zipfile, sys
+with zipfile.ZipFile(sys.executable) as zf:
+    [zf.extract(n, '.') for n in zf.namelist() if n.startswith('.cosmoext/')]
+"
+```
+
 ## Implementation Files
 
 | File | Purpose |
