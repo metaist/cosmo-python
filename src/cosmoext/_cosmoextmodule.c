@@ -1,6 +1,9 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <sys/mman.h>
+
+/* Declare internal function for package context (defined in Python/import.c) */
+extern const char * _PyImport_SwapPackageContext(const char *newcontext);
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1083,8 +1086,102 @@ error:
     return NULL;
 }
 
+/*
+ * create_dynamic(spec) - Load a .cosmoext extension using a ModuleSpec
+ *
+ * This mirrors _imp.create_dynamic() but for .cosmoext files.
+ * Key difference from load(): uses spec to set package context before
+ * calling init, which enables relative imports in Cython extensions.
+ */
+static PyObject*
+cosmoext_create_dynamic(PyObject *self, PyObject *args)
+{
+    PyObject *spec;
+    PyObject *name_obj = NULL;
+    PyObject *path_obj = NULL;
+    const char *name = NULL;
+    const char *path = NULL;
+    const char *oldcontext = NULL;
+    PyObject *result = NULL;
+    
+    if (!PyArg_ParseTuple(args, "O", &spec))
+        return NULL;
+    
+    /* Extract name and origin (path) from spec */
+    name_obj = PyObject_GetAttrString(spec, "name");
+    if (!name_obj) {
+        PyErr_SetString(PyExc_TypeError, "spec must have 'name' attribute");
+        goto cleanup;
+    }
+    name = PyUnicode_AsUTF8(name_obj);
+    if (!name) goto cleanup;
+    
+    path_obj = PyObject_GetAttrString(spec, "origin");
+    if (!path_obj) {
+        PyErr_SetString(PyExc_TypeError, "spec must have 'origin' attribute");
+        goto cleanup;
+    }
+    path = PyUnicode_AsUTF8(path_obj);
+    if (!path) goto cleanup;
+    
+    /* Set package context before loading (enables relative imports in init) */
+    oldcontext = _PyImport_SwapPackageContext(name);
+    
+    /* Call the existing load function logic 
+     * TODO: Refactor to share code properly. For now, we re-parse args.
+     */
+    {
+        PyObject *load_args = Py_BuildValue("(s)", path);
+        if (!load_args) {
+            _PyImport_SwapPackageContext(oldcontext);
+            goto cleanup;
+        }
+        result = cosmoext_load(self, load_args);
+        Py_DECREF(load_args);
+    }
+    
+    /* Restore package context */
+    _PyImport_SwapPackageContext(oldcontext);
+    
+    if (result && PyModule_Check(result)) {
+        /* Set module attributes from spec */
+        PyObject_SetAttrString(result, "__name__", name_obj);
+        PyObject_SetAttrString(result, "__file__", path_obj);
+        PyObject_SetAttrString(result, "__loader__", Py_None);  /* Will be set by caller */
+        PyObject_SetAttrString(result, "__spec__", spec);
+        
+        /* Set __package__ from spec.parent */
+        PyObject *parent = PyObject_GetAttrString(spec, "parent");
+        if (parent) {
+            PyObject_SetAttrString(result, "__package__", parent);
+            Py_DECREF(parent);
+        } else {
+            PyErr_Clear();
+            /* Fallback: derive from name */
+            if (strchr(name, '.')) {
+                char *pkg = strdup(name);
+                char *dot = strrchr(pkg, '.');
+                if (dot) *dot = '\0';
+                PyObject *pkg_obj = PyUnicode_FromString(pkg);
+                PyObject_SetAttrString(result, "__package__", pkg_obj);
+                Py_DECREF(pkg_obj);
+                free(pkg);
+            } else {
+                PyObject_SetAttrString(result, "__package__", name_obj);
+            }
+        }
+    }
+    
+cleanup:
+    Py_XDECREF(name_obj);
+    Py_XDECREF(path_obj);
+    return result;
+}
+
 static PyMethodDef cosmoext_methods[] = {
-    {"load", cosmoext_load, METH_VARARGS, "Load a .cosmoext file"},
+    {"load", cosmoext_load, METH_VARARGS, "Load a .cosmoext file by path"},
+    {"create_dynamic", cosmoext_create_dynamic, METH_VARARGS, 
+     "Load a .cosmoext file using a ModuleSpec (like _imp.create_dynamic)"},
     {NULL, NULL, 0, NULL}
 };
 

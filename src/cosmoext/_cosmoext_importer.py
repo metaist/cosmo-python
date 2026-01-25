@@ -9,10 +9,9 @@ Usage:
     import myextension  # Will find myextension.cosmoext in sys.path
 
 The hook searches for .cosmoext files in sys.path. When found, it uses the
-_cosmoext built-in module to load the extension.
-
-For Cython extensions with relative imports, ensure the parent package is
-properly set up before importing the extension.
+_cosmoext.create_dynamic(spec) function which properly sets __package__
+before calling the extension's init function, enabling relative imports
+in Cython extensions.
 """
 
 import sys
@@ -23,33 +22,34 @@ from importlib.util import spec_from_loader
 
 
 class CosmoExtLoader(Loader):
-    """Loader for .cosmoext extension modules."""
+    """Loader for .cosmoext extension modules.
+    
+    This loader uses _cosmoext.create_dynamic(spec) which sets the package
+    context before calling PyInit_*, enabling relative imports during init.
+    """
     
     def __init__(self, path: str, fullname: str):
         self.path = path
         self.fullname = fullname
     
     def create_module(self, spec):
-        """Create the module by loading the .cosmoext file."""
+        """Create the module by loading the .cosmoext file.
+        
+        Uses _cosmoext.create_dynamic(spec) which:
+        1. Sets package context via _PyImport_SwapPackageContext
+        2. Calls the extension's PyInit_* function  
+        3. Sets __name__, __file__, __package__, __spec__ from spec
+        """
         import _cosmoext
         
-        # Load the extension - this returns the module object
-        module = _cosmoext.load(self.path)
+        # Use create_dynamic which properly handles package context
+        module = _cosmoext.create_dynamic(spec)
         
         if module is None:
             raise ImportError(f"Failed to load {self.path}")
         
-        # Set module attributes for proper import behavior
-        module.__name__ = self.fullname
+        # Set loader (create_dynamic sets it to None)
         module.__loader__ = self
-        module.__file__ = self.path
-        module.__spec__ = spec
-        
-        # Set __package__ for relative imports
-        if '.' in self.fullname:
-            module.__package__ = self.fullname.rsplit('.', 1)[0]
-        else:
-            module.__package__ = self.fullname
         
         return module
     
@@ -77,13 +77,14 @@ class CosmoExtFinder(MetaPathFinder):
             if not os.path.isdir(search_path):
                 continue
             
-            # Try direct module name
+            # Try direct module name (e.g., crc32c.cosmoext)
             cosmoext_path = os.path.join(search_path, f"{parts[-1]}.cosmoext")
             if os.path.isfile(cosmoext_path):
                 loader = CosmoExtLoader(cosmoext_path, fullname)
                 return spec_from_loader(fullname, loader, origin=cosmoext_path)
             
             # For submodules, also try the full path
+            # e.g., mypackage/myext.cosmoext for mypackage.myext
             if len(parts) > 1:
                 rel_path = os.path.join(*parts[:-1], f"{parts[-1]}.cosmoext")
                 cosmoext_path = os.path.join(search_path, rel_path)
@@ -91,7 +92,7 @@ class CosmoExtFinder(MetaPathFinder):
                     loader = CosmoExtLoader(cosmoext_path, fullname)
                     return spec_from_loader(fullname, loader, origin=cosmoext_path)
         
-        # Not found
+        # Not found - let other finders try
         return None
 
 
