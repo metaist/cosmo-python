@@ -196,20 +196,30 @@ create_cosmoext('myext.ro', 'myext.cosmoext', 'python.com', init_name='PyInit_my
 
 ## Loading Extensions
 
-### Method 1: Import Hook (Recommended)
+### Automatic Loading (Recommended)
+
+With cosmo-python, `.cosmoext` files are loaded automatically like `.so` files:
+
+```python
+import myextension  # Finds myextension.cosmoext in sys.path
+```
+
+The import system:
+1. Searches `sys.path` for `{name}.cosmoext`
+2. Uses `CosmoExtLoader` (patched into `_bootstrap_external.py`)
+3. Calls `_cosmoext.create_dynamic(spec)` to load the module
+4. Falls back to normal import if `.cosmoext` not found
+
+### Method 2: Manual Import Hook
+
+If you have an older build without the `_bootstrap_external.py` patch:
 
 ```python
 import _cosmoext_importer  # Install the import hook
-import myextension         # Automatically finds myextension.cosmoext
+import myextension         # Now finds myextension.cosmoext
 ```
 
-The import hook:
-1. Searches `sys.path` for `{name}.cosmoext`
-2. Calls `_cosmoext.load(path)` if found
-3. Sets `__name__`, `__file__`, `__package__` on the module
-4. Falls back to normal import if not found
-
-### Method 2: Direct Loading
+### Method 3: Direct Loading
 
 ```python
 import _cosmoext
@@ -229,6 +239,7 @@ These extensions have been tested and work:
 | regex | Single-phase init | Needs libc stubs |
 | ujson | Single-phase init | Uses PyState_FindModule |
 | crc32c | Single-phase init | Pure C, uses SIMD |
+| msgpack | Single-phase init | Cython with relative imports |
 
 ## Known Limitations
 
@@ -240,17 +251,9 @@ Extensions that call `dlopen()` themselves won't work. This includes:
 
 ### Cython Relative Imports
 
-Cython extensions that do relative imports during init fail:
-
-```python
-# In _cmsgpack (msgpack's C extension)
-from .ext import ...  # Fails: __package__ not set yet
-```
-
-**Why**: The import hook sets `__package__` AFTER calling `PyInit_*`, but the init
-function does the relative import.
-
-**Workaround**: None currently. Requires C-level import machinery changes.
+Cython extensions that do relative imports during init now work thanks to
+`_cosmoext.create_dynamic(spec)`, which sets the package context before calling
+`PyInit_*`. This enables extensions like msgpack's `_cmsgpack` to work correctly.
 
 ### C++ Extensions
 
@@ -294,8 +297,7 @@ Current stub symbols (implemented in libc_stubs.c):
 
 ## Future Work
 
-1. **C-level import hook**: Patch Python's import machinery in C for transparent loading
-2. **Package support**: Handle `__package__` before init for Cython
-3. **C++ support**: Test and fix C++ extension loading
-4. **Windows testing**: Verify VirtualAlloc-based loading works
-5. **Symbol table optimization**: Faster lookup, smaller embedded table
+1. **C++ support**: Test and fix C++ extension loading
+2. **Windows testing**: Verify VirtualAlloc-based loading works
+3. **Symbol table optimization**: Faster lookup, smaller embedded table
+4. **More extensions**: Test and document additional popular extensions

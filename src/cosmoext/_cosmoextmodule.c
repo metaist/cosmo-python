@@ -328,10 +328,14 @@ static uint64_t lookup_symbol_simple(SimpleSymbolTable *st, const char *target_n
 
 
 
+/*
+ * Internal loading function that accepts an optional spec.
+ * When spec is provided, it's used for multi-phase init modules
+ * to properly set __package__ before the module's exec runs.
+ */
 static PyObject*
-cosmoext_load(PyObject *self, PyObject *args)
+cosmoext_load_internal(const char *path, PyObject *spec)
 {
-    const char *path;
     FILE *f = NULL;
     void *blob = NULL;
     void *mapped = NULL;
@@ -340,9 +344,6 @@ cosmoext_load(PyObject *self, PyObject *args)
     CosmoExtExternalSym *ext_syms = NULL;
     char *string_table = NULL;
     int verbose = 0;  /* Set to 1 for debug output */
-    
-    if (!PyArg_ParseTuple(args, "s", &path))
-        return NULL;
     
     f = fopen(path, "rb");
     if (!f) {
@@ -986,17 +987,23 @@ cosmoext_load(PyObject *self, PyObject *args)
             return NULL;
         }
         
-        PyObject *spec = PyObject_CallMethod(
-            PyImport_ImportModule("importlib.machinery"),
-            "ModuleSpec", "sO", def->m_name, Py_None
-        );
-        if (!spec) {
-            munmap(mapped, map_size);
-            return NULL;
+        /* Use provided spec if available (for proper __package__), else create dummy */
+        PyObject *use_spec = spec;
+        int spec_is_temp = 0;
+        if (!use_spec) {
+            use_spec = PyObject_CallMethod(
+                PyImport_ImportModule("importlib.machinery"),
+                "ModuleSpec", "sO", def->m_name, Py_None
+            );
+            if (!use_spec) {
+                munmap(mapped, map_size);
+                return NULL;
+            }
+            spec_is_temp = 1;
         }
         
-        PyObject *module = PyModule_FromDefAndSpec(def, spec);
-        Py_DECREF(spec);
+        PyObject *module = PyModule_FromDefAndSpec(def, use_spec);
+        if (spec_is_temp) Py_DECREF(use_spec);
         
         if (!module) {
             munmap(mapped, map_size);
@@ -1037,17 +1044,23 @@ cosmoext_load(PyObject *self, PyObject *args)
     
     PyObject *module;
     if (def->m_slots != NULL) {
-        PyObject *spec = PyObject_CallMethod(
-            PyImport_ImportModule("importlib.machinery"),
-            "ModuleSpec", "sO", def->m_name, Py_None
-        );
-        if (!spec) {
-            munmap(mapped, map_size);
-            return NULL;
+        /* Use provided spec if available (for proper __package__), else create dummy */
+        PyObject *use_spec = spec;
+        int spec_is_temp = 0;
+        if (!use_spec) {
+            use_spec = PyObject_CallMethod(
+                PyImport_ImportModule("importlib.machinery"),
+                "ModuleSpec", "sO", def->m_name, Py_None
+            );
+            if (!use_spec) {
+                munmap(mapped, map_size);
+                return NULL;
+            }
+            spec_is_temp = 1;
         }
         
-        module = PyModule_FromDefAndSpec(def, spec);
-        Py_DECREF(spec);
+        module = PyModule_FromDefAndSpec(def, use_spec);
+        if (spec_is_temp) Py_DECREF(use_spec);
         
         if (!module) {
             munmap(mapped, map_size);
@@ -1087,11 +1100,26 @@ error:
 }
 
 /*
+ * Public API: Load a .cosmoext file by path.
+ * For simple use cases where you don't need to control the module spec.
+ */
+static PyObject*
+cosmoext_load(PyObject *self, PyObject *args)
+{
+    const char *path;
+    if (!PyArg_ParseTuple(args, "s", &path))
+        return NULL;
+    return cosmoext_load_internal(path, NULL);
+}
+
+/*
  * create_dynamic(spec) - Load a .cosmoext extension using a ModuleSpec
  *
  * This mirrors _imp.create_dynamic() but for .cosmoext files.
- * Key difference from load(): uses spec to set package context before
- * calling init, which enables relative imports in Cython extensions.
+ * Key differences from load():
+ * 1. Sets package context before calling init (enables relative imports)
+ * 2. Uses the provided spec for PyModule_FromDefAndSpec (multi-phase init)
+ *    This allows Cython's __pyx_pymod_create to set __package__ from spec.parent
  */
 static PyObject*
 cosmoext_create_dynamic(PyObject *self, PyObject *args)
@@ -1127,30 +1155,23 @@ cosmoext_create_dynamic(PyObject *self, PyObject *args)
     /* Set package context before loading (enables relative imports in init) */
     oldcontext = _PyImport_SwapPackageContext(name);
     
-    /* Call the existing load function logic 
-     * TODO: Refactor to share code properly. For now, we re-parse args.
+    /* Call the internal load function with our spec.
+     * The spec is used for multi-phase init modules so that
+     * PyModule_FromDefAndSpec gets the correct parent for __package__.
      */
-    {
-        PyObject *load_args = Py_BuildValue("(s)", path);
-        if (!load_args) {
-            _PyImport_SwapPackageContext(oldcontext);
-            goto cleanup;
-        }
-        result = cosmoext_load(self, load_args);
-        Py_DECREF(load_args);
-    }
+    result = cosmoext_load_internal(path, spec);
     
     /* Restore package context */
     _PyImport_SwapPackageContext(oldcontext);
     
     if (result && PyModule_Check(result)) {
-        /* Set module attributes from spec */
+        /* Set/override module attributes from our spec */
         PyObject_SetAttrString(result, "__name__", name_obj);
         PyObject_SetAttrString(result, "__file__", path_obj);
         PyObject_SetAttrString(result, "__loader__", Py_None);  /* Will be set by caller */
         PyObject_SetAttrString(result, "__spec__", spec);
         
-        /* Set __package__ from spec.parent */
+        /* Set __package__ from spec.parent (may already be set by multi-phase init) */
         PyObject *parent = PyObject_GetAttrString(spec, "parent");
         if (parent) {
             PyObject_SetAttrString(result, "__package__", parent);
