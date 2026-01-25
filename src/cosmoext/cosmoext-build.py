@@ -284,6 +284,8 @@ def main() -> None:
             print("Error: Could not find linker for x86_64", file=sys.stderr)
             sys.exit(1)
 
+    assert linker is not None  # verified above
+
     # For fat builds, we need both linkers
     build_fat = args.arch is None and linker_aarch64 is not None
 
@@ -417,6 +419,7 @@ def main() -> None:
 
         # For fat builds, also link aarch64 objects
         if build_fat:
+            assert linker_aarch64 is not None  # build_fat implies linker_aarch64 exists
             aarch64_dir = tmpdir / ".aarch64"
             aarch64_dir.mkdir(exist_ok=True)
 
