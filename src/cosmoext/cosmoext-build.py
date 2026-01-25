@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -61,8 +62,6 @@ STUB_SYMBOLS = {
 
 def find_tool(name: str, search_paths: list[Path] | None = None) -> Path | None:
     """Find a tool by name in common locations."""
-    import shutil
-
     # Check PATH first
     result = shutil.which(name)
     if result:
@@ -270,14 +269,23 @@ def main() -> None:
         print(f"Error: Cosmopolitan root not found: {cosmo_root}", file=sys.stderr)
         sys.exit(1)
 
-    # For fat builds (args.arch is None), use x86_64 linker - cosmocc handles both arches
-    linker_arch = args.arch if args.arch else "x86_64"
-    linker = find_linker(cosmo_root, linker_arch)
-    if not linker:
-        print(f"Error: Could not find linker for {linker_arch}", file=sys.stderr)
-        sys.exit(1)
+    # Find linkers - for fat builds we need both x86_64 and aarch64
+    linker_x86_64 = find_linker(cosmo_root, "x86_64")
+    linker_aarch64 = find_linker(cosmo_root, "aarch64")
 
-    assert linker is not None  # verified above
+    if args.arch == "aarch64":
+        linker = linker_aarch64
+        if not linker:
+            print("Error: Could not find linker for aarch64", file=sys.stderr)
+            sys.exit(1)
+    else:
+        linker = linker_x86_64
+        if not linker:
+            print("Error: Could not find linker for x86_64", file=sys.stderr)
+            sys.exit(1)
+
+    # For fat builds, we need both linkers
+    build_fat = args.arch is None and linker_aarch64 is not None
 
     python_path = Path(args.python).resolve()
     if not python_path.exists():
@@ -407,6 +415,57 @@ def main() -> None:
             run_cmd(cmd, args.verbose)
             combined_obj = new_combined
 
+        # For fat builds, also link aarch64 objects
+        if build_fat:
+            aarch64_dir = tmpdir / ".aarch64"
+            aarch64_dir.mkdir(exist_ok=True)
+
+            # Find aarch64 versions of all object files
+            aarch64_objects: list[Path] = []
+            for obj in object_files:
+                if obj.parent == tmpdir:
+                    # Objects we compiled - aarch64 version is in .aarch64/ subdir
+                    aarch64_obj = tmpdir / ".aarch64" / obj.name
+                else:
+                    # External objects - look in .aarch64/ relative to the object
+                    aarch64_obj = obj.parent / ".aarch64" / obj.name
+                if aarch64_obj.exists():
+                    aarch64_objects.append(aarch64_obj)
+
+            if aarch64_objects:
+                if args.verbose:
+                    print(f"Linking aarch64 objects ({len(aarch64_objects)} files)...")
+
+                # Link aarch64 objects
+                aarch64_combined = aarch64_dir / "combined.o"
+                if len(aarch64_objects) > 1:
+                    cmd = [linker_aarch64, "-r", "-o", aarch64_combined, *aarch64_objects]
+                    run_cmd(cmd, args.verbose)
+                else:
+                    aarch64_combined = aarch64_objects[0]
+
+                # Add stubs if needed (stubs were already compiled for both archs by cosmocc)
+                aarch64_stubs = aarch64_dir / "libc_stubs.o"
+                aarch64_with_stubs = aarch64_dir / "combined_with_stubs.o"
+                if needs_stubs and aarch64_stubs.exists():
+                    cmd = [
+                        linker_aarch64,
+                        "-r",
+                        "-o",
+                        aarch64_with_stubs,
+                        aarch64_combined,
+                        aarch64_stubs,
+                    ]
+                    if args.verbose:
+                        print("Linking aarch64 with libc stubs...")
+                    run_cmd(cmd, args.verbose)
+                elif aarch64_combined != aarch64_with_stubs:
+                    # Copy combined to expected location for relocate.py
+                    shutil.copy(aarch64_combined, aarch64_with_stubs)
+            else:
+                if args.verbose:
+                    print("Note: No aarch64 objects found, building x86_64 only")
+
         # Run relocate.py to create .cosmoext
         if not RELOCATE_PY.exists():
             print(f"Error: relocate.py not found: {RELOCATE_PY}", file=sys.stderr)
@@ -476,8 +535,6 @@ def main() -> None:
 
     finally:
         # Clean up temp directory
-        import shutil
-
         if not args.verbose:
             shutil.rmtree(tmpdir, ignore_errors=True)
         else:
