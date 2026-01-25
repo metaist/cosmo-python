@@ -26,9 +26,13 @@ extern const char *_PyImport_SwapPackageContext(const char *newcontext);
 #endif
 
 #define COSMOEXT_MAGIC   0x54584543
-#define COSMOEXT_VERSION 6 /* Only v6 format is supported */
+#define COSMOEXT_VERSION 7 /* Fat format (x86_64 + aarch64) */
 
-/* ARM64 relocation types (for v6 format) */
+/* Fat format flags */
+#define COSMOEXT_HAS_X86_64  0x1
+#define COSMOEXT_HAS_AARCH64 0x2
+
+/* ARM64 relocation types */
 #define R_AARCH64_ABS64               257
 #define R_AARCH64_ADR_PREL_PG_HI21    275
 #define R_AARCH64_ADD_ABS_LO12_NC     277
@@ -41,22 +45,47 @@ extern const char *_PyImport_SwapPackageContext(const char *newcontext);
 /* x86_64 relocation types */
 #define R_X86_64_64 1
 
-/* Format v3/v4/v5/v6 header */
+/*
+ * Format v7: Fat cosmoext with both architectures
+ *
+ * File layout:
+ *   [FatHeader: 48 bytes]
+ *   [x86_64 ArchPayload] (if present)
+ *   [aarch64 ArchPayload] (if present)
+ *
+ * Each ArchPayload contains:
+ *   [ArchHeader: 72 bytes]
+ *   [Section descriptors]
+ *   [Relocation table]
+ *   [External symbol table]
+ *   [String table]
+ *   [Section data (code + data)]
+ */
+
+/* v7 fat header - selects architecture at runtime */
 typedef struct {
     uint32_t magic;
     uint32_t version;
+    uint32_t flags;    /* COSMOEXT_HAS_X86_64 | COSMOEXT_HAS_AARCH64 */
+    uint32_t reserved; /* Must be 0 */
+    uint64_t x86_64_offset;
+    uint64_t x86_64_size;
+    uint64_t aarch64_offset;
+    uint64_t aarch64_size;
+} CosmoExtFatHeader;
+
+/* Architecture-specific payload header (embedded in fat file) */
+typedef struct {
     uint64_t load_address;
     uint64_t total_size;
     uint64_t init_offset;
     uint64_t header_size;
     uint64_t num_sections;
     uint64_t num_relocs;
-    /* v4 adds: */
     uint64_t num_external_symbols;
     uint64_t string_table_size;
-    /* v5 adds: */
-    uint64_t get_def_offset; /* Offset from init to _cosmoext_get_captured_def, 0 if no shim */
-} CosmoExtHeader;
+    uint64_t get_def_offset;
+} CosmoExtArchHeader;
 
 typedef struct {
     uint64_t offset;
@@ -65,7 +94,7 @@ typedef struct {
     /* 4 bytes padding */
 } CosmoExtSection;
 
-/* v6 reloc format - includes relocation type for proper ARM64 support */
+/* Reloc format - includes relocation type for proper ARM64 support */
 typedef struct {
     uint64_t blob_offset;
     uint32_t reloc_type; /* R_X86_64_*, R_AARCH64_* */
@@ -355,29 +384,62 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         goto error;
     }
 
-    /* Read header - first read v3 size to check version */
-    CosmoExtHeader header = {0};
-    size_t v3_header_size = 56; /* v3 header without external symbol fields */
-
-    if (fread(&header, 1, v3_header_size, f) != v3_header_size) {
+    /* Read fat header */
+    CosmoExtFatHeader fat_header = {0};
+    if (fread(&fat_header, sizeof(fat_header), 1, f) != 1) {
         PyErr_SetString(PyExc_ValueError, "Failed to read header");
         goto error;
     }
 
-    if (header.magic != COSMOEXT_MAGIC) {
+    if (fat_header.magic != COSMOEXT_MAGIC) {
         PyErr_SetString(PyExc_ValueError, "Invalid magic");
         goto error;
     }
 
-    if (header.version != COSMOEXT_VERSION) {
+    if (fat_header.version != COSMOEXT_VERSION) {
         PyErr_Format(PyExc_ValueError, "Unsupported cosmoext version: %u (expected %d)",
-                     header.version, COSMOEXT_VERSION);
+                     fat_header.version, COSMOEXT_VERSION);
         goto error;
     }
 
-    /* Read remaining v6 header fields */
-    if (fread(&header.num_external_symbols, 1, 24, f) != 24) {
-        PyErr_SetString(PyExc_ValueError, "Failed to read header");
+    /* Select architecture-specific payload */
+    uint64_t payload_offset;
+    uint64_t payload_size;
+    const char *arch_name;
+
+    if (IsAarch64()) {
+        if (!(fat_header.flags & COSMOEXT_HAS_AARCH64)) {
+            PyErr_SetString(PyExc_ValueError, "cosmoext file does not contain aarch64 code");
+            goto error;
+        }
+        payload_offset = fat_header.aarch64_offset;
+        payload_size = fat_header.aarch64_size;
+        arch_name = "aarch64";
+    } else {
+        if (!(fat_header.flags & COSMOEXT_HAS_X86_64)) {
+            PyErr_SetString(PyExc_ValueError, "cosmoext file does not contain x86_64 code");
+            goto error;
+        }
+        payload_offset = fat_header.x86_64_offset;
+        payload_size = fat_header.x86_64_size;
+        arch_name = "x86_64";
+    }
+
+    if (verbose) {
+        fprintf(stderr, "[cosmoext] Loading %s payload at offset %llu, size %llu\n", arch_name,
+                (unsigned long long)payload_offset, (unsigned long long)payload_size);
+    }
+
+    /* Seek to architecture payload */
+    if (fseek(f, payload_offset, SEEK_SET) != 0) {
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        goto error;
+    }
+
+    /* Read arch-specific header */
+    CosmoExtArchHeader header = {0};
+    if (fread(&header, sizeof(header), 1, f) != 1) {
+        PyErr_SetString(PyExc_ValueError, "Failed to read arch header");
         goto error;
     }
 
@@ -395,13 +457,12 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         }
     }
 
-    /* Calculate offsets for different parts of the header */
-    size_t actual_header_size = 80; /* v6 header size */
-    size_t section_headers_offset = actual_header_size;
+    /* Calculate offsets within this payload (relative to payload_offset) */
+    size_t arch_header_size = sizeof(CosmoExtArchHeader);
+    size_t section_headers_offset = payload_offset + arch_header_size;
     size_t reloc_offset = section_headers_offset + header.num_sections * 24;
     size_t ext_sym_offset = reloc_offset + header.num_relocs * 24;
-    size_t string_table_offset = ext_sym_offset + header.num_external_symbols * 16;
-    (void)string_table_offset; /* Used for documentation/debugging */
+    (void)ext_sym_offset; /* suppress unused warning */
 
     /* Skip section headers (we don't need them for loading) */
     if (fseek(f, reloc_offset, SEEK_SET) != 0) {
@@ -448,8 +509,8 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         }
     }
 
-    /* Seek to blob data */
-    if (fseek(f, header.header_size, SEEK_SET) != 0) {
+    /* Seek to blob data (header_size is relative to start of this payload) */
+    if (fseek(f, payload_offset + header.header_size, SEEK_SET) != 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
         goto error;
     }
@@ -557,7 +618,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
     /* Apply internal relocations */
     uintptr_t actual_addr = (uintptr_t)mapped;
-    (void)header.load_address; /* Original load address - not needed for v6 relocations */
+    (void)header.load_address; /* Original load address - for debugging only */
 
     if (verbose && header.num_relocs > 0) {
         fprintf(stderr, "[cosmoext] Applying %llu internal relocations\n",
@@ -707,7 +768,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 #ifdef __COSMOPOLITAN__
     if (use_jit_protect && IsAarch64()) {
         /* Read section headers to find writable sections */
-        /* Sections are at offset 72 (after v4 header), each is 24 bytes */
+        /* Sections are at offset 72 (after arch header), each is 24 bytes */
         FILE *sf = fopen(path, "rb");
         if (!sf) {
             PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
@@ -724,7 +785,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         size_t data_start = header.total_size; /* Overall start (high) */
         size_t data_end = 0;                   /* Overall end (low) */
 
-        fseek(sf, actual_header_size, SEEK_SET); /* Section headers start after header */
+        fseek(sf, section_headers_offset, SEEK_SET); /* Section headers start after arch header */
         for (uint64_t i = 0; i < header.num_sections; i++) {
             uint64_t sec_offset, sec_size;
             uint32_t sec_flags;
@@ -929,12 +990,12 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
     /* Handle different return types */
     if (init_result == (void *)1) {
         /* Shim intercepted PyModuleDef_Init (multi-phase) */
-        /* _cosmoext_get_captured_def offset from init is stored in header (v5+).
-         * For older formats, fall back to architecture-specific hardcoded values.
+        /* _cosmoext_get_captured_def offset from init is stored in header.
+         * If not present (0), use architecture-specific default values.
          */
         size_t get_def_offset = header.get_def_offset;
         if (get_def_offset == 0) {
-            /* Fallback for v3/v4 formats without get_def_offset */
+            /* Default offsets when not specified in header */
 #if defined(__aarch64__)
             get_def_offset = 0xE8; /* ARM64: larger due to ADRP/ADD sequences */
 #else

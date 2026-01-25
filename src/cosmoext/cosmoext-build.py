@@ -234,9 +234,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--arch",
-        default="x86_64",
+        default=None,
         choices=["x86_64", "aarch64"],
-        help="Target architecture (default: x86_64)",
+        help="Build single arch only (for debugging); default builds both if available",
     )
     parser.add_argument(
         "--load-address",
@@ -253,14 +253,8 @@ def main() -> None:
     args = parser.parse_args()
 
     # Find Cosmopolitan toolchain
-    # For ARM64, we need to use the architecture-specific compiler wrapper
-    # aarch64-unknown-cosmo-cc handles include paths properly (unlike aarch64-linux-cosmo-cc)
-    if args.arch == "aarch64":
-        compiler_suffix = "aarch64-unknown-cosmo-"
-        compiler_name = compiler_suffix + ("c++" if args.cxx else "cc")
-    else:
-        # x86_64: use cosmocc/cosmoc++ which produces fat binaries
-        compiler_name = "cosmoc++" if args.cxx else "cosmocc"
+    # Always use cosmocc/cosmoc++ which produces fat binaries (both x86_64 and aarch64)
+    compiler_name = "cosmoc++" if args.cxx else "cosmocc"
     compiler = find_tool(compiler_name)
     if not compiler:
         print(f"Error: Could not find {compiler_name}", file=sys.stderr)
@@ -276,9 +270,11 @@ def main() -> None:
         print(f"Error: Cosmopolitan root not found: {cosmo_root}", file=sys.stderr)
         sys.exit(1)
 
-    linker = find_linker(cosmo_root, args.arch)
+    # For fat builds (args.arch is None), use x86_64 linker - cosmocc handles both arches
+    linker_arch = args.arch if args.arch else "x86_64"
+    linker = find_linker(cosmo_root, linker_arch)
     if not linker:
-        print(f"Error: Could not find linker for {args.arch}", file=sys.stderr)
+        print(f"Error: Could not find linker for {linker_arch}", file=sys.stderr)
         sys.exit(1)
 
     assert linker is not None  # verified above
@@ -315,19 +311,8 @@ def main() -> None:
                 sys.exit(1)
 
             if src_path.suffix == ".o":
-                # Already compiled - use arch-specific version if available
-                if args.arch == "aarch64":
-                    # cosmocc places aarch64 objects in .aarch64/ subdirectory
-                    aarch64_path = src_path.parent / ".aarch64" / src_path.name
-                    if aarch64_path.exists():
-                        if args.verbose:
-                            print(f"Using aarch64 object: {aarch64_path}")
-                        object_files.append(aarch64_path)
-                    else:
-                        # No .aarch64 version - use as-is (may be arch-specific already)
-                        object_files.append(src_path)
-                else:
-                    object_files.append(src_path)
+                # Already compiled - use as-is (relocate.py will find .aarch64/ version)
+                object_files.append(src_path)
             elif src_path.suffix in (".c", ".cpp", ".cc", ".cxx"):
                 # Compile it
                 obj_path = tmpdir / (src_path.stem + ".o")
@@ -336,15 +321,9 @@ def main() -> None:
                     compiler,
                     "-c",
                     "-fno-stack-protector",
+                    "-fPIC",
+                    "-mcmodel=large",
                 ]
-                # Architecture-specific flags
-                if args.arch == "aarch64":
-                    # ARM64: -mcmodel=large without -fPIC (GCC doesn't support both together)
-                    # aarch64-unknown-cosmo-cc wrapper handles -nostdinc and -isystem
-                    cmd.append("-mcmodel=large")
-                else:
-                    # x86_64: both -fPIC and -mcmodel=large work together
-                    cmd.extend(["-fPIC", "-mcmodel=large"])
 
                 # User includes
                 for inc in all_includes:
@@ -444,6 +423,8 @@ def main() -> None:
             "--load-address",
             args.load_address,
         ]
+        if args.arch:
+            cmd.extend(["--arch", args.arch])
         if args.verbose:
             cmd.append("--verbose")
             print("Creating .cosmoext...")
@@ -471,6 +452,8 @@ def main() -> None:
                     "--load-address",
                     args.load_address,
                 ]
+                if args.arch:
+                    cmd.extend(["--arch", args.arch])
                 if args.verbose:
                     cmd.append("--verbose")
                 result = subprocess.run(cmd, capture_output=True, text=True)

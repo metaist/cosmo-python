@@ -145,15 +145,14 @@ class Relocation:
 class InternalRelocation:
     """A relocation that must be applied at load time.
 
-    For format v5 and earlier: size indicates 4 or 8 byte absolute patch.
-    For format v6+: reloc_type specifies the exact relocation type for
-    architecture-specific patching (e.g., ARM64 ADRP/ADD_LO12).
+    reloc_type specifies the exact relocation type for architecture-specific
+    patching (e.g., ARM64 ADRP/ADD_LO12).
     """
 
     section_offset: int  # Offset in the blob to patch
-    size: int  # 4 or 8 bytes (v5 compatibility)
+    size: int  # 4 or 8 bytes
     target_offset: int  # Target address (relative to load base)
-    reloc_type: int = 0  # Relocation type (v6+): R_X86_64_*, R_AARCH64_*
+    reloc_type: int = 0  # Relocation type: R_X86_64_*, R_AARCH64_*
 
 
 @dataclass
@@ -176,42 +175,26 @@ class CosmoExtBlob:
     external_symbols: list[ExternalSymbol] = field(default_factory=list)  # External symbols
     get_def_offset: int = 0  # Offset from init to _cosmoext_get_captured_def (0 if not using shim)
 
-    def write(self, f: BinaryIO) -> None:
-        """Write the blob to a file in format version 6.
+    def write_arch_payload(self, f: BinaryIO) -> None:
+        """Write the arch-specific payload (for embedding in v7 fat format).
 
-        v6 changes from v5:
-        - Internal relocs now include reloc_type for arch-specific patching
+        Arch payload format (no magic/version - those are in fat header):
+        - 8 bytes: load_address
+        - 8 bytes: total_size
+        - 8 bytes: init_offset
+        - 8 bytes: header_size (where blob data starts, relative to payload start)
+        - 8 bytes: num_sections
+        - 8 bytes: num_internal_relocs
+        - 8 bytes: num_external_symbols
+        - 8 bytes: string_table_size
+        - 8 bytes: get_def_offset
+        - Section headers (24 bytes each)
+        - Relocation table (24 bytes each)
+        - External symbol table (16 bytes each)
+        - String table
+        - Padding to page boundary
+        - Section data
         """
-        # Format version 6:
-        # - 4 bytes: magic "CEXT"
-        # - 4 bytes: version (6)
-        # - 8 bytes: load_address (designed)
-        # - 8 bytes: total_size
-        # - 8 bytes: init_offset
-        # - 8 bytes: header_size (where blob data starts)
-        # - 8 bytes: num_sections
-        # - 8 bytes: num_internal_relocs
-        # - 8 bytes: num_external_symbols
-        # - 8 bytes: string_table_size
-        # - 8 bytes: get_def_offset (offset from init to _cosmoext_get_captured_def, 0 if no shim)
-        # - For each section:
-        #   - 8 bytes: offset
-        #   - 8 bytes: size
-        #   - 4 bytes: flags (1=exec, 2=write)
-        #   - 4 bytes: padding
-        # - For each internal reloc (v6):
-        #   - 8 bytes: section_offset
-        #   - 4 bytes: reloc_type (R_X86_64_*, R_AARCH64_*)
-        #   - 4 bytes: size (4 or 8, for v5 compatibility fallback)
-        #   - 8 bytes: target_offset
-        # - For each external symbol:
-        #   - 8 bytes: patch_offset (where to write address in blob)
-        #   - 4 bytes: name_offset (offset into string table)
-        #   - 4 bytes: padding
-        # - String table (null-terminated symbol names)
-        # - Padding to page boundary
-        # - Raw section data concatenated
-
         # Build string table
         string_table = bytearray()
         name_offsets: dict[str, int] = {}
@@ -221,14 +204,13 @@ class CosmoExtBlob:
                 string_table.extend(ext_sym.name.encode("utf-8"))
                 string_table.append(0)  # null terminator
 
-        # Calculate header size
-        # v5: 80 bytes (4+4+8*9, includes get_def_offset)
-        base_header_size = 80  # 4+4+8*9 = 80 bytes (v5 format)
+        # Calculate header size (arch header is 72 bytes: 9 * 8)
+        arch_header_size = 72
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
         external_sym_size = len(self.external_symbols) * 16
         header_total = (
-            base_header_size
+            arch_header_size
             + section_headers_size
             + reloc_data_size
             + external_sym_size
@@ -238,9 +220,7 @@ class CosmoExtBlob:
         header_size = ((header_total + 4095) // 4096) * 4096
 
         header = struct.pack(
-            "<4sIQQQQQQQQQ",  # spell-checker: disable-line
-            b"CEXT",
-            6,  # version (v6: relocs include type)
+            "<QQQQQQQQQ",  # spell-checker: disable-line
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -264,7 +244,7 @@ class CosmoExtBlob:
 
         reloc_data = b""
         for reloc in self.internal_relocs:
-            # v6 format: section_offset(8) + reloc_type(4) + size(4) + target_offset(8) = 24 bytes
+            # Reloc entry: section_offset(8) + reloc_type(4) + size(4) + target_offset(8) = 24 bytes
             reloc_data += struct.pack(
                 "<QIIQ",  # spell-checker: disable-line
                 reloc.section_offset,
@@ -303,6 +283,79 @@ class CosmoExtBlob:
                 f.write(b"\x00" * (sec.offset - current_offset))
             f.write(bytes(sec.data))
             current_offset = sec.offset + sec.size
+
+    def to_bytes(self) -> bytes:
+        """Serialize the arch payload to bytes (for embedding in fat format)."""
+        import io
+
+        buf = io.BytesIO()
+        self.write_arch_payload(buf)
+        return buf.getvalue()
+
+
+# Flag constants for v7 fat format
+COSMOEXT_FAT_HAS_X86_64 = 0x1
+COSMOEXT_FAT_HAS_AARCH64 = 0x2
+
+
+@dataclass
+class CosmoExtFatBlob:
+    """A fat cosmoext blob containing both x86_64 and aarch64 code.
+
+    Format v7:
+    - 4 bytes: magic "CEXT"
+    - 4 bytes: version (7)
+    - 4 bytes: flags (0x1 = has x86_64, 0x2 = has aarch64)
+    - 4 bytes: reserved (0)
+    - 8 bytes: x86_64_offset (from start of file, 0 if none)
+    - 8 bytes: x86_64_size
+    - 8 bytes: aarch64_offset (from start of file, 0 if none)
+    - 8 bytes: aarch64_size
+    - x86_64 payload (arch-specific blob)
+    - aarch64 payload (arch-specific blob)
+    """
+
+    x86_64_blob: CosmoExtBlob | None = None
+    aarch64_blob: CosmoExtBlob | None = None
+
+    def write(self, f: BinaryIO) -> None:
+        """Write the fat blob to a file."""
+        # Serialize each blob
+        x86_64_data = self.x86_64_blob.to_bytes() if self.x86_64_blob else b""
+        aarch64_data = self.aarch64_blob.to_bytes() if self.aarch64_blob else b""
+
+        # Calculate offsets (header is 48 bytes)
+        header_size = 48
+        x86_64_offset = header_size if x86_64_data else 0
+        x86_64_size = len(x86_64_data)
+        aarch64_offset = (header_size + x86_64_size) if aarch64_data else 0
+        aarch64_size = len(aarch64_data)
+
+        # Build flags
+        flags = 0
+        if self.x86_64_blob:
+            flags |= COSMOEXT_FAT_HAS_X86_64
+        if self.aarch64_blob:
+            flags |= COSMOEXT_FAT_HAS_AARCH64
+
+        # Write header
+        header = struct.pack(
+            "<4sIIIQQQQ",  # spell-checker: disable-line
+            b"CEXT",
+            7,  # version
+            flags,
+            0,  # reserved
+            x86_64_offset,
+            x86_64_size,
+            aarch64_offset,
+            aarch64_size,
+        )
+
+        f.write(header)
+        if x86_64_data:
+            f.write(x86_64_data)
+        if aarch64_data:
+            f.write(aarch64_data)
 
 
 def parse_object_file(
@@ -713,7 +766,7 @@ def apply_relocations(
                 insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
-                # Record for load-time patching (v6 format)
+                # Record for load-time patching
                 target_offset = (S + A) - base_address
                 internal_relocs.append(
                     InternalRelocation(
@@ -734,7 +787,7 @@ def apply_relocations(
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
-                # Record for load-time patching (v6 format)
+                # Record for load-time patching
                 target_offset = (S + A) - base_address
                 internal_relocs.append(
                     InternalRelocation(
@@ -772,7 +825,7 @@ def apply_relocations(
                 insn = (insn & 0xFFC003FF) | (imm12 << 10)
                 struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
-                # Record for load-time patching (v6 format)
+                # Record for load-time patching
                 target_offset = (S + A) - base_address
                 internal_relocs.append(
                     InternalRelocation(
@@ -809,12 +862,11 @@ def apply_relocations(
 def build_cosmoext(
     obj_path: Path,
     symtab_path: Path,
-    output_path: Path,
     load_address: int = 0x10000000,  # Default load address (256MB)
     arch: str | None = None,
     verbose: bool = False,
-) -> bool:
-    """Build a .cosmoext blob from an object file."""
+) -> CosmoExtBlob | None:
+    """Build a CosmoExtBlob from an object file. Returns None on error."""
 
     # Import here to avoid circular dependency
     from symtab import SymbolTable
@@ -872,7 +924,7 @@ def build_cosmoext(
         print("\n  ERROR: Unresolved external symbols:")
         for sym in sorted(set(unresolved)):
             print(f"    - {sym}")
-        return False
+        return None
 
     print(f"\n  External symbols (will be resolved at load time): {len(external_symbols)}")
     for name in sorted(external_symbols):
@@ -925,7 +977,7 @@ def build_cosmoext(
         print("\n  Relocation errors:")
         for err in errors:
             print(f"    - {err}")
-        return False
+        return None
 
     print(f"  {len(internal_relocs)} internal relocations to apply at load time")
     print(f"  {len(external_syms)} external symbols to resolve at load time")
@@ -940,7 +992,7 @@ def build_cosmoext(
 
     if not init_func:
         print("\nERROR: No PyInit_* function found")
-        return False
+        return None
 
     print(f"\n  Init function: {init_func[0]} at 0x{init_func[1]:x}")
 
@@ -989,19 +1041,64 @@ def build_cosmoext(
         get_def_offset=get_def_offset,
     )
 
-    print(f"\nWriting {output_path} (format v6)")
+    return blob
+
+
+def build_fat_cosmoext(
+    x86_64_obj: Path | None,
+    aarch64_obj: Path | None,
+    symtab_path: Path,
+    output_path: Path,
+    load_address: int = 0x10000000,
+    verbose: bool = False,
+) -> bool:
+    """Build a fat .cosmoext with both architectures."""
+
+    x86_64_blob = None
+    aarch64_blob = None
+
+    if x86_64_obj and x86_64_obj.exists():
+        print("\n=== Building x86_64 payload ===")
+        x86_64_blob = build_cosmoext(
+            x86_64_obj, symtab_path, load_address=load_address, arch="x86_64", verbose=verbose
+        )
+        if not x86_64_blob:
+            return False
+
+    if aarch64_obj and aarch64_obj.exists():
+        print("\n=== Building aarch64 payload ===")
+        aarch64_blob = build_cosmoext(
+            aarch64_obj, symtab_path, load_address=load_address, arch="aarch64", verbose=verbose
+        )
+        if not aarch64_blob:
+            return False
+
+    if not x86_64_blob and not aarch64_blob:
+        print("Error: No architecture payloads built")
+        return False
+
+    # Create and write fat blob
+    fat_blob = CosmoExtFatBlob(x86_64_blob=x86_64_blob, aarch64_blob=aarch64_blob)
+
+    print(f"\nWriting {output_path} (format v7 fat)")
     with open(output_path, "wb") as f:
-        blob.write(f)
+        fat_blob.write(f)
 
     print(f"  Done! Size: {output_path.stat().st_size} bytes")
+    archs = []
+    if x86_64_blob:
+        archs.append("x86_64")
+    if aarch64_blob:
+        archs.append("aarch64")
+    print(f"  Architectures: {', '.join(archs)}")
     return True
 
 
 def main() -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Build cosmoext blob from object file")
-    parser.add_argument("object_file", help="Input .o file")
+    parser = argparse.ArgumentParser(description="Build fat cosmoext blob from object files")
+    parser.add_argument("object_file", help="Input .o file (x86_64; aarch64 found in .aarch64/)")
     parser.add_argument("--symtab", required=True, help="Path to python.com for symbol table")
     parser.add_argument("--output", "-o", required=True, help="Output .cosmoext file")
     parser.add_argument(
@@ -1014,18 +1111,39 @@ def main() -> int:
         "--arch",
         default=None,
         choices=["amd64", "arm64", "x86_64", "aarch64"],
-        help="Target architecture (auto-detected from object file if not specified)",
+        help="Build single arch only (for debugging); default builds both if available",
     )
     parser.add_argument("--verbose", "-v", action="store_true")
 
     args = parser.parse_args()
 
-    success = build_cosmoext(
-        Path(args.object_file),
+    obj_path = Path(args.object_file)
+
+    # If --arch specified, build single architecture
+    if args.arch:
+        arch = {"amd64": "x86_64", "arm64": "aarch64"}.get(args.arch, args.arch)
+        if arch == "aarch64":
+            aarch64_obj = obj_path.parent / ".aarch64" / obj_path.name
+            if not aarch64_obj.exists():
+                aarch64_obj = obj_path  # Maybe it's already the aarch64 file
+            x86_64_obj = None
+        else:
+            x86_64_obj = obj_path
+            aarch64_obj = None
+    else:
+        # Build both architectures if available
+        x86_64_obj = obj_path
+        aarch64_obj = obj_path.parent / ".aarch64" / obj_path.name
+        if not aarch64_obj.exists():
+            aarch64_obj = None
+            print(f"Note: No aarch64 object found at {aarch64_obj}, building x86_64 only")
+
+    success = build_fat_cosmoext(
+        x86_64_obj,
+        aarch64_obj,
         Path(args.symtab),
         Path(args.output),
         load_address=args.load_address,
-        arch=args.arch,
         verbose=args.verbose,
     )
 

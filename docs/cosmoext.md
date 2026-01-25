@@ -39,51 +39,50 @@ This doesn't work in Cosmopolitan because:
 cosmoext pre-resolves all symbols at build time:
 
 1. **Build phase** (`cosmoext-build`):
-   - Compile extension with `-mcmodel=large -fno-pic` (position-independent addresses)
+   - Compile extension with `cosmocc` (produces both x86_64 and aarch64)
    - Extract symbol table from `python.com`
    - Resolve all external references to concrete addresses
-   - Package as `.cosmoext` blob with relocation metadata
+   - Package as fat `.cosmoext` blob with both architectures
 
 2. **Load phase** (`_cosmoext.load()`):
+   - Read fat header, select correct architecture payload
    - mmap the blob into executable memory
    - Apply relocations (adjust addresses for actual load location)
    - Resolve external symbols using python.com's symbol table
    - Call `PyInit_*` to initialize the module
 
-### File Format (v6)
+### File Format
+
+The `.cosmoext` format is a **fat binary** containing code for both x86_64 and aarch64:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│ Header (80 bytes)                                              │
+│ Fat Header (48 bytes)                                          │
 ├────────────────────────────────────────────────────────────────┤
 │ magic: "CEXT" (0x54584543)                                     │
-│ version: 6                                                     │
-│ load_address: 0 (position-independent)                         │
-│ total_size: size of code+data sections                         │
-│ init_offset: offset to PyInit_* function                       │
-│ header_size: 80                                                │
-│ num_sections: number of code/data sections                     │
-│ num_relocs: number of internal relocations                     │
-│ num_external_symbols: symbols to resolve from python.com       │
-│ string_table_size: size of symbol name strings                 │
-│ get_def_offset: offset to shim function (for multi-phase init) │
+│ version: 7                                                     │
+│ flags: which architectures are present                         │
+│ reserved: 0                                                    │
+│ x86_64_offset: offset to x86_64 payload (0 if not present)     │
+│ x86_64_size: size of x86_64 payload                            │
+│ aarch64_offset: offset to aarch64 payload (0 if not present)   │
+│ aarch64_size: size of aarch64 payload                          │
 ├────────────────────────────────────────────────────────────────┤
-│ Sections[] (16 bytes each)                                     │
-│   offset, size, flags                                          │
+│ x86_64 Payload (if present)                                    │
+│   Architecture-specific header + sections + relocations        │
 ├────────────────────────────────────────────────────────────────┤
-│ Relocations[] (24 bytes each)                                  │
-│   blob_offset, reloc_type, size, target_offset                 │
-├────────────────────────────────────────────────────────────────┤
-│ External Symbols[] (16 bytes each)                             │
-│   patch_offset, name_offset (into string table)                │
-├────────────────────────────────────────────────────────────────┤
-│ String Table                                                   │
-│   null-terminated symbol names                                 │
-├────────────────────────────────────────────────────────────────┤
-│ Code + Data Sections                                           │
-│   the actual executable code and initialized data              │
+│ aarch64 Payload (if present)                                   │
+│   Architecture-specific header + sections + relocations        │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+Each architecture payload contains:
+- Header with section/relocation counts
+- Section descriptors (code, data, etc.)
+- Internal relocation table
+- External symbol references
+- String table for symbol names
+- Actual code and data
 
 ### Relocation Types
 
@@ -152,47 +151,35 @@ Standard mmap works (no W^X enforcement).
 ### Using cosmoext-build
 
 ```bash
-# Basic usage
-python -m cosmoext.cosmoext_build -o myext.cosmoext myext.c
+# Basic usage - produces fat binary with both architectures
+python.com cosmoext-build.py --python python.com -o myext.cosmoext myext.c
 
 # With include paths
-python -m cosmoext.cosmoext_build -o myext.cosmoext \
+python.com cosmoext-build.py --python python.com -o myext.cosmoext \
     -I/path/to/headers \
     myext.c
 
 # Multiple source files
-python -m cosmoext.cosmoext_build -o myext.cosmoext \
+python.com cosmoext-build.py --python python.com -o myext.cosmoext \
     src/module.c src/helpers.c
 
+# Single architecture (for debugging)
+python.com cosmoext-build.py --python python.com -o myext.cosmoext \
+    --arch x86_64 myext.c
+
 # Verbose output
-python -m cosmoext.cosmoext_build -v -o myext.cosmoext myext.c
-```
-
-### Manual Build Steps
-
-If you need more control:
-
-```bash
-# 1. Compile with cosmocc
-cosmocc -c -mcmodel=large -fno-pic -I/path/to/python/include myext.c -o myext.o
-
-# 2. Link into relocatable object
-cosmocc -r -mcmodel=large myext.o -o myext.ro
-
-# 3. Convert to .cosmoext
-python -c "
-from cosmoext.relocate import create_cosmoext
-create_cosmoext('myext.ro', 'myext.cosmoext', 'python.com', init_name='PyInit_myext')
-"
+python.com cosmoext-build.py --python python.com -o myext.cosmoext -v myext.c
 ```
 
 ### Compiler Flags
 
+When compiling manually, use these flags:
+
 | Flag | Purpose |
 |------|---------|
 | `-mcmodel=large` | All addresses as 64-bit (required for relocation) |
-| `-fno-pic` | Disable position-independent code (we handle it ourselves) |
-| `-fno-plt` | Direct calls instead of PLT (simplifies relocations) |
+| `-fPIC` | Position-independent code |
+| `-fno-stack-protector` | Avoid stack canary symbol dependencies |
 
 ## Loading Extensions
 
@@ -210,16 +197,7 @@ The import system:
 3. Calls `_cosmoext.create_dynamic(spec)` to load the module
 4. Falls back to normal import if `.cosmoext` not found
 
-### Method 2: Manual Import Hook
-
-If you have an older build without the `_bootstrap_external.py` patch:
-
-```python
-import _cosmoext_importer  # Install the import hook
-import myextension         # Now finds myextension.cosmoext
-```
-
-### Method 3: Direct Loading
+### Direct Loading
 
 ```python
 import _cosmoext
@@ -251,7 +229,7 @@ Extensions that call `dlopen()` themselves won't work. This includes:
 
 ### Cython Relative Imports
 
-Cython extensions that do relative imports during init now work thanks to
+Cython extensions that do relative imports during init work thanks to
 `_cosmoext.create_dynamic(spec)`, which sets the package context before calling
 `PyInit_*`. This enables extensions like msgpack's `_cmsgpack` to work correctly.
 
@@ -293,7 +271,7 @@ Current stub symbols (implemented in libc_stubs.c):
 | `src/cosmoext/symtab.py` | Python: symbol table extraction from python.com |
 | `src/cosmoext/cosmoext-build.py` | CLI: compile → link → convert pipeline |
 | `src/cosmoext/libc_stubs.c` | C: stub implementations for missing symbols |
-| `src/cosmoext/_cosmoext_importer.py` | Python: import hook |
+| `src/cosmoext/_cosmoext_importer.py` | Python: import hook (fallback) |
 
 ## Development Notes
 
@@ -313,14 +291,14 @@ Run the smoke test:
 
 If `work/` is cleaned, the smoke test skips gracefully but can't verify functionality.
 
-### Fat Binaries and Architecture
+### Fat Binaries
 
-cosmocc produces **fat binaries** by default—both x86_64 and aarch64 in one build:
+`cosmocc` produces **fat object files** by default—both x86_64 and aarch64:
 - Main `.o` file: x86_64
 - `.aarch64/` subdirectory: aarch64 version
 
-When building `.cosmoext` for ARM64, `cosmoext-build.py` automatically uses the
-`.aarch64/` version if present. This is handled in the `--arch aarch64` code path.
+`cosmoext-build` automatically uses both when creating `.cosmoext` files.
+The resulting `.cosmoext` is also a fat binary that works on either architecture.
 
 ### Rebuilding After Code Changes
 
@@ -345,15 +323,6 @@ This is a known limitation, not a bug to fix.
 3. Switches to executable via `pthread_jit_write_protect_np(1)`
 
 Data sections that need to remain writable are copied to heap before the switch.
-
-### Format Version History
-
-| Version | Status | Notes |
-|---------|--------|-------|
-| v3, v4, v5 | Removed | Never released; didn't work on ARM64 |
-| v6 | Current | Includes `reloc_type` field for proper ARM64 ADRP/ADD patching |
-
-Only v6 is supported. The loader rejects other versions.
 
 ## Future Work
 

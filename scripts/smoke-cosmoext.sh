@@ -29,11 +29,10 @@ chmod +x "$PYTHON"
 PY_VERSION=$("$PYTHON" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 log_info "Testing cosmoext on Python ${PY_VERSION}"
 
-# Detect architecture
+# Detect architecture (for informational purposes)
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64|amd64) ARCH_SUFFIX="x86_64" ;;
-  arm64|aarch64) ARCH_SUFFIX="aarch64" ;;
+  x86_64|amd64|arm64|aarch64) ;;  # Supported
   *)
     log_error "Unsupported architecture: $ARCH"
     exit 1
@@ -169,11 +168,10 @@ else
   exit 1
 fi
 
-# Build .cosmoext using cosmoext-build
-COSMOEXT_OUT="$TEST_DIR/_cosmoext_test.${ARCH_SUFFIX}.cosmoext"
+# Build .cosmoext using cosmoext-build (fat binary with both architectures)
+COSMOEXT_OUT="$TEST_DIR/_cosmoext_test.cosmoext"
 if "$PYTHON" "$COSMOEXT_BUILD" \
     --python "$PYTHON" \
-    --arch "$ARCH_SUFFIX" \
     --output "$COSMOEXT_OUT" \
     "$TEST_DIR/test_ext.o" 2>/dev/null && [ -f "$COSMOEXT_OUT" ]; then
   SIZE=$(stat -f%z "$COSMOEXT_OUT" 2>/dev/null || stat -c%s "$COSMOEXT_OUT" 2>/dev/null)
@@ -183,7 +181,6 @@ else
   # Show error for debugging
   "$PYTHON" "$COSMOEXT_BUILD" \
     --python "$PYTHON" \
-    --arch "$ARCH_SUFFIX" \
     --output "$COSMOEXT_OUT" \
     "$TEST_DIR/test_ext.o" 2>&1 | tail -20
   exit 1
