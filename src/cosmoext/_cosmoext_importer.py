@@ -14,10 +14,18 @@ before calling the extension's init function, enabling relative imports
 in Cython extensions.
 """
 
+from __future__ import annotations
+
 import os
 import sys
+from collections.abc import Sequence
 from importlib.abc import Loader, MetaPathFinder
+from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 
 class CosmoExtLoader(Loader):
@@ -27,11 +35,11 @@ class CosmoExtLoader(Loader):
     context before calling PyInit_*, enabling relative imports during init.
     """
 
-    def __init__(self, path: str, fullname: str):
+    def __init__(self, path: str, fullname: str) -> None:
         self.path = path
         self.fullname = fullname
 
-    def create_module(self, spec):
+    def create_module(self, spec: ModuleSpec) -> ModuleType:
         """Create the module by loading the .cosmoext file.
 
         Uses _cosmoext.create_dynamic(spec) which:
@@ -42,7 +50,7 @@ class CosmoExtLoader(Loader):
         import _cosmoext  # type: ignore[import-not-found]  # built-in C module
 
         # Use create_dynamic which properly handles package context
-        module = _cosmoext.create_dynamic(spec)
+        module: ModuleType = _cosmoext.create_dynamic(spec)
 
         if module is None:
             raise ImportError(f"Failed to load {self.path}")
@@ -52,7 +60,7 @@ class CosmoExtLoader(Loader):
 
         return module
 
-    def exec_module(self, module):
+    def exec_module(self, module: ModuleType) -> None:
         """Execute the module (no-op for C extensions)."""
         # C extensions are already initialized in create_module
         pass
@@ -61,7 +69,12 @@ class CosmoExtLoader(Loader):
 class CosmoExtFinder(MetaPathFinder):
     """Finder for .cosmoext extension modules."""
 
-    def find_spec(self, fullname, path, target=None):
+    def find_spec(
+        self,
+        fullname: str,
+        path: Sequence[str] | None,
+        target: ModuleType | None = None,
+    ) -> ModuleSpec | None:
         """Find a .cosmoext file for the given module name."""
         # Convert module name to filename
         # e.g., "mypackage.myext" -> "mypackage/myext.cosmoext"
@@ -96,10 +109,10 @@ class CosmoExtFinder(MetaPathFinder):
 
 
 # Global finder instance
-_finder = None
+_finder: CosmoExtFinder | None = None
 
 
-def install():
+def install() -> bool:
     """Install the cosmoext import hook."""
     global _finder
     if _finder is None:
@@ -110,7 +123,7 @@ def install():
     return False
 
 
-def uninstall():
+def uninstall() -> bool:
     """Remove the cosmoext import hook."""
     global _finder
     if _finder is not None and _finder in sys.meta_path:
@@ -120,7 +133,7 @@ def uninstall():
     return False
 
 
-def is_installed():
+def is_installed() -> bool:
     """Check if the import hook is installed."""
     return _finder is not None and _finder in sys.meta_path
 
