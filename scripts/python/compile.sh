@@ -174,8 +174,10 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   # Patch configure to not add -framework CoreFoundation on macOS
   # This is needed because configure's OpenSSL test fails with cosmocc if
   # CoreFoundation is in LIBS. We remove all framework refs from Makefile later anyway.
+  # shellcheck disable=SC2016  # We want literal $LIBS, not expansion
   if grep -q 'LIBS="\$LIBS -framework CoreFoundation"' "${SRC_DIR}/configure"; then
     log_info "patching configure to skip CoreFoundation..."
+    # shellcheck disable=SC2016  # We want literal $LIBS, not expansion
     sed_i 's/LIBS="\$LIBS -framework CoreFoundation"/: # LIBS CoreFoundation disabled for cosmocc/' "${SRC_DIR}/configure"
   fi
   
@@ -465,7 +467,7 @@ fi
 # We also touch it after writing to ensure it's newer than its make dependencies,
 # preventing regeneration during 'make install'.
 if [ -f "${BUILD_DIR}/pybuilddir.txt" ]; then
-  actual_builddir=$(ls -d "${BUILD_DIR}/build/lib."*"-${PYTHON_MAJOR_MINOR}" 2>/dev/null | head -1)
+  actual_builddir=$(find "${BUILD_DIR}/build" -maxdepth 1 -type d -name "lib.*-${PYTHON_MAJOR_MINOR}" 2>/dev/null | head -1)
   if [ -n "$actual_builddir" ]; then
     echo "build/$(basename "$actual_builddir")" > "${BUILD_DIR}/pybuilddir.txt"
     sleep 1  # Ensure timestamp is clearly newer
