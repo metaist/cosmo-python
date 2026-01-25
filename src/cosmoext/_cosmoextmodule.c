@@ -2,8 +2,11 @@
 #include <Python.h>
 #include <sys/mman.h>
 
-/* Declare internal function for package context (defined in Python/import.c) */
+/* Declare internal function for package context (defined in Python/import.c)
+ * Only available in Python 3.12+ */
+#if PY_VERSION_HEX >= 0x030C0000
 extern const char * _PyImport_SwapPackageContext(const char *newcontext);
+#endif
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1129,7 +1132,9 @@ cosmoext_create_dynamic(PyObject *self, PyObject *args)
     PyObject *path_obj = NULL;
     const char *name = NULL;
     const char *path = NULL;
+#if PY_VERSION_HEX >= 0x030C0000
     const char *oldcontext = NULL;
+#endif
     PyObject *result = NULL;
     
     if (!PyArg_ParseTuple(args, "O", &spec))
@@ -1152,8 +1157,11 @@ cosmoext_create_dynamic(PyObject *self, PyObject *args)
     path = PyUnicode_AsUTF8(path_obj);
     if (!path) goto cleanup;
     
-    /* Set package context before loading (enables relative imports in init) */
+    /* Set package context before loading (enables relative imports in init)
+     * Note: _PyImport_SwapPackageContext only exists in Python 3.12+ */
+#if PY_VERSION_HEX >= 0x030C0000
     oldcontext = _PyImport_SwapPackageContext(name);
+#endif
     
     /* Call the internal load function with our spec.
      * The spec is used for multi-phase init modules so that
@@ -1162,7 +1170,9 @@ cosmoext_create_dynamic(PyObject *self, PyObject *args)
     result = cosmoext_load_internal(path, spec);
     
     /* Restore package context */
+#if PY_VERSION_HEX >= 0x030C0000
     _PyImport_SwapPackageContext(oldcontext);
+#endif
     
     if (result && PyModule_Check(result)) {
         /* Set/override module attributes from our spec */
