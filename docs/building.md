@@ -10,11 +10,17 @@ default_version = default_python.version
 cog.outl("```bash")
 cog.outl(f"./scripts/build.sh {default_version}  # build specific version")
 cog.outl("./scripts/build.sh --all  # build all versions")
+cog.outl(f"./scripts/build.sh {default_version} --cosmoext  # with C extension support")
+cog.outl(f"./scripts/build.sh {default_version} --clean  # clean rebuild")
+cog.outl("./scripts/build.sh --help  # show all options")
 cog.outl("```")
 ]]]-->
 ```bash
 ./scripts/build.sh 3.14.2  # build specific version
 ./scripts/build.sh --all  # build all versions
+./scripts/build.sh 3.14.2 --cosmoext  # with C extension support
+./scripts/build.sh 3.14.2 --clean  # clean rebuild
+./scripts/build.sh --help  # show all options
 ```
 <!--[[[end]]]-->
 

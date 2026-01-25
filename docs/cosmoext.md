@@ -105,16 +105,41 @@ ARM64 requires special handling:
 
 ### Symbol Resolution
 
-External symbols are resolved at load time from python.com's symbol table:
+External symbols (like `PyModule_Create2`, `PyArg_ParseTuple`) are resolved at load
+time from python.com's embedded symbol table.
 
-1. The symbol table is embedded in python.com as `.symtab.{arch}` (compressed)
-2. At load time, `_cosmoext` reads and decompresses the table
-3. Each external symbol name is looked up to find its address
-4. The address is patched into the blob at the specified offset
+**How symbol tables are created:**
 
-Some symbols have aliases (Cosmopolitan's internal naming):
-- `memmove` → `__memmove.default`
-- `iscntrl` → `__iscntrl`
+The symbol tables are generated **automatically by Cosmopolitan's linker** (`cosmocc`)
+during the Python build. No manual generation step is needed. The linker embeds
+`.symtab.amd64` and `.symtab.arm64` files in the APE binary's ZIP directory.
+
+You can verify they exist in the intermediate build:
+```bash
+unzip -l work/build-3.12.12-x86_64/python.com | grep symtab
+#   1785856  ...   .symtab.amd64
+#   1851392  ...   .symtab.arm64
+```
+
+**How symbol resolution works at runtime:**
+
+1. The `_cosmoext` loader scans the APE binary for ZIP entries matching `.symtab.{arch}`
+2. It decompresses the table (uses zlib DEFLATE)
+3. For each external symbol in the extension, it looks up the name in the table
+4. The resolved address is patched into the blob at the specified offset
+
+**Symbol aliases:**
+
+Some libc symbols have different names in Cosmopolitan's internal implementation:
+
+| Extension uses | Cosmopolitan provides |
+|----------------|----------------------|
+| `memmove` | `__memmove.default` |
+| `iscntrl` | `__iscntrl` |
+| `ispunct` | `__ispunct` |
+| `isspace` | `__isspace` |
+
+The loader handles these aliases automatically.
 
 ### Memory Mapping
 
@@ -279,15 +304,41 @@ These notes capture practical knowledge for developers working on cosmoext.
 
 ### Testing cosmoext
 
-Run the smoke test:
+Run the smoke test with just the dummy extension:
 ```bash
 ./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com
 ```
 
+Test specific real-world extensions:
+```bash
+# Test one extension
+./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext xxhash
+
+# Test multiple extensions
+./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext xxhash,markupsafe
+
+# Test all supported extensions
+./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext all
+```
+
+**Supported extensions for testing:**
+
+| Extension | Type | Notes |
+|-----------|------|-------|
+| `xxhash` | Pure C | Fast hashing |
+| `markupsafe` | Cython | HTML escaping |
+| `crc32c` | Pure C + SSE4.2 | CRC32C checksums |
+| `ujson` | C + C++ | Fast JSON (uses double-conversion) |
+| `msgpack` | Cython | MessagePack serialization |
+| `regex` | Pure C | Advanced regex engine |
+
 **Requirements**:
+
 - Python binary built with `--cosmoext` flag
 - cosmocc toolchain at `/tmp/cosmo`
 - Python source headers in `work/Python-X.Y.Z/Include` (kept after build)
+- `uv` available (for running cosmoext-build with pyelftools)
+- For msgpack: `cython` available via uv
 
 If `work/` is cleaned, the smoke test skips gracefully but can't verify functionality.
 
@@ -302,7 +353,15 @@ The resulting `.cosmoext` is also a fat binary that works on either architecture
 
 ### Rebuilding After Code Changes
 
-Python's build system caches aggressively. After modifying `_cosmoextmodule.c`:
+Python's build system caches aggressively. After modifying `_cosmoextmodule.c`,
+use the `--clean` flag for a full rebuild:
+
+```bash
+# Clean rebuild with cosmoext (recommended)
+./scripts/build.sh 3.12.12 --clean --cosmoext
+```
+
+Or manually:
 
 1. Copy updated source: `cp src/cosmoext/_cosmoextmodule.c work/Python-X.Y.Z/Modules/`
 2. Remove the compiled binary: `rm work/build-X.Y.Z-x86_64/python.com`
@@ -310,6 +369,8 @@ Python's build system caches aggressively. After modifying `_cosmoextmodule.c`:
 4. Repackage: `rm dist/python-X.Y.Z-cosmo.com && ./scripts/python/package.sh X.Y.Z`
 
 Just updating the source file is **not enough**—you must remove outputs to trigger rebuild.
+The `--clean` flag handles this automatically by removing `work/build-*`, `work/Python-*`,
+and `dist/python-*.com` for the specified versions.
 
 ### macOS Build Quirks
 
