@@ -11,12 +11,14 @@
 #
 # Options:
 #   --cosmoext    Include _cosmoext module for loading C extensions at runtime
+#   --clean       Remove build artifacts before building (forces full rebuild)
 #
 # Examples:
 #   ./scripts/build.sh 3.12.8
 #   ./scripts/build.sh 3.11.11 3.12.8 3.13.1
 #   ./scripts/build.sh --all
 #   ./scripts/build.sh 3.12.8 --cosmoext
+#   ./scripts/build.sh 3.12.8 --clean --cosmoext  # Clean rebuild with cosmoext
 #
 # Build phases:
 #   1: Deps       System deps, cosmocc, library dependencies
@@ -31,21 +33,50 @@ source "${SCRIPT_DIR}/common.sh"
 # Parse arguments
 VERSIONS=()
 COSMOEXT_FLAG=""
+CLEAN_FLAG=""
+
+show_help() {
+  echo "Usage: $0 <python_version> [version2 ...] [options]"
+  echo "       $0 --all [options]"
+  echo ""
+  echo "Options:"
+  echo "  --cosmoext    Include _cosmoext module for loading C extensions"
+  echo "  --clean       Remove build artifacts before building (forces full rebuild)"
+  echo "  --help        Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  $0 3.12.8                      # Build single version"
+  echo "  $0 3.11.11 3.12.8              # Build multiple versions"
+  echo "  $0 --all                       # Build all versions"
+  echo "  $0 3.12.8 --cosmoext           # Build with cosmoext support"
+  echo "  $0 3.12.8 --clean --cosmoext   # Clean rebuild with cosmoext"
+  exit 0
+}
 
 if [ $# -eq 0 ]; then
-  log_error "usage: $0 <python_version> [version2 ...] [--cosmoext]"
-  log_error "       $0 --all [--cosmoext]"
+  log_error "usage: $0 <python_version> [version2 ...] [--cosmoext] [--clean]"
+  log_error "       $0 --all [--cosmoext] [--clean]"
+  log_error "       $0 --help"
   exit 1
 fi
 
-# Parse --cosmoext flag from anywhere in args
+# Parse flags from anywhere in args
 ARGS=()
 for arg in "$@"; do
-  if [ "$arg" = "--cosmoext" ]; then
-    COSMOEXT_FLAG="--cosmoext"
-  else
-    ARGS+=("$arg")
-  fi
+  case "$arg" in
+    --cosmoext)
+      COSMOEXT_FLAG="--cosmoext"
+      ;;
+    --clean)
+      CLEAN_FLAG="1"
+      ;;
+    --help|-h)
+      show_help
+      ;;
+    *)
+      ARGS+=("$arg")
+      ;;
+  esac
 done
 set -- "${ARGS[@]}"
 
@@ -61,6 +92,30 @@ if [ "$1" = "--all" ]; then
   log_info "building all versions: ${VERSIONS[*]}"
 else
   VERSIONS=("$@")
+fi
+
+# Clean build artifacts if requested
+if [ -n "$CLEAN_FLAG" ]; then
+  log_info "cleaning build artifacts for: ${VERSIONS[*]}"
+  for version in "${VERSIONS[@]}"; do
+    build_dir="${WORK_DIR}/build-${version}-x86_64"
+    src_dir="${WORK_DIR}/Python-${version}"
+    dist_file="${DIST_DIR}/python-${version}-cosmo.com"
+    
+    if [ -d "$build_dir" ]; then
+      log_info "removing $build_dir"
+      rm -rf "$build_dir"
+    fi
+    if [ -d "$src_dir" ]; then
+      log_info "removing $src_dir"
+      rm -rf "$src_dir"
+    fi
+    if [ -f "$dist_file" ]; then
+      log_info "removing $dist_file"
+      rm -f "$dist_file"
+      rm -f "${dist_file}.sha256"
+    fi
+  done
 fi
 
 # Track timing
