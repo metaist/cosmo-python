@@ -6,6 +6,9 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Metaist LLC", email = "metaist@metaist.com" }]
+dependencies = [
+    "pyelftools>=0.32",
+]
 
 [project.urls]
 Homepage = "https://github.com/metaist/cosmo-python"
