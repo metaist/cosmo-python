@@ -37,8 +37,11 @@ nav:
   - Home: index.md
   - Supply Chain: supply-chain.md
   - Releases: releases.md
-  - Building: building.md
-  - Build Internals: build-process.md
+  - Building:
+    - Overview: building.md
+    - Build Internals: build-process.md
+    - macOS Build (Experimental): macos-build.md
+  - C Extensions (Experimental): cosmoext.md
   - Limitations: limitations.md
   - Contributing: https://github.com/metaist/cosmo-python/blob/main/CONTRIBUTING.md
   - Changelog: https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md
