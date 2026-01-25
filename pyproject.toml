@@ -75,10 +75,11 @@ clean.shell = """
 """
 
 # Lint
-lint.help = "lint shell, python, yaml, spelling"
+lint.help = "lint shell, python, C, yaml, spelling"
 lint.composite = [
   "zizmor",
   "shellcheck",
+  "clang-format",
   "ruff-*",
   "yamllint",
   "cspell",
@@ -97,6 +98,17 @@ if command -v shellcheck >/dev/null 2>&1; then
   find scripts -name '*.sh' -exec shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +
 else
   find scripts -name '*.sh' -exec npx --yes shellcheck -x -e SC1091 -e SC2164 -e SC2086 -e SC2103 -e SC2129 {} +
+fi
+"""
+
+clang-format.help = "check C code formatting"
+clang-format.shell = """
+if command -v clang-format >/dev/null 2>&1; then
+  clang-format --dry-run --Werror src/cosmoext/*.c
+elif [ -x /opt/homebrew/opt/llvm/bin/clang-format ]; then
+  /opt/homebrew/opt/llvm/bin/clang-format --dry-run --Werror src/cosmoext/*.c
+else
+  echo "clang-format not found, skipping C format check"
 fi
 """
 

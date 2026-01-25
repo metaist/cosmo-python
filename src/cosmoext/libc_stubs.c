@@ -32,94 +32,104 @@
 /**
  * Returns nonzero if c is C0 ASCII control code or DEL.
  */
-int iscntrl(int c) {
-  return (0x00 <= c && c <= 0x1F) || c == 0x7F;
+int iscntrl(int c)
+{
+    return (0x00 <= c && c <= 0x1F) || c == 0x7F;
 }
 
 /**
  * Returns nonzero if ``c ∈ !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~``
  */
-int ispunct(int c) {
-  return (0x21 <= c && c <= 0x7E) && !('0' <= c && c <= '9') &&
-         !('A' <= c && c <= 'Z') && !('a' <= c && c <= 'z');
+int ispunct(int c)
+{
+    return (0x21 <= c && c <= 0x7E) && !('0' <= c && c <= '9') && !('A' <= c && c <= 'Z') &&
+           !('a' <= c && c <= 'z');
 }
 
 /**
  * Returns nonzero if c is space, \t, \r, \n, \f, or \v.
  */
-int isspace(int c) {
-  return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' ||
-         c == '\v';
+int isspace(int c)
+{
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v';
 }
 
 /**
  * Copies n bytes from src to dest, handling overlap correctly.
  */
-void *memmove(void *dest, const void *src, unsigned long n) {
-  char *d = dest;
-  const char *s = src;
-  if (d < s) {
-    while (n--) *d++ = *s++;
-  } else {
-    d += n;
-    s += n;
-    while (n--) *--d = *--s;
-  }
-  return dest;
+void *memmove(void *dest, const void *src, unsigned long n)
+{
+    char *d = dest;
+    const char *s = src;
+    if (d < s) {
+        while (n--)
+            *d++ = *s++;
+    } else {
+        d += n;
+        s += n;
+        while (n--)
+            *--d = *--s;
+    }
+    return dest;
 }
 
 /**
  * memcpy - Copy n bytes from src to dest (non-overlapping).
  */
-void *memcpy(void *dest, const void *src, unsigned long n) {
-  char *d = dest;
-  const char *s = src;
-  while (n--) *d++ = *s++;
-  return dest;
+void *memcpy(void *dest, const void *src, unsigned long n)
+{
+    char *d = dest;
+    const char *s = src;
+    while (n--)
+        *d++ = *s++;
+    return dest;
 }
 
 /**
  * isalnum - Check if character is alphanumeric.
  */
-int isalnum(int c) {
-  return (c >= 'A' && c <= 'Z') ||
-         (c >= 'a' && c <= 'z') ||
-         (c >= '0' && c <= '9');
+int isalnum(int c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
 }
 
 /**
  * isupper - Check if character is uppercase letter.
  */
-int isupper(int c) {
-  return c >= 'A' && c <= 'Z';
+int isupper(int c)
+{
+    return c >= 'A' && c <= 'Z';
 }
 
 /**
  * tolower - Convert character to lowercase.
  */
-int tolower(int c) {
-  if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
-  return c;
+int tolower(int c)
+{
+    if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
+    return c;
 }
 
 /**
  * toupper - Convert character to uppercase.
  */
-int toupper(int c) {
-  if (c >= 'a' && c <= 'z') return c - ('a' - 'A');
-  return c;
+int toupper(int c)
+{
+    if (c >= 'a' && c <= 'z') return c - ('a' - 'A');
+    return c;
 }
 
 /**
  * ceil - Round up to nearest integer.
  */
-double ceil(double x) {
-  if (x >= 0) {
-    long long i = (long long)x;
-    return (double)i + (x > (double)i ? 1.0 : 0.0);
-  } else {
-    return (double)(long long)x;
-  }
+double ceil(double x)
+{
+    if (x >= 0) {
+        long long i = (long long)x;
+        return (double)i + (x > (double)i ? 1.0 : 0.0);
+    } else {
+        return (double)(long long)x;
+    }
 }
 
 /*

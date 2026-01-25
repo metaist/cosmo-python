@@ -21,8 +21,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7
 
-      - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
+      - name: Install shellcheck and clang-format
+        run: sudo apt-get install -y shellcheck clang-format
 
       - name: Run validation (lint + test-scripts)
         run: uvx --from ds-run ds dev
