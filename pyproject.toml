@@ -7,6 +7,7 @@ license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "Metaist LLC", email = "metaist@metaist.com" }]
 dependencies = [
+    "cython>=3.2.4",
     "pyelftools>=0.32",
 ]
 
@@ -168,3 +169,7 @@ manifest.shell = "uv run -m ci.manifest $@"
 
 recent.help = "show commits since last tag"
 recent.shell = "git log --oneline --color $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~10)..HEAD"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

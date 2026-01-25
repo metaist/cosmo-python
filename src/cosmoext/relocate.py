@@ -24,12 +24,8 @@ from pathlib import Path
 from typing import BinaryIO
 
 from elftools.elf.elffile import ELFFile
-from elftools.elf.relocation import (
-    RelocationSection,
-)
-from elftools.elf.sections import (
-    SymbolTableSection,
-)
+from elftools.elf.relocation import RelocationSection
+from elftools.elf.sections import SymbolTableSection
 
 # x86_64 relocation types we handle
 R_X86_64_NONE = 0
