@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
-from elftools.elf.elffile import ELFFile  # type: ignore[import-untyped,import-not-found]
-from elftools.elf.relocation import (  # type: ignore[import-not-found] # pyright: ignore[reportMissingImports]
+from elftools.elf.elffile import ELFFile  # pyright: ignore[reportMissingImports]
+from elftools.elf.relocation import (  # pyright: ignore[reportMissingImports]
     RelocationSection,
 )
-from elftools.elf.sections import (  # type: ignore[import-not-found] # pyright: ignore[reportMissingImports]
+from elftools.elf.sections import (  # pyright: ignore[reportMissingImports]
     SymbolTableSection,
 )
 
