@@ -10,25 +10,26 @@
 
 ## Development Commands
 
-| Command | Purpose |
-|---------|---------|
-| `ds dev` | **Must pass before every commit** — lint, type check, tests, spell check |
-| `ds build 3.12.8` | Build single Python version |
-| `ds build-all` | Build all Python versions |
-| `ds smoke dist/python-3.12.8-cosmo.com` | Run smoke tests on a binary |
-| `ds smoke-all` | Run all smoke tests |
-| `ds clean` | Clean build artifacts |
+| Command                                 | Purpose                                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| `ds dev`                                | **Must pass before every commit** — lint, type check, tests, spell check |
+| `ds build 3.12.8`                       | Build single Python version                                              |
+| `ds build-all`                          | Build all Python versions                                                |
+| `ds smoke dist/python-3.12.8-cosmo.com` | Run smoke tests on a binary                                              |
+| `ds smoke-all`                          | Run all smoke tests                                                      |
+| `ds clean`                              | Clean build artifacts                                                    |
 
 ## Validation Rules
 
 **`ds dev` is mandatory before commits.** Check the **full output**, not just the last few lines.
 
 Common issues caught by `ds dev`:
+
 - **cspell**: Unknown words → add to `.cspell.json`
 - **ruff**: Python lint/format issues
 - **shellcheck**: Shell script issues
 - **clang-format**: C code formatting
-- **pyright/mypy**: Type errors
+- **ty/pyright/mypy**: Type errors
 
 If `ds dev` fails, fix the issue before committing. Don't assume CI will catch it.
 
@@ -73,9 +74,15 @@ Before starting any task:
 
 ## Shell Commands
 
-- Use `uv` instead of `pip`
-- Use `fd` instead of `find` (respects `.gitignore`)
-- Use `rg` instead of `grep` (faster, better defaults)
+**Do not use `find` or `grep`.** Use these instead:
+
+| Instead of | Use | Why |
+|------------|-----|-----|
+| `find` | `fd` | Respects `.gitignore`, skips `work/`, `.venv/`, etc. |
+| `grep` | `rg` | Same—avoids searching 12k+ files in build directories |
+| `pip` | `uv` | Faster, better dependency resolution |
+
+This repo has large build artifacts (`work/`) that make `find`/`grep` return thousands of irrelevant results and take 75+ seconds instead of milliseconds.
 
 ## Code Style
 
@@ -99,17 +106,18 @@ Before starting any task:
 
 Format: `prefix: description (#issue)`
 
-| Prefix | Use for |
-|--------|---------|
-| `add:` | New features, files, capabilities |
-| `fix:` | Bug fixes, corrections |
-| `update:` | Changes to existing functionality, docs |
-| `remove:` | Deletions |
+| Prefix      | Use for                                    |
+| ----------- | ------------------------------------------ |
+| `add:`      | New features, files, capabilities          |
+| `fix:`      | Bug fixes, corrections                     |
+| `update:`   | Changes to existing functionality, docs    |
+| `remove:`   | Deletions                                  |
 | `refactor:` | Code restructuring without behavior change |
 
 Rules:
+
 - Lowercase titles, sentence fragments (no trailing period)
-- Backticks for code: `` fix: bug in `keep_going` parsing ``
+- Backticks for code: ``fix: bug in `keep_going` parsing``
 - Reference issues: `(#123)` or `(closes #123)`
 - Include `Co-Authored-By: {Model Name} <noreply@anthropic.com>` in body
 
