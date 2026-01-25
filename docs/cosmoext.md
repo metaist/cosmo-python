@@ -260,10 +260,49 @@ Cython extensions that do relative imports during init work thanks to
 
 ### C++ Extensions
 
-C++ extensions are untested. Potential issues:
-- Static constructors may not run
-- Exception handling may not work
-- RTTI may not work
+Simple C++ extensions **work**, but with significant limitations.
+
+**What works:**
+
+- C++ classes with constructors/destructors
+- Member functions and virtual functions
+- Global/static objects
+- Basic exception handling (throw/catch)
+- Operators new/delete
+
+**What doesn't work:**
+
+- **STL algorithms**: `std::sort`, `std::find`, etc. - template instantiations not in python.com
+- **Many std::string methods**: Only methods used by Python itself are available
+- **Other STL containers**: `std::map`, `std::set` operations may fail
+
+**Root cause:**
+
+The C++ runtime in python.com comes from Cosmopolitan's `-lcxx`. Only symbols that are
+**actually used** during the Python build are included. C++ templates are instantiated
+on-demand, so if Python never uses `std::sort<long*>`, that function won't exist.
+
+**Example - works:**
+```cpp
+class Counter {
+    int value;
+public:
+    Counter() : value(0) {}
+    void increment() { value++; }
+    int get() { return value; }
+};
+```
+
+**Example - fails:**
+```cpp
+#include <algorithm>
+#include <vector>
+std::vector<int> v = {3, 1, 2};
+std::sort(v.begin(), v.end());  // Error: symbol not found
+```
+
+**Recommendation:** For C++ extensions, stick to simple classes and avoid STL algorithms.
+Consider using C-style code for performance-critical parts that would otherwise use STL.
 
 ### Symbol Availability
 
