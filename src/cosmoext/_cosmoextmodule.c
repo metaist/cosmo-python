@@ -114,10 +114,14 @@ typedef PyModuleDef *(*GetCapturedDefFunc)(void);
 /* Symbol aliases for Cosmopolitan's mangled names */
 static const char *get_symbol_alias(const char *name)
 {
-    if (strcmp(name, "memmove") == 0) return "__memmove.default";
-    if (strcmp(name, "iscntrl") == 0) return "__iscntrl";
-    if (strcmp(name, "ispunct") == 0) return "__ispunct";
-    if (strcmp(name, "isspace") == 0) return "__isspace";
+    if (strcmp(name, "memmove") == 0)
+        return "__memmove.default";
+    if (strcmp(name, "iscntrl") == 0)
+        return "__iscntrl";
+    if (strcmp(name, "ispunct") == 0)
+        return "__ispunct";
+    if (strcmp(name, "isspace") == 0)
+        return "__isspace";
     return NULL;
 }
 
@@ -136,9 +140,12 @@ typedef struct {
 static void free_simple_symtab(SimpleSymbolTable *st)
 {
     if (st) {
-        if (st->names) free(st->names);
-        if (st->name_base) free(st->name_base);
-        if (st->sym_addrs) free(st->sym_addrs);
+        if (st->names)
+            free(st->names);
+        if (st->name_base)
+            free(st->name_base);
+        if (st->sym_addrs)
+            free(st->sym_addrs);
         free(st);
     }
 }
@@ -148,7 +155,8 @@ static unsigned char *inflate_data(const unsigned char *comp_data, size_t comp_s
                                    size_t uncomp_size)
 {
     unsigned char *output = malloc(uncomp_size);
-    if (!output) return NULL;
+    if (!output)
+        return NULL;
 
     z_stream strm;
     memset(&strm, 0, sizeof(strm));
@@ -199,7 +207,8 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
     }
 
     f = fopen(exe_path, "rb");
-    if (!f) goto cleanup;
+    if (!f)
+        goto cleanup;
 
     /* Get file size */
     fseek(f, 0, SEEK_END);
@@ -208,8 +217,10 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
 
     /* Read entire file (APE binaries are typically <100MB) */
     file_data = malloc(file_size);
-    if (!file_data) goto cleanup;
-    if (fread(file_data, 1, file_size, f) != (size_t)file_size) goto cleanup;
+    if (!file_data)
+        goto cleanup;
+    if (fread(file_data, 1, file_size, f) != (size_t)file_size)
+        goto cleanup;
     fclose(f);
     f = NULL;
 
@@ -220,12 +231,14 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
     while (offset + 30 + target_len < (size_t)file_size) {
         /* Find next PK signature */
         unsigned char *pos = memmem(file_data + offset, file_size - offset, pk_sig, 4);
-        if (!pos) break;
+        if (!pos)
+            break;
 
         size_t header_pos = pos - file_data;
 
         /* Parse ZIP local file header */
-        if (header_pos + 30 > (size_t)file_size) break;
+        if (header_pos + 30 > (size_t)file_size)
+            break;
 
         uint16_t compression = *(uint16_t *)(pos + 8);
         uint32_t comp_size = *(uint32_t *)(pos + 18);
@@ -237,7 +250,8 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
         if (name_len == target_len && header_pos + 30 + name_len <= (size_t)file_size &&
             memcmp(pos + 30, target_name, target_len) == 0) {
             size_t data_start = header_pos + 30 + name_len + extra_len;
-            if (data_start + comp_size > (size_t)file_size) break;
+            if (data_start + comp_size > (size_t)file_size)
+                break;
 
             if (verbose) {
                 fprintf(stderr, "[cosmoext] Found %s at offset 0x%zx, size=%u->%u\n", target_name,
@@ -248,14 +262,16 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
             if (compression == 0) {
                 /* Stored */
                 symtab_raw = malloc(uncomp_size);
-                if (symtab_raw) memcpy(symtab_raw, file_data + data_start, uncomp_size);
+                if (symtab_raw)
+                    memcpy(symtab_raw, file_data + data_start, uncomp_size);
             } else if (compression == 8) {
                 /* Deflate */
                 symtab_raw = inflate_data(file_data + data_start, comp_size, uncomp_size);
             }
 
             if (!symtab_raw) {
-                if (verbose) fprintf(stderr, "[cosmoext] Failed to decompress symtab\n");
+                if (verbose)
+                    fprintf(stderr, "[cosmoext] Failed to decompress symtab\n");
                 goto cleanup;
             }
 
@@ -275,16 +291,19 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
              * 68      4     name_base_offset
              * 72      ...   symbols[] (each is 8 bytes: x(4) + y(4))
              */
-            if (uncomp_size < 72) goto cleanup;
+            if (uncomp_size < 72)
+                goto cleanup;
 
             uint32_t magic = *(uint32_t *)(symtab_raw);
             if (magic != 0x544D5953) { /* "SYMT" */
-                if (verbose) fprintf(stderr, "[cosmoext] Bad symtab magic: 0x%x\n", magic);
+                if (verbose)
+                    fprintf(stderr, "[cosmoext] Bad symtab magic: 0x%x\n", magic);
                 goto cleanup;
             }
 
             st = calloc(1, sizeof(SimpleSymbolTable));
-            if (!st) goto cleanup;
+            if (!st)
+                goto cleanup;
 
             st->count = *(uint64_t *)(symtab_raw + 8);
             st->addr_base = *(int64_t *)(symtab_raw + 32); /* Fixed: was 40, should be 32 */
@@ -335,22 +354,27 @@ static SimpleSymbolTable *load_symtab_from_ape(const char *exe_path, int verbose
     }
 
 cleanup:
-    if (f) fclose(f);
-    if (file_data) free(file_data);
-    if (symtab_raw) free(symtab_raw);
+    if (f)
+        fclose(f);
+    if (file_data)
+        free(file_data);
+    if (symtab_raw)
+        free(symtab_raw);
     return st;
 }
 
 /* Look up symbol in our simple table */
 static uint64_t lookup_symbol_simple(SimpleSymbolTable *st, const char *target_name)
 {
-    if (!st) return 0;
+    if (!st)
+        return 0;
 
     const char *names_to_try[2] = {target_name, get_symbol_alias(target_name)};
 
     for (int attempt = 0; attempt < 2; attempt++) {
         const char *search_name = names_to_try[attempt];
-        if (!search_name) continue;
+        if (!search_name)
+            continue;
 
         for (uint64_t i = 0; i < st->count; i++) {
             const char *sym_name = st->name_base + st->names[i];
@@ -804,8 +828,10 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
                     writable_ranges[num_writable].end = sec_offset + sec_size;
                     num_writable++;
                 }
-                if (sec_offset < data_start) data_start = sec_offset;
-                if (sec_offset + sec_size > data_end) data_end = sec_offset + sec_size;
+                if (sec_offset < data_start)
+                    data_start = sec_offset;
+                if (sec_offset + sec_size > data_end)
+                    data_end = sec_offset + sec_size;
                 if (verbose) {
                     fprintf(stderr, "[cosmoext] Writable section %llu: offset=0x%llx, size=%llu\n",
                             (unsigned long long)i, (unsigned long long)sec_offset,
@@ -850,7 +876,8 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
             for (uint64_t i = 0; i < header.num_relocs; i++) {
                 CosmoExtReloc *r = &relocs[i];
                 /* Only process relocations that target writable sections */
-                if (!IS_WRITABLE(r->target_offset)) continue;
+                if (!IS_WRITABLE(r->target_offset))
+                    continue;
 
                 /* This relocation points into a writable section - update to heap */
                 uintptr_t old_value = (uintptr_t)mapped + r->target_offset;
@@ -1037,7 +1064,8 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         }
 
         PyObject *module = PyModule_FromDefAndSpec(def, use_spec);
-        if (spec_is_temp) Py_DECREF(use_spec);
+        if (spec_is_temp)
+            Py_DECREF(use_spec);
 
         if (!module) {
             munmap(mapped, map_size);
@@ -1092,7 +1120,8 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         }
 
         module = PyModule_FromDefAndSpec(def, use_spec);
-        if (spec_is_temp) Py_DECREF(use_spec);
+        if (spec_is_temp)
+            Py_DECREF(use_spec);
 
         if (!module) {
             munmap(mapped, map_size);
@@ -1121,13 +1150,20 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
     return module;
 
 error:
-    if (f) fclose(f);
-    if (blob) PyMem_Free(blob);
-    if (relocs) PyMem_Free(relocs);
-    if (ext_syms) PyMem_Free(ext_syms);
-    if (string_table) PyMem_Free(string_table);
-    if (symtab) free_simple_symtab(symtab);
-    if (mapped && mapped != MAP_FAILED) munmap(mapped, map_size);
+    if (f)
+        fclose(f);
+    if (blob)
+        PyMem_Free(blob);
+    if (relocs)
+        PyMem_Free(relocs);
+    if (ext_syms)
+        PyMem_Free(ext_syms);
+    if (string_table)
+        PyMem_Free(string_table);
+    if (symtab)
+        free_simple_symtab(symtab);
+    if (mapped && mapped != MAP_FAILED)
+        munmap(mapped, map_size);
     return NULL;
 }
 
@@ -1138,7 +1174,8 @@ error:
 static PyObject *cosmoext_load(PyObject *Py_UNUSED(self), PyObject *args)
 {
     const char *path;
-    if (!PyArg_ParseTuple(args, "s", &path)) return NULL;
+    if (!PyArg_ParseTuple(args, "s", &path))
+        return NULL;
     return cosmoext_load_internal(path, NULL);
 }
 
@@ -1163,7 +1200,8 @@ static PyObject *cosmoext_create_dynamic(PyObject *Py_UNUSED(self), PyObject *ar
 #endif
     PyObject *result = NULL;
 
-    if (!PyArg_ParseTuple(args, "O", &spec)) return NULL;
+    if (!PyArg_ParseTuple(args, "O", &spec))
+        return NULL;
 
     /* Extract name and origin (path) from spec */
     name_obj = PyObject_GetAttrString(spec, "name");
@@ -1172,7 +1210,8 @@ static PyObject *cosmoext_create_dynamic(PyObject *Py_UNUSED(self), PyObject *ar
         goto cleanup;
     }
     name = PyUnicode_AsUTF8(name_obj);
-    if (!name) goto cleanup;
+    if (!name)
+        goto cleanup;
 
     path_obj = PyObject_GetAttrString(spec, "origin");
     if (!path_obj) {
@@ -1180,10 +1219,12 @@ static PyObject *cosmoext_create_dynamic(PyObject *Py_UNUSED(self), PyObject *ar
         goto cleanup;
     }
     path = PyUnicode_AsUTF8(path_obj);
-    if (!path) goto cleanup;
+    if (!path) {
+        goto cleanup;
+    }
 
-    /* Set package context before loading (enables relative imports in init)
-     * Note: _PyImport_SwapPackageContext only exists in Python 3.12+ */
+    /* Set package context before loading (enables relative imports in init).
+     * Note: _PyImport_SwapPackageContext only exists in Python 3.12+. */
 #if PY_VERSION_HEX >= 0x030C0000
     oldcontext = _PyImport_SwapPackageContext(name);
 #endif
@@ -1217,7 +1258,8 @@ static PyObject *cosmoext_create_dynamic(PyObject *Py_UNUSED(self), PyObject *ar
             if (strchr(name, '.')) {
                 char *pkg = strdup(name);
                 char *dot = strrchr(pkg, '.');
-                if (dot) *dot = '\0';
+                if (dot)
+                    *dot = '\0';
                 PyObject *pkg_obj = PyUnicode_FromString(pkg);
                 PyObject_SetAttrString(result, "__package__", pkg_obj);
                 Py_DECREF(pkg_obj);

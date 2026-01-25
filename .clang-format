@@ -38,7 +38,7 @@ SpacesInParentheses: false
 AlignConsecutiveMacros: true
 AlignEscapedNewlines: Left
 AllowShortFunctionsOnASingleLine: None
-AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 SortIncludes: false
 IncludeBlocks: Preserve
