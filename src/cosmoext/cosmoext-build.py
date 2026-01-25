@@ -315,8 +315,19 @@ def main() -> None:
                 sys.exit(1)
 
             if src_path.suffix == ".o":
-                # Already compiled - just use it
-                object_files.append(src_path)
+                # Already compiled - use arch-specific version if available
+                if args.arch == "aarch64":
+                    # cosmocc places aarch64 objects in .aarch64/ subdirectory
+                    aarch64_path = src_path.parent / ".aarch64" / src_path.name
+                    if aarch64_path.exists():
+                        if args.verbose:
+                            print(f"Using aarch64 object: {aarch64_path}")
+                        object_files.append(aarch64_path)
+                    else:
+                        # No .aarch64 version - use as-is (may be arch-specific already)
+                        object_files.append(src_path)
+                else:
+                    object_files.append(src_path)
             elif src_path.suffix in (".c", ".cpp", ".cc", ".cxx"):
                 # Compile it
                 obj_path = tmpdir / (src_path.stem + ".o")
