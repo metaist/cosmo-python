@@ -295,6 +295,66 @@ Current stub symbols (implemented in libc_stubs.c):
 | `src/cosmoext/libc_stubs.c` | C: stub implementations for missing symbols |
 | `src/cosmoext/_cosmoext_importer.py` | Python: import hook |
 
+## Development Notes
+
+These notes capture practical knowledge for developers working on cosmoext.
+
+### Testing cosmoext
+
+Run the smoke test:
+```bash
+./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com
+```
+
+**Requirements**:
+- Python binary built with `--cosmoext` flag
+- cosmocc toolchain at `/tmp/cosmo`
+- Python source headers in `work/Python-X.Y.Z/Include` (kept after build)
+
+If `work/` is cleaned, the smoke test skips gracefully but can't verify functionality.
+
+### Fat Binaries and Architecture
+
+cosmocc produces **fat binaries** by default—both x86_64 and aarch64 in one build:
+- Main `.o` file: x86_64
+- `.aarch64/` subdirectory: aarch64 version
+
+When building `.cosmoext` for ARM64, `cosmoext-build.py` automatically uses the
+`.aarch64/` version if present. This is handled in the `--arch aarch64` code path.
+
+### Rebuilding After Code Changes
+
+Python's build system caches aggressively. After modifying `_cosmoextmodule.c`:
+
+1. Copy updated source: `cp src/cosmoext/_cosmoextmodule.c work/Python-X.Y.Z/Modules/`
+2. Remove the compiled binary: `rm work/build-X.Y.Z-x86_64/python.com`
+3. Recompile: `./scripts/python/compile.sh X.Y.Z --cosmoext`
+4. Repackage: `rm dist/python-X.Y.Z-cosmo.com && ./scripts/python/package.sh X.Y.Z`
+
+Just updating the source file is **not enough**—you must remove outputs to trigger rebuild.
+
+### macOS Build Quirks
+
+**Curses fails on Python 3.11+**: The `-undefined dynamic_lookup` linker flag isn't
+supported by cosmocc. Python 3.10 works because it uses a different build path.
+This is a known limitation, not a bug to fix.
+
+**W^X on ARM64**: macOS ARM64 enforces Write XOR Execute. The loader:
+1. Maps memory as writable with `MAP_JIT`
+2. Copies code and applies relocations
+3. Switches to executable via `pthread_jit_write_protect_np(1)`
+
+Data sections that need to remain writable are copied to heap before the switch.
+
+### Format Version History
+
+| Version | Status | Notes |
+|---------|--------|-------|
+| v3, v4, v5 | Removed | Never released; didn't work on ARM64 |
+| v6 | Current | Includes `reloc_type` field for proper ARM64 ADRP/ADD patching |
+
+Only v6 is supported. The loader rejects other versions.
+
 ## Future Work
 
 1. **C++ support**: Test and fix C++ extension loading
