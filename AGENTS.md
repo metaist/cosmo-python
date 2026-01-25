@@ -8,14 +8,38 @@
 - **Supply chain trust**: Prefer upstream sources, verify checksums, minimize dependencies
 - **Reproducibility**: Same inputs → same outputs; pin versions, document build environments
 
-**Development Commands**:
+## Development Commands
 
-- `ds dev` — quick validation (lint + tests); **must** pass before commits
-- `ds build 3.12.8` — build single version
-- `ds build-all` — build all versions
-- `ds smoke dist/python-3.12.8-cosmo.com` — run smoke tests
-- `ds smoke-all` — run all smoke tests
-- `ds clean` — clean build artifacts
+| Command | Purpose |
+|---------|---------|
+| `ds dev` | **Must pass before every commit** — lint, type check, tests, spell check |
+| `ds build 3.12.8` | Build single Python version |
+| `ds build-all` | Build all Python versions |
+| `ds smoke dist/python-3.12.8-cosmo.com` | Run smoke tests on a binary |
+| `ds smoke-all` | Run all smoke tests |
+| `ds clean` | Clean build artifacts |
+
+## Validation Rules
+
+**`ds dev` is mandatory before commits.** Check the **full output**, not just the last few lines.
+
+Common issues caught by `ds dev`:
+- **cspell**: Unknown words → add to `.cspell.json`
+- **ruff**: Python lint/format issues
+- **shellcheck**: Shell script issues
+- **clang-format**: C code formatting
+- **pyright/mypy**: Type errors
+
+If `ds dev` fails, fix the issue before committing. Don't assume CI will catch it.
+
+## Project-Specific Notes
+
+- **Never want external libb2** — defeats purpose of portable binary; use Python's built-in blake2
+- **sys.platform should reflect runtime OS** — not a fake "cosmo" platform
+- **Rebuilding requires removing outputs** — Python's build caches aggressively; use `--clean` flag
+- **cosmoext testing**: `./scripts/smoke-cosmoext.sh dist/python-X.Y.Z-cosmo.com --ext all`
+
+---
 
 # General Principles (all projects)
 
@@ -23,29 +47,29 @@
 
 Before starting any task:
 
-- Confirm you have the tools to do the work _and_ verify it succeeded
-- Identify the goal and the immediate task; restate if the conversation is long or after compaction
-- Check if there's a relevant GitHub issue; add a comment if relevant
-- Clarify: is this a **quick experiment** (I'll check your work) or a **deep dive** (use your judgment, take your time)?
-- If you need more thinking time, ask me to adjust thinking tokens (off / low / medium / high)
+1. Confirm you have the tools to do the work _and_ verify it succeeded
+2. Identify the goal and immediate task; restate if conversation is long or after compaction
+3. Check for relevant GitHub issues; add comments for significant progress
+4. Clarify: **quick experiment** (user will check) or **deep dive** (use judgment)?
+5. If you need more thinking time, ask to adjust thinking tokens (off / low / medium / high)
 
 ## Working Style
 
 - Default to minimal changes; propose scope before larger refactors
-- Don't delete files you didn't create (humans or other agents may be working in the same directory)
-- Don't delete build artifacts needlessly; prefer idempotent approaches to keep things moving along
+- Don't delete files you didn't create (others may be working in same directory)
+- Don't delete build artifacts needlessly; prefer idempotent approaches
 - Follow existing patterns in the codebase
 - Prefer editing existing files over creating new ones
 - Don't add unnecessary comments or docstrings to unchanged code
 
 ## Communication
 
-- Number items in summaries and feedback so I can reference specifics
-- If there are meaningful alternatives, present options and wait—unless this is a deep dive
-- If you're solving a different problem than we started with, stop and check in
-- For long-running commands, pipe output so I can follow: `cmd 2>&1 | tee /tmp/build.log`
-- If something seems to hang, investigate rather than waiting silently
-- Notify me when long-running tasks complete
+- Number items in summaries so user can reference specifics
+- Present meaningful alternatives and wait—unless this is a deep dive
+- If solving a different problem than started, stop and check in
+- For long-running commands: `cmd 2>&1 | tee /tmp/build.log`
+- If something hangs, investigate rather than waiting silently
+- Notify when long-running tasks complete
 
 ## Shell Commands
 
@@ -55,27 +79,37 @@ Before starting any task:
 
 ## Code Style
 
-- Use type hints with modern syntax (`Path | None` not `Optional[Path]`)
+- Type hints with modern syntax (`Path | None` not `Optional[Path]`)
 - Require 100% test coverage; task isn't complete without it
-- `# pragma: no cover` only for trivial `if __name__ == "__main__"` or truly unreachable defensive code
-- Test observable behavior, not implementation details; tests should survive refactors
+- `# pragma: no cover` only for trivial `if __name__ == "__main__"` or truly unreachable code
+- Test observable behavior, not implementation details
 - Prefer comprehensive edge case coverage
 
 ## Workflow
 
-- Create an issue before implementing non-trivial changes
-- Add comments to existing issues when scope expands or for significant progress
-- Change the top-level body of the issue to reflect the overall goal and remaining tasks; mark tasks as complete after making relevant comments in the issue
-- Discuss structural/organizational changes before implementing (avoid churn)
-- Always run `ds dev` before committing (lint + type check + tests)
-- Commit frequently, but **do not push until asked**
-- Pushing to `main` triggers CI; batch commits to limit runs
+1. Create an issue before implementing non-trivial changes
+2. Add comments to issues when scope expands or for significant progress
+3. Update issue body to reflect overall goal and remaining tasks
+4. Discuss structural/organizational changes before implementing
+5. **Run `ds dev` and check full output** before committing
+6. Commit frequently, but **do not push until asked**
+7. Pushing to `main` triggers CI; batch commits to limit runs
 
 ## Commit Messages
 
-- Prefix: `add:`, `fix:`, `update:`, `remove:`, `refactor:`
+Format: `prefix: description (#issue)`
+
+| Prefix | Use for |
+|--------|---------|
+| `add:` | New features, files, capabilities |
+| `fix:` | Bug fixes, corrections |
+| `update:` | Changes to existing functionality, docs |
+| `remove:` | Deletions |
+| `refactor:` | Code restructuring without behavior change |
+
+Rules:
 - Lowercase titles, sentence fragments (no trailing period)
-- Backticks for code references: `fix: bug in \`keep_going\` parsing`
+- Backticks for code: `` fix: bug in `keep_going` parsing ``
 - Reference issues: `(#123)` or `(closes #123)`
 - Include `Co-Authored-By: {Model Name} <noreply@anthropic.com>` in body
 
@@ -83,8 +117,8 @@ Before starting any task:
 
 - Same prefix convention as commits
 - Lowercase titles; backticks for code references
-- Add `aigen` label for AI-generated issues (create it if it doesn't exist)
-- Start body with: "Created by {Model Name + Version} during {code review | discussion with...}"
+- Add `aigen` label for AI-generated issues
+- Start body: "Created by {Model Name + Version} during {context}..."
 - Prefer flat hierarchy in markdown; use bolding appropriately
 
 ## Conventions
