@@ -126,18 +126,37 @@ results = await asyncio.gather(*[async_func(x) for x in data])
 
 ### ctypes
 
-**Limited.** Two restrictions:
+**Limited.** Three restrictions:
 
 1. **`ctypes.pythonapi` is `None`**: Can't call back into Python's C API
 2. **No `dlopen()`**: Can't load `.so`/`.dll` files at runtime
+3. **Callbacks crash on macOS ARM64**: `CFUNCTYPE` callbacks cause "Bus error" ([#112])
 
-**Why:** Cosmopolitan produces statically-linked, position-independent executables. The dynamic linker (`ld.so`) isn't available, so `dlopen()` can't work. This is fundamental to how [Cosmopolitan libc][jart/cosmopolitan] achieves cross-platform portability.
+**What works:**
+```python
+import ctypes
+c = ctypes.c_int(42)           # ✅ Basic types
+class Point(ctypes.Structure): # ✅ Structures
+    _fields_ = [('x', ctypes.c_int)]
+arr = (ctypes.c_int * 3)()     # ✅ Arrays
+```
+
+**What doesn't work:**
+```python
+CFUNC = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
+cb = CFUNC(my_python_func)     # ❌ Crashes on macOS ARM64
+ctypes.CDLL("libfoo.so")       # ❌ No dlopen
+```
+
+**Why:** Cosmopolitan produces statically-linked, position-independent executables. The dynamic linker (`ld.so`) isn't available, so `dlopen()` can't work. The callback issue is due to Cosmopolitan's libffi implementation on macOS ARM64.
 
 **Comparison:**
 - [python-build-standalone]: Can load C extensions (not portable)
 - Cosmopolitan Python: Can't load C extensions (portable)
 
 **Workaround:** If you need native code, compile it into the binary at build time. See [superconfigure] for upstream recipes and our own [build scripts][scripts/01-deps] for how we build OpenSSL, SQLite, libffi, etc.
+
+[#112]: https://github.com/metaist/cosmo-python/issues/112
 
 ### Native Extensions (pip install)
 
