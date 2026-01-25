@@ -213,7 +213,7 @@ if [ ! -f "${BUILD_DIR}/Makefile" ]; then
   LIBZSTD_CFLAGS="-I${DEPS_DIR}/include" \
   LIBZSTD_LIBS="-L${DEPS_DIR}/lib -lzstd" \
   LIBS="-lreadline -ltinfo -lffi" \
-  MACHDEP="cosmo" \
+
 
 else
   log_info "skipping configure (Makefile exists)"
@@ -459,10 +459,9 @@ if [ -f "${BUILD_DIR}/python.exe" ] && [ ! -f "${BUILD_DIR}/python.com" ]; then
   cp "${BUILD_DIR}/python.exe" "${BUILD_DIR}/python.com"
 fi
 
-# Fix pybuilddir.txt for MACHDEP=cosmo
-# The generate-posix-vars step may leave pybuilddir.txt as "none" because
-# sysconfig can't find its own config data during the first generation.
-# The actual build dir with _sysconfigdata__cosmo_.py exists, so fix the reference.
+# Fix pybuilddir.txt if needed
+# On some systems, generate-posix-vars may leave pybuilddir.txt as "none"
+# The actual build dir with _sysconfigdata exists, so fix the reference.
 # We also touch it after writing to ensure it's newer than its make dependencies,
 # preventing regeneration during 'make install'.
 if [ -f "${BUILD_DIR}/pybuilddir.txt" ]; then

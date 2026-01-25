@@ -116,6 +116,13 @@ if [ -f "${REPO_ROOT}/src/cosmoext/_cosmoext_importer.py" ]; then
   cp "${REPO_ROOT}/src/cosmoext/_cosmoext_importer.py" "lib/python${PYTHON_MAJOR_MINOR}/"
 fi
 
+# Add stub modules for platform-specific modules that don't work with Cosmopolitan
+# _scproxy: macOS proxy settings via SystemConfiguration framework (not available)
+if [ -f "${REPO_ROOT}/src/stubs/_scproxy.py" ]; then
+  log_info "including _scproxy stub..."
+  cp "${REPO_ROOT}/src/stubs/_scproxy.py" "lib/python${PYTHON_MAJOR_MINOR}/"
+fi
+
 # Add CA certificates for SSL verification
 # These will be accessible at /zip/share/ssl/ inside the binary
 if [ -d "${DEPS_DIR}/share/ssl" ]; then
