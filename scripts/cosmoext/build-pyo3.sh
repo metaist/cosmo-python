@@ -257,8 +257,50 @@ if [[ "$ARCH" == "x86_64" ]]; then
   ]
 }
 TARGETEOF
+elif [[ "$ARCH" == "aarch64" ]]; then
+    TARGET_SPEC="$TMPDIR/aarch64-unknown-linux-musl.json"
+    cat > "$TARGET_SPEC" << 'TARGETEOF'
+{
+  "llvm-target": "aarch64-unknown-linux-musl",
+  "target-pointer-width": 64,
+  "arch": "aarch64",
+  "data-layout": "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128",
+  "os": "linux",
+  "env": "musl",
+  "vendor": "unknown",
+  "panic-strategy": "abort",
+  "requires-uwtable": false,
+  "dynamic-linking": false,
+  "executables": false,
+  "crt-static-default": true,
+  "crt-static-respected": true,
+  "linker-is-gnu": true,
+  "allows-weak-linkage": true,
+  "has-rpath": false,
+  "has-thread-local": false,
+  "trap-unreachable": true,
+  "position-independent-executables": false,
+  "static-position-independent-executables": false,
+  "relocation-model": "static",
+  "code-model": "small",
+  "tls-model": "local-dynamic",
+  "disable-redzone": true,
+  "frame-pointer": "always",
+  "requires-lto": false,
+  "eh-frame-header": false,
+  "no-default-libraries": true,
+  "max-atomic-width": 128,
+  "stack-probes": {
+    "kind": "none"
+  },
+  "target-family": [
+    "unix"
+  ],
+  "features": "+v8a"
+}
+TARGETEOF
 else
-    log_error "Architecture $ARCH not yet supported for PyO3"
+    log_error "Architecture $ARCH not supported. Use x86_64 or aarch64."
     exit 1
 fi
 
@@ -304,8 +346,12 @@ if [[ -f Cargo.toml.bak ]]; then
     mv Cargo.toml.bak Cargo.toml
 fi
 
-# Find the built library
-LIB_PATH="$CRATE_DIR/target/x86_64-unknown-linux-musl/release/lib${CRATE_NAME}.a"
+# Find the built library based on architecture
+if [[ "$ARCH" == "x86_64" ]]; then
+    LIB_PATH="$CRATE_DIR/target/x86_64-unknown-linux-musl/release/lib${CRATE_NAME}.a"
+else
+    LIB_PATH="$CRATE_DIR/target/aarch64-unknown-linux-musl/release/lib${CRATE_NAME}.a"
+fi
 if [[ ! -f "$LIB_PATH" ]]; then
     # Try alternate path (target spec filename without .json)
     LIB_PATH=$(find "$CRATE_DIR/target" -name "lib${CRATE_NAME}.a" -path "*/release/*" 2>/dev/null | head -1)
@@ -327,19 +373,30 @@ cd "$OBJDIR"
 
 ar x "$LIB_PATH"
 
-# Find the linker
+# Find the linker based on architecture
 COSMO_LD=""
-for candidate in \
-    "/tmp/cosmo/libexec/gcc/x86_64-linux-cosmo/14.1.0/ld.bfd" \
-    "$(dirname "$COSMOCC")/../libexec/gcc/x86_64-linux-cosmo/14.1.0/ld.bfd"; do
-    if [[ -x "$candidate" ]]; then
-        COSMO_LD="$candidate"
-        break
-    fi
-done
+if [[ "$ARCH" == "x86_64" ]]; then
+    for candidate in \
+        "/tmp/cosmo/libexec/gcc/x86_64-linux-cosmo/14.1.0/ld.bfd" \
+        "$(dirname "$COSMOCC")/../libexec/gcc/x86_64-linux-cosmo/14.1.0/ld.bfd"; do
+        if [[ -x "$candidate" ]]; then
+            COSMO_LD="$candidate"
+            break
+        fi
+    done
+else
+    for candidate in \
+        "/tmp/cosmo/libexec/gcc/aarch64-linux-cosmo/14.1.0/ld.bfd" \
+        "$(dirname "$COSMOCC")/../libexec/gcc/aarch64-linux-cosmo/14.1.0/ld.bfd"; do
+        if [[ -x "$candidate" ]]; then
+            COSMO_LD="$candidate"
+            break
+        fi
+    done
+fi
 
 if [[ -z "$COSMO_LD" ]]; then
-    log_error "Could not find cosmopolitan linker (ld.bfd)"
+    log_error "Could not find cosmopolitan linker (ld.bfd) for $ARCH"
     exit 1
 fi
 
