@@ -399,6 +399,8 @@ The standard `libcxx.a` from cosmocc uses `PC32` and `PLT32` relocations that as
 code is within ±2GB of addresses. Our runtime loader places code at arbitrary addresses
 (0x7f0000000000), so we need `-mcmodel=large` which uses 64-bit absolute addressing.
 
+See [Relocations Primer](relocations.md) for a detailed explanation of why this matters.
+
 The `libcxx-large.a` archives in `src/cosmoext/lib/` are rebuilt with:
 ```
 -mcmodel=large    # 64-bit addressing
@@ -475,6 +477,10 @@ PyMODINIT_FUNC PyInit_stltest(void) {
 - Rust standard library (`std::`)
 - Panic unwinding
 - Any crate that depends on `std` or `compiler_builtins`
+
+The limitation is due to Rust's default code model generating PC-relative relocations
+that can't reach Python symbols from where extensions are loaded.
+See [Relocations Primer](relocations.md) for details.
 
 **Example `no_std` Rust extension:**
 

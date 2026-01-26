@@ -42,6 +42,7 @@ nav:
     - Build Internals: build-process.md
     - macOS Build (Experimental): macos-build.md
   - C Extensions (Experimental): cosmoext.md
+  - Relocations Primer: relocations.md
   - Limitations: limitations.md
   - Contributing: https://github.com/metaist/cosmo-python/blob/main/CONTRIBUTING.md
   - Changelog: https://github.com/metaist/cosmo-python/blob/main/CHANGELOG.md
