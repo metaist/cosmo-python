@@ -130,7 +130,7 @@ results = await asyncio.gather(*[async_func(x) for x in data])
 
 1. **`ctypes.pythonapi` is `None`**: Can't call back into Python's C API
 2. **No `dlopen()`**: Can't load `.so`/`.dll` files at runtime
-3. **Callbacks crash on macOS ARM64**: `CFUNCTYPE` callbacks cause "Bus error" ([#112])
+3. **Callbacks don't work on macOS ARM64**: `CFUNCTYPE` callbacks hang or crash ([#112])
 
 **What works:**
 ```python
@@ -144,17 +144,34 @@ arr = (ctypes.c_int * 3)()     # ✅ Arrays
 **What doesn't work:**
 ```python
 CFUNC = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)
-cb = CFUNC(my_python_func)     # ❌ Crashes on macOS ARM64
+cb = CFUNC(my_python_func)     # ❌ Hangs/crashes on macOS ARM64
 ctypes.CDLL("libfoo.so")       # ❌ No dlopen
 ```
 
-**Why:** Cosmopolitan produces statically-linked, position-independent executables. The dynamic linker (`ld.so`) isn't available, so `dlopen()` can't work. The callback issue is due to Cosmopolitan's libffi implementation on macOS ARM64.
+**Why dlopen doesn't work:** Cosmopolitan produces statically-linked, position-independent executables. The dynamic linker (`ld.so`) isn't available.
+
+**Why callbacks don't work on macOS ARM64:** This is a fundamental hardware limitation. macOS ARM64 enforces strict W^X (Write XOR Execute)—memory cannot be both writable AND executable simultaneously. ctypes callbacks require generating executable code at runtime (closures), which needs one of:
+
+- **MAP_JIT** + `pthread_jit_write_protect_np()` to toggle between write/execute modes
+- **vm_remap()** Mach VM API to remap pre-compiled trampoline pages
+
+Cosmopolitan's libffi doesn't support MAP_JIT, and Cosmopolitan doesn't provide Mach VM APIs. This affects:
+
+| Package | Impact |
+|---------|--------|
+| ctypes callbacks | ❌ Blocked on macOS ARM64 |
+| [cffi] | ❌ Blocked (requires callbacks) |
+| [cryptography] | ❌ Blocked (requires cffi) |
+
+**Note:** ctypes works fine on Linux and x86_64 macOS. The callback limitation is specific to macOS ARM64 (Apple Silicon).
 
 **Comparison:**
 - [python-build-standalone]: Can load C extensions (not portable)
 - Cosmopolitan Python: Can't load C extensions (portable)
 
 **Workaround:** If you need native code, compile it into the binary at build time. See [superconfigure] for upstream recipes and our own [build scripts][scripts/01-deps] for how we build OpenSSL, SQLite, libffi, etc.
+
+For C/C++ extensions, see [cosmoext](cosmoext.md) which handles MAP_JIT properly for loading pre-compiled extensions.
 
 [#112]: https://github.com/metaist/cosmo-python/issues/112
 
@@ -412,3 +429,5 @@ Many limitations stem from [Cosmopolitan libc][jart/cosmopolitan] design choices
 [pathlib]: https://docs.python.org/3/library/pathlib.html
 [multiprocessing]: https://docs.python.org/3/library/multiprocessing.html
 [ctypes]: https://docs.python.org/3/library/ctypes.html
+[cffi]: https://cffi.readthedocs.io/
+[cryptography]: https://cryptography.io/
