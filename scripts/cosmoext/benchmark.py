@@ -101,12 +101,40 @@ def test_crc32c(path):
     print(f"  crc32c (1KB): {format_rate(mb_per_sec, 'MB/s')}")
     return True
 
+def test_msgpack(path):
+    """Benchmark msgpack serialization."""
+    import sys
+    import os
+    
+    # Need msgpack Python files on path
+    for search in ['/tmp/cosmoext-test/msgpack', './msgpack']:
+        if os.path.isdir(search):
+            sys.path.insert(0, search)
+            break
+    
+    import _cosmoext
+    import msgpack
+    
+    _cmsgpack = _cosmoext.load(path)
+    msgpack._cmsgpack = _cmsgpack
+    
+    data = {'key': 'value', 'number': 12345, 'array': [1, 2, 3, 4, 5]}
+    
+    rate, _ = benchmark("packb", lambda: msgpack.packb(data))
+    print(f"  packb(dict): {format_rate(rate)}")
+    
+    packed = msgpack.packb(data)
+    rate, _ = benchmark("unpackb", lambda: msgpack.unpackb(packed))
+    print(f"  unpackb(dict): {format_rate(rate)}")
+    return True
+
 EXTENSIONS = {
     'markupsafe': ('markupsafe.cosmoext', test_markupsafe),
     'xxhash': ('xxhash.cosmoext', test_xxhash),
     'ujson': ('ujson.cosmoext', test_ujson),
     'regex': ('regex.cosmoext', test_regex),
     'crc32c': ('crc32c.cosmoext', test_crc32c),
+    'msgpack': ('msgpack.cosmoext', test_msgpack),
 }
 
 def main():

@@ -38,7 +38,7 @@ If `ds dev` fails, fix the issue before committing. Don't assume CI will catch i
 - **Never want external libb2** — defeats purpose of portable binary; use Python's built-in blake2
 - **sys.platform should reflect runtime OS** — not a fake "cosmo" platform
 - **Rebuilding requires removing outputs** — Python's build caches aggressively; use `--clean` flag
-- **cosmoext testing**: `./scripts/smoke-cosmoext.sh dist/python-X.Y.Z-cosmo.com --ext all`
+- **cosmoext testing**: `./scripts/cosmoext/test.sh dist/python-X.Y.Z-cosmo.com --ext all`
 
 ---
 
@@ -76,11 +76,11 @@ Before starting any task:
 
 **Do not use `find` or `grep`.** Use these instead:
 
-| Instead of | Use | Why |
-|------------|-----|-----|
-| `find` | `fd` | Respects `.gitignore`, skips `work/`, `.venv/`, etc. |
-| `grep` | `rg` | Same—avoids searching 12k+ files in build directories |
-| `pip` | `uv` | Faster, better dependency resolution |
+| Instead of | Use  | Why                                                   |
+| ---------- | ---- | ----------------------------------------------------- |
+| `find`     | `fd` | Respects `.gitignore`, skips `work/`, `.venv/`, etc.  |
+| `grep`     | `rg` | Same—avoids searching 12k+ files in build directories |
+| `pip`      | `uv` | Faster, better dependency resolution                  |
 
 This repo has large build artifacts (`work/`) that make `find`/`grep` return thousands of irrelevant results and take 75+ seconds instead of milliseconds.
 
@@ -119,7 +119,7 @@ Rules:
 - Lowercase titles, sentence fragments (no trailing period)
 - Backticks for code: ``fix: bug in `keep_going` parsing``
 - Reference issues: `(#123)` or `(closes #123)`
-- Include `Co-Authored-By: {Model Name} <noreply@anthropic.com>` in body
+- Include `Co-Authored-By: {Model Name + Version} <noreply@anthropic.com>` in body
 
 ## GitHub Issues and Comments
 

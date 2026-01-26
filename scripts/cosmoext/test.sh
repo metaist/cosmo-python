@@ -85,15 +85,26 @@ EXT_VERSION[msgpack]="1.1.0"
 EXT_URL[msgpack]="https://github.com/msgpack/msgpack-python/archive/refs/tags/v1.1.0.tar.gz"
 EXT_CYTHON[msgpack]="msgpack/_cmsgpack.pyx"
 EXT_SOURCES[msgpack]="msgpack/_cmsgpack.c"
+EXT_INCLUDES[msgpack]="."
 EXT_TEST[msgpack]='
+import sys
+# msgpack needs its Python files on path to initialize
+sys.path.insert(0, "{ext_dir}")
+import msgpack  # establish package context
+
 import _cosmoext
-mp = _cosmoext.load("{path}")
-# Low-level module, just check it loads
-assert hasattr(mp, "Packer") or hasattr(mp, "pack"), "missing pack function"
-print("  ✓ module loads")
+_cmsgpack = _cosmoext.load("{path}")
+msgpack._cmsgpack = _cmsgpack
+
+# Test pack/unpack
+data = {"test": [1, 2, 3]}
+packed = msgpack.packb(data)
+unpacked = msgpack.unpackb(packed)
+assert unpacked == data, f"mismatch: {unpacked}"
+print("  ✓ pack/unpack works")
 '
 
-ALL_EXTENSIONS="markupsafe xxhash ujson regex crc32c"
+ALL_EXTENSIONS="markupsafe xxhash ujson regex crc32c msgpack"
 
 # Parse arguments
 PYTHON=""
@@ -255,6 +266,7 @@ for ext in "${EXT_LIST[@]}"; do
   # Smoke test
   echo "  Smoke testing..."
   TEST_CODE="${EXT_TEST[$ext]//\{path\}/$COSMOEXT_FILE}"
+  TEST_CODE="${TEST_CODE//\{ext_dir\}/$EXT_DIR}"
   if "$PYTHON" -c "$TEST_CODE" 2>&1 | grep -v "^\[cosmoext\]"; then
     RESULTS+=("$ext:pass")
   else
