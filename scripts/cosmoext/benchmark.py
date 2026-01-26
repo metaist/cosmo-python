@@ -90,11 +90,23 @@ def test_regex(path):
     print(f"  functions: {len([x for x in dir(regex) if not x.startswith('_')])}")
     return True
 
+def test_crc32c(path):
+    """Benchmark crc32c checksums."""
+    import _cosmoext
+    crc = _cosmoext.load(path)
+    
+    data = b'x' * 1000
+    rate, elapsed = benchmark("crc32c", lambda: crc.crc32c(data))
+    mb_per_sec = (100000 * 1000) / elapsed / 1e6
+    print(f"  crc32c (1KB): {format_rate(mb_per_sec, 'MB/s')}")
+    return True
+
 EXTENSIONS = {
     'markupsafe': ('markupsafe.cosmoext', test_markupsafe),
     'xxhash': ('xxhash.cosmoext', test_xxhash),
     'ujson': ('ujson.cosmoext', test_ujson),
     'regex': ('regex.cosmoext', test_regex),
+    'crc32c': ('crc32c.cosmoext', test_crc32c),
 }
 
 def main():

@@ -531,43 +531,45 @@ These notes capture practical knowledge for developers working on cosmoext.
 
 ### Testing cosmoext
 
-Run the smoke test with just the dummy extension:
+The `scripts/cosmoext/test.sh` script downloads, builds, tests, and benchmarks extensions:
+
 ```bash
-./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com
-```
-
-Test specific real-world extensions:
-```bash
-# Test one extension
-./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext xxhash
-
-# Test multiple extensions
-./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext xxhash,markupsafe
-
 # Test all supported extensions
-./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext all
+./scripts/cosmoext/test.sh python.com --ext all
+
+# Test specific extensions
+./scripts/cosmoext/test.sh python.com --ext markupsafe,xxhash
+
+# Skip benchmarks (faster)
+./scripts/cosmoext/test.sh python.com --ext ujson --no-benchmark
+
+# Force rebuild
+./scripts/cosmoext/test.sh python.com --ext markupsafe --force
 ```
 
-**Supported extensions for testing:**
+Run benchmarks only (if `.cosmoext` files already exist in `/tmp`):
+```bash
+python.com scripts/cosmoext/benchmark.py
+python.com scripts/cosmoext/benchmark.py markupsafe xxhash
+```
+
+**Supported extensions:**
 
 | Extension | Type | Notes |
 |-----------|------|-------|
-| `xxhash` | Pure C | Fast hashing |
-| `markupsafe` | Cython | HTML escaping |
-| `crc32c` | Pure C + SSE4.2 | CRC32C checksums |
-| `ujson` | C + C++ | Fast JSON (uses double-conversion) |
-| `msgpack` | Cython | MessagePack serialization |
+| `markupsafe` | Cython | HTML escaping, ~1.2M calls/sec |
+| `xxhash` | Pure C | Fast hashing, ~400 MB/s |
+| `ujson` | C + C++ | Fast JSON, ~170K enc/dec per sec |
 | `regex` | Pure C | Advanced regex engine |
 
 **Requirements**:
 
 - Python binary built with `--cosmoext` flag
 - cosmocc toolchain at `/tmp/cosmo`
-- Python source headers in `work/Python-X.Y.Z/Include` (kept after build)
-- `uv` available (for running cosmoext-build with pyelftools)
-- For msgpack: `cython` available via uv
+- Python 3 with pyelftools (for cosmoext-build)
+- Network access (to download extension sources)
 
-If `work/` is cleaned, the smoke test skips gracefully but can't verify functionality.
+The test script is idempotent—it skips downloads and builds if files already exist.
 
 ### Fat Binaries
 

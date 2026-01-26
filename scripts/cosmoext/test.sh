@@ -22,7 +22,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "${ROOT_DIR}/scripts/common.sh"
 
 # Extension definitions: name|version|url|dep_url|sources|test_code
-declare -A EXT_VERSION EXT_URL EXT_DEP_URL EXT_SOURCES EXT_INCLUDES EXT_TEST
+declare -A EXT_VERSION EXT_URL EXT_DEP_URL EXT_SOURCES EXT_INCLUDES EXT_TEST EXT_CYTHON
 
 EXT_VERSION[markupsafe]="3.0.2"
 EXT_URL[markupsafe]="https://github.com/pallets/markupsafe/archive/refs/tags/3.0.2.tar.gz"
@@ -68,7 +68,32 @@ assert hasattr(rx, "compile"), "missing compile"
 print("  ✓ module loads")
 '
 
-ALL_EXTENSIONS="markupsafe xxhash ujson regex"
+EXT_VERSION[crc32c]="2.7.1"
+EXT_URL[crc32c]="https://github.com/ICRAR/crc32c/archive/refs/tags/v2.7.1.tar.gz"
+EXT_SOURCES[crc32c]="src/crc32c/ext/_crc32c.c src/crc32c/ext/crc32c_sw.c src/crc32c/ext/crc32c_adler.c src/crc32c/ext/checksse42.c"
+EXT_INCLUDES[crc32c]="src/crc32c/ext"
+EXT_TEST[crc32c]='
+import _cosmoext
+crc = _cosmoext.load("{path}")
+result = crc.crc32c(b"hello")
+assert isinstance(result, int), "crc32c failed"
+print("  ✓ crc32c works")
+'
+
+# msgpack requires cython to generate C from .pyx
+EXT_VERSION[msgpack]="1.1.0"
+EXT_URL[msgpack]="https://github.com/msgpack/msgpack-python/archive/refs/tags/v1.1.0.tar.gz"
+EXT_CYTHON[msgpack]="msgpack/_cmsgpack.pyx"
+EXT_SOURCES[msgpack]="msgpack/_cmsgpack.c"
+EXT_TEST[msgpack]='
+import _cosmoext
+mp = _cosmoext.load("{path}")
+# Low-level module, just check it loads
+assert hasattr(mp, "Packer") or hasattr(mp, "pack"), "missing pack function"
+print("  ✓ module loads")
+'
+
+ALL_EXTENSIONS="markupsafe xxhash ujson regex crc32c"
 
 # Parse arguments
 PYTHON=""
@@ -177,6 +202,18 @@ for ext in "${EXT_LIST[@]}"; do
     # ujson needs version.h
     if [[ "$ext" == "ujson" ]]; then
       echo "#define UJSON_VERSION \"${EXT_VERSION[$ext]}\"" > "$EXT_DIR/python/version.h"
+    fi
+    
+    # Handle Cython extensions (generate .c from .pyx)
+    if [[ -n "${EXT_CYTHON[$ext]:-}" ]]; then
+      echo "  Running Cython..."
+      PYX_FILE="$EXT_DIR/${EXT_CYTHON[$ext]}"
+      C_FILE="${PYX_FILE%.pyx}.c"
+      if ! uv run --no-project --with cython -- cython -3 "$PYX_FILE" -o "$C_FILE" 2>/dev/null; then
+        log_error "Cython failed for $ext"
+        RESULTS+=("$ext:cython_failed")
+        continue
+      fi
     fi
   fi
   
