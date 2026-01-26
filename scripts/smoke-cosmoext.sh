@@ -1,6 +1,10 @@
 #!/bin/bash
 # Smoke tests for cosmoext C extension loading
 #
+# NOTE: Consider using scripts/cosmoext/test.sh instead, which has
+# cleaner code and integrated benchmarks. This script has more extensions
+# (cxx_stl, crc32c, msgpack) that haven't been migrated yet.
+#
 # Usage: ./scripts/smoke-cosmoext.sh <python_binary> [--ext <extension>]...
 #        ./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com
 #        ./scripts/smoke-cosmoext.sh dist/python-3.12.12-cosmo.com --ext xxhash
