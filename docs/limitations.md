@@ -30,7 +30,7 @@ Most of the standard library works normally:
 | [Packages](#package-management) | `ensurepip` | ❌ | Single-file design |
 | [Concurrency](#concurrency) | `multiprocessing` | ⚠️ | `spawn` fails; `fork` works |
 | [FFI](#foreign-function-interface) | `ctypes` | ⚠️ | No dynamic loading |
-| [FFI](#foreign-function-interface) | C extensions | ❌ | Can't pip install native packages |
+| [FFI](#foreign-function-interface) | C extensions | ⚠️ | Can't pip install; use [cosmoext](cosmoext.md) |
 | [Cryptography](#cryptography) | `_crypt` | ❌ | Deprecated; use `hashlib` |
 | [Cryptography](#cryptography) | `ssl` | ⚠️ | No QUIC/HTTP/3 |
 | [Platform](#platform-detection) | `sys.platform` | ⚠️ | Varies by host OS |
@@ -170,8 +170,9 @@ ctypes.CDLL("libfoo.so")       # ❌ No dlopen
 
 **Solutions:**
 1. **Pure Python**: Many packages work—use [cosmofy] to bundle them
-2. **Fork and build**: Add C extensions at compile time in your own build
-3. **Alternative packages**: Often a pure-Python alternative exists
+2. **cosmoext**: Build C/C++ extensions as `.cosmoext` files that load at runtime (see [cosmoext docs](cosmoext.md))
+3. **Fork and build**: Add C extensions at compile time in your own build
+4. **Alternative packages**: Often a pure-Python alternative exists
 
 ---
 
