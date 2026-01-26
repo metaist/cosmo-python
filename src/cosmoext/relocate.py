@@ -150,6 +150,10 @@ class LoadableSection:
     def is_writable(self) -> bool:
         return bool(self.flags & 0x1)  # SHF_WRITE
 
+    @property
+    def is_tls(self) -> bool:
+        return bool(self.flags & 0x400)  # SHF_TLS
+
 
 @dataclass
 class Relocation:
@@ -257,9 +261,11 @@ class CosmoExtBlob:
         for sec in self.sections:
             flags = 0
             if sec.is_executable:
-                flags |= 1
+                flags |= 1  # COSMOEXT_SECTION_EXEC
             if sec.is_writable:
-                flags |= 2
+                flags |= 2  # COSMOEXT_SECTION_WRITE
+            if sec.is_tls:
+                flags |= 4  # COSMOEXT_SECTION_TLS
             # C struct has 4 bytes padding after flags due to alignment
             section_headers += struct.pack("<QQIxxxx", sec.offset, sec.size, flags)
 
@@ -584,10 +590,12 @@ def apply_relocations(
     arch: str = "x86_64",
     trampolines: dict[str, int] | None = None,
     symbol_name_map: dict[str, str] | None = None,
+    tls_offsets: dict[str, int] | None = None,
 ) -> tuple[list[str], list[InternalRelocation], list[ExternalSymbol]]:
     """Apply relocations, returning (errors, internal_relocs, external_syms).
 
     Internal symbols are resolved. External symbols are recorded for runtime resolution.
+    tls_offsets maps TLS section names to their offset within the TLS block.
     """
 
     errors = []
@@ -921,11 +929,14 @@ def apply_relocations(
             elif reloc.type == R_X86_64_TPOFF32:
                 # x86_64: 32-bit offset from thread pointer
                 # The TLS variable is accessed as %fs:offset
-                # For cosmoext, we allocate TLS at a fixed offset from TP
-                # TODO: Implement proper TLS allocation
-                # For now, use offset 0x1000 (4096) as base for extension TLS
+                # Calculate TLS offset: base + section_offset + symbol_offset + addend
                 tls_base_offset = 0x1000
-                tls_offset = tls_base_offset + reloc.addend
+                sym_sec_offset = 0
+                if reloc.symbol in local_symbols and tls_offsets:
+                    sec_name, sec_off = local_symbols[reloc.symbol]
+                    if sec_name in tls_offsets:
+                        sym_sec_offset = tls_offsets[sec_name] + sec_off
+                tls_offset = tls_base_offset + sym_sec_offset + reloc.addend
                 struct.pack_into("<i", target_sec.data, reloc.offset, tls_offset)
                 # No internal reloc needed - offset is fixed at build time
 
@@ -933,7 +944,12 @@ def apply_relocations(
                 # ARM64: High 12 bits of TP-relative offset (shifted left by 12)
                 # Patches an ADD instruction: add xD, xN, #imm, lsl #12
                 tls_base_offset = 0x1000
-                tls_offset = tls_base_offset + reloc.addend
+                sym_sec_offset = 0
+                if reloc.symbol in local_symbols and tls_offsets:
+                    sec_name, sec_off = local_symbols[reloc.symbol]
+                    if sec_name in tls_offsets:
+                        sym_sec_offset = tls_offsets[sec_name] + sec_off
+                tls_offset = tls_base_offset + sym_sec_offset + reloc.addend
                 imm = (tls_offset >> 12) & 0xFFF
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 # ADD immediate format: imm12 is in bits 10-21
@@ -944,7 +960,12 @@ def apply_relocations(
                 # ARM64: Low 12 bits of TP-relative offset (no shift)
                 # Patches an ADD instruction: add xD, xN, #imm
                 tls_base_offset = 0x1000
-                tls_offset = tls_base_offset + reloc.addend
+                sym_sec_offset = 0
+                if reloc.symbol in local_symbols and tls_offsets:
+                    sec_name, sec_off = local_symbols[reloc.symbol]
+                    if sec_name in tls_offsets:
+                        sym_sec_offset = tls_offsets[sec_name] + sec_off
+                tls_offset = tls_base_offset + sym_sec_offset + reloc.addend
                 imm = tls_offset & 0xFFF
                 insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
                 # ADD immediate format: imm12 is in bits 10-21
@@ -1077,6 +1098,19 @@ def build_cosmoext(
             trampoline_offset = (total_size + 15) & ~15
             total_size = trampoline_offset + len(trampoline_data)
 
+    # Calculate TLS section offsets within the TLS block
+    # Order: .tbss first (uninitialized), then .tdata (initialized)
+    tls_offsets: dict[str, int] = {}
+    tls_offset_accum = 0
+    for sec_name in [".tbss", ".tdata"]:
+        if sec_name in sections and sections[sec_name].is_tls:
+            tls_offsets[sec_name] = tls_offset_accum
+            tls_offset_accum += sections[sec_name].size
+    if tls_offsets:
+        print("\n  TLS layout:")
+        for sec_name, off in tls_offsets.items():
+            print(f"    {sec_name}: TLS offset 0x{off:x}, size {sections[sec_name].size}")
+
     # Apply relocations
     print(f"\nApplying {len(relocations)} relocations...")
     errors, internal_relocs, external_syms = apply_relocations(
@@ -1088,6 +1122,7 @@ def build_cosmoext(
         arch=obj_arch,
         trampolines=trampolines if trampolines else None,
         symbol_name_map=symbol_name_map,
+        tls_offsets=tls_offsets if tls_offsets else None,
     )
 
     # Add trampoline patch offsets to external symbols list

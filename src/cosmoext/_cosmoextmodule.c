@@ -32,6 +32,14 @@ extern const char *_PyImport_SwapPackageContext(const char *newcontext);
 #define COSMOEXT_HAS_X86_64  0x1
 #define COSMOEXT_HAS_AARCH64 0x2
 
+/* Section flags in cosmoext format */
+#define COSMOEXT_SECTION_EXEC  0x1
+#define COSMOEXT_SECTION_WRITE 0x2
+#define COSMOEXT_SECTION_TLS   0x4
+
+/* TLS base offset for extension TLS variables */
+#define COSMOEXT_TLS_BASE_OFFSET 0x1000
+
 /* ARM64 relocation types */
 #define R_AARCH64_ABS64               257
 #define R_AARCH64_ADR_PREL_PG_HI21    275
@@ -883,11 +891,18 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
 /* Find writable sections and store their ranges */
 #define MAX_WRITABLE_SECTIONS 8
+#define MAX_TLS_SECTIONS      4
         struct {
             size_t start;
             size_t end;
         } writable_ranges[MAX_WRITABLE_SECTIONS];
+        struct {
+            size_t offset;
+            size_t size;
+        } tls_sections[MAX_TLS_SECTIONS];
         int num_writable = 0;
+        int num_tls = 0;
+        size_t tls_total_size = 0;
         size_t data_start = header.total_size; /* Overall start (high) */
         size_t data_end = 0;                   /* Overall end (low) */
 
@@ -903,8 +918,24 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
             }
             fseek(sf, 4, SEEK_CUR); /* Skip padding */
 
+            /* Check if TLS section (flags & 4) */
+            if ((sec_flags & COSMOEXT_SECTION_TLS) && sec_size > 0) {
+                if (num_tls < MAX_TLS_SECTIONS) {
+                    tls_sections[num_tls].offset = sec_offset;
+                    tls_sections[num_tls].size = sec_size;
+                    num_tls++;
+                    tls_total_size += sec_size;
+                }
+                if (verbose) {
+                    fprintf(stderr, "[cosmoext] TLS section %llu: offset=0x%llx, size=%llu\n",
+                            (unsigned long long)i, (unsigned long long)sec_offset,
+                            (unsigned long long)sec_size);
+                }
+            }
+
             /* Check if writable (flags & 2) and not executable (flags & 1) */
-            if ((sec_flags & 2) && !(sec_flags & 1) && sec_size > 0) {
+            if ((sec_flags & COSMOEXT_SECTION_WRITE) && !(sec_flags & COSMOEXT_SECTION_EXEC) &&
+                sec_size > 0) {
                 if (num_writable < MAX_WRITABLE_SECTIONS) {
                     writable_ranges[num_writable].start = sec_offset;
                     writable_ranges[num_writable].end = sec_offset + sec_size;
@@ -922,6 +953,41 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
             }
         }
         fclose(sf);
+
+        /* Initialize TLS data: copy .tdata content to TLS region */
+        if (num_tls > 0) {
+#ifdef __COSMOPOLITAN__
+            /* Get thread pointer */
+            uintptr_t tp;
+#ifdef __aarch64__
+            __asm__ volatile("mov %0, x28" : "=r"(tp));
+#else
+            __asm__ volatile("mov %%fs:0, %0" : "=r"(tp));
+#endif
+            char *tls_dest = (char *)tp + COSMOEXT_TLS_BASE_OFFSET;
+            size_t tls_offset = 0;
+
+            if (verbose) {
+                fprintf(stderr,
+                        "[cosmoext] Initializing TLS: %d sections, %zu total bytes at TP+0x%x\n",
+                        num_tls, tls_total_size, COSMOEXT_TLS_BASE_OFFSET);
+            }
+
+            for (int i = 0; i < num_tls; i++) {
+                /* Copy TLS data from blob to TLS region */
+                memcpy(tls_dest + tls_offset, (char *)mapped + tls_sections[i].offset,
+                       tls_sections[i].size);
+                if (verbose) {
+                    fprintf(stderr,
+                            "[cosmoext]   Copied TLS section %d: %zu bytes from blob+0x%zx to "
+                            "TP+0x%zx\n",
+                            i, tls_sections[i].size, tls_sections[i].offset,
+                            COSMOEXT_TLS_BASE_OFFSET + tls_offset);
+                }
+                tls_offset += tls_sections[i].size;
+            }
+#endif
+        }
 
 /* Helper to check if offset is in a writable section */
 #define IS_WRITABLE(off)                                                                 \
@@ -1095,6 +1161,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
 #undef IS_WRITABLE
 #undef MAX_WRITABLE_SECTIONS
+#undef MAX_TLS_SECTIONS
         }
     }
 #endif

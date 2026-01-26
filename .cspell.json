@@ -5,6 +5,7 @@
     "/\\(sum: [A-Za-z0-9/+]+\\)/"
   ],
   "words": [
+    "accum",
     "addralign",
     "addrs",
     "ADRP",
@@ -220,6 +221,8 @@
     "sysconfig",
     "sysconfigdata",
     "Szorc",
+    "tbss",
+    "tdata",
     "telnetlib",
     "termcap",
     "terminfo",
