@@ -58,6 +58,7 @@ STUB_SYMBOLS = {
     "ceil",
     "Py_Version",  # Needed by Cython-generated code
     # String conversion functions needed by libcxx
+    "strtod",
     "strtol",
     "strtoll",
     "strtoull",

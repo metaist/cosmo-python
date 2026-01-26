@@ -321,12 +321,87 @@ unsigned long long strtoull(const char *nptr, char **endptr, int base)
 }
 
 /**
+ * strtod - Convert string to double.
+ *
+ * Simple implementation for libcxx needs. Handles:
+ * - Optional sign
+ * - Integer part
+ * - Fractional part
+ * - No exponent support (could be added if needed)
+ */
+double strtod(const char *nptr, char **endptr)
+{
+    const char *s = nptr;
+    double result = 0.0;
+    int neg = 0;
+
+    /* Skip whitespace */
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r')
+        s++;
+
+    /* Sign */
+    if (*s == '-') {
+        neg = 1;
+        s++;
+    } else if (*s == '+') {
+        s++;
+    }
+
+    /* Integer part */
+    while (*s >= '0' && *s <= '9') {
+        result = result * 10.0 + (*s - '0');
+        s++;
+    }
+
+    /* Fractional part */
+    if (*s == '.') {
+        double frac = 0.1;
+        s++;
+        while (*s >= '0' && *s <= '9') {
+            result += (*s - '0') * frac;
+            frac *= 0.1;
+            s++;
+        }
+    }
+
+    /* Exponent (basic support) */
+    if (*s == 'e' || *s == 'E') {
+        s++;
+        int exp_neg = 0;
+        int exp = 0;
+
+        if (*s == '-') {
+            exp_neg = 1;
+            s++;
+        } else if (*s == '+') {
+            s++;
+        }
+
+        while (*s >= '0' && *s <= '9') {
+            exp = exp * 10 + (*s - '0');
+            s++;
+        }
+
+        double mult = 1.0;
+        for (int i = 0; i < exp; i++)
+            mult *= 10.0;
+
+        if (exp_neg)
+            result /= mult;
+        else
+            result *= mult;
+    }
+
+    if (endptr)
+        *endptr = (char *)s;
+    return neg ? -result : result;
+}
+
+/**
  * strtof - Convert string to float.
  */
 float strtof(const char *nptr, char **endptr)
 {
-    /* Use strtod and cast - good enough for libcxx needs */
-    extern double strtod(const char *, char **);
     return (float)strtod(nptr, endptr);
 }
 
@@ -336,7 +411,6 @@ float strtof(const char *nptr, char **endptr)
 long double strtold(const char *nptr, char **endptr)
 {
     /* Use strtod - long double often same as double on many platforms */
-    extern double strtod(const char *, char **);
     return (long double)strtod(nptr, endptr);
 }
 
