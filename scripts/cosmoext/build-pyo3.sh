@@ -3,12 +3,13 @@
 #
 # Usage:
 #   ./build-pyo3.sh <crate-dir> [--output <file.cosmoext>] [--python <python.com>]
+#   ./build-pyo3.sh --setup   # Install Rust nightly + rust-src
 #
 # Example:
 #   ./build-pyo3.sh /path/to/my-pyo3-crate --output my_module.cosmoext
 #
 # Requirements:
-#   - Rust nightly toolchain with rust-src component
+#   - Rust nightly toolchain with rust-src component (use --setup to install)
 #   - cosmocc compiler (for libc stubs)
 #   - Python with pyelftools (for relocation processing)
 
@@ -33,9 +34,32 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
+# Setup Rust nightly with rust-src component
+setup_rust() {
+    log_info "Setting up Rust nightly for PyO3 builds..."
+
+    # Check if rustup is installed
+    if ! command -v rustup &>/dev/null; then
+        log_error "rustup not found. Install from https://rustup.rs"
+        exit 1
+    fi
+
+    # Install nightly
+    log_info "Installing Rust nightly toolchain..."
+    rustup install nightly
+
+    # Add rust-src component (required for -Z build-std)
+    log_info "Adding rust-src component..."
+    rustup +nightly component add rust-src
+
+    log_info "Setup complete! You can now build PyO3 extensions."
+    exit 0
+}
+
 usage() {
     cat << EOF
 Usage: $(basename "$0") <crate-dir> [options]
+       $(basename "$0") --setup
 
 Build a PyO3/Rust extension for cosmoext loading.
 
@@ -48,14 +72,15 @@ Options:
     -a, --arch ARCH     Target architecture: x86_64 or aarch64 (default: x86_64)
     -v, --verbose       Verbose output
     -h, --help          Show this help message
+    --setup             Install Rust nightly + rust-src component
 
 Requirements:
-    - Rust nightly: rustup install nightly
-    - rust-src: rustup +nightly component add rust-src
+    - Rust nightly with rust-src (run with --setup to install)
     - cosmocc: Available in PATH or at /tmp/cosmo/bin/cosmocc
     - pyelftools: pip install pyelftools
 
 Example:
+    $(basename "$0") --setup                         # First-time setup
     $(basename "$0") ./my-pyo3-crate -o my_module.cosmoext
 EOF
     exit "${1:-0}"
@@ -65,6 +90,9 @@ EOF
 CRATE_DIR=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --setup)
+            setup_rust
+            ;;
         -o|--output)
             OUTPUT="$2"
             shift 2
