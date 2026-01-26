@@ -1171,21 +1171,12 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
     if (verbose) {
         fprintf(stderr, "[cosmoext] About to call init at %p\n", (void *)init_func);
 
-        /* Dump trampoline contents for PyModule_Create2 */
-        /* The init function branches to 0x65700, which should have the trampoline */
-        unsigned char *tramp = (unsigned char *)mapped + 0x65700;
-        fprintf(stderr, "[cosmoext] DEBUG: Trampoline at %p (offset 0x65700):\n", (void *)tramp);
-        fprintf(stderr, "[cosmoext]   ");
-        for (int j = 0; j < 24; j++) {
-            fprintf(stderr, "%02x ", tramp[j]);
+        /* Dump trampoline contents if they exist within mapped region */
+        /* Note: trampoline offset varies by extension - only dump if within bounds */
+        if (header.total_size > 0x1f70) { /* Check if trampolines might exist */
+            /* Find first trampoline by looking for external symbols with patch offsets */
+            fprintf(stderr, "[cosmoext] DEBUG: Trampolines (if any) are within blob\n");
         }
-        fprintf(stderr, "\n");
-
-        /* The address at offset 8 should be PyModule_Create2 */
-        uint64_t tramp_addr;
-        memcpy(&tramp_addr, tramp + 8, 8);
-        fprintf(stderr, "[cosmoext] DEBUG: Trampoline target addr = 0x%llx\n",
-                (unsigned long long)tramp_addr);
 
         /* Test read from mapped memory to verify it's accessible */
         fprintf(stderr, "[cosmoext] DEBUG: Testing read from mapped memory...\n");
@@ -1202,6 +1193,15 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
         fflush(stderr);
     }
+
+    /* Test: Can we even read the first instruction? */
+    if (verbose) {
+        uint32_t first_insn;
+        memcpy(&first_insn, (void *)init_func, 4);
+        fprintf(stderr, "[cosmoext] DEBUG: First instruction = 0x%08x\n", first_insn);
+        fflush(stderr);
+    }
+
     void *init_result = init_func();
     if (verbose) {
         fprintf(stderr, "[cosmoext] Init returned: %p\n", init_result);
