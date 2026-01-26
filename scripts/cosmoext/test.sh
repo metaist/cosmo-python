@@ -7,6 +7,7 @@
 #   --ext <name>      Extension to test (can repeat, or use 'all')
 #   --no-benchmark    Skip benchmarks
 #   --no-download     Skip download (use cached sources)
+#   --force           Force rebuild even if .cosmoext exists
 #   --verbose         Show build output
 #
 # Examples:
@@ -74,6 +75,7 @@ PYTHON=""
 EXTENSIONS=""
 DO_BENCHMARK=1
 DO_DOWNLOAD=1
+FORCE_BUILD=0
 VERBOSE=0
 
 while [[ $# -gt 0 ]]; do
@@ -88,6 +90,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-download)
       DO_DOWNLOAD=0
+      shift
+      ;;
+    --force|-f)
+      FORCE_BUILD=1
       shift
       ;;
     --verbose|-v)
@@ -174,8 +180,8 @@ for ext in "${EXT_LIST[@]}"; do
     fi
   fi
   
-  # Build
-  if [[ ! -f "$COSMOEXT_FILE" ]] || [[ $DO_DOWNLOAD -eq 1 ]]; then
+  # Build (only if .cosmoext doesn't exist or --force)
+  if [[ ! -f "$COSMOEXT_FILE" ]] || [[ $FORCE_BUILD -eq 1 ]]; then
     echo "  Building..."
     
     # Prepare source files
