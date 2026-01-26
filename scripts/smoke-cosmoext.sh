@@ -9,6 +9,7 @@
 #
 # Extensions:
 #   (none)      - Just test the dummy extension (default)
+#   cxx_stl     - C++ STL (std::sort, std::string)
 #   xxhash      - Pure C hashing library
 #   markupsafe  - Cython HTML escaping
 #   crc32c      - CRC32C with SSE4.2 support
@@ -45,7 +46,7 @@ MSGPACK_URL="https://github.com/msgpack/msgpack-python/archive/refs/tags/v${MSGP
 REGEX_VERSION="2024.11.6"
 REGEX_URL="https://github.com/mrabarnett/mrab-regex/archive/refs/tags/${REGEX_VERSION}.tar.gz"
 
-ALL_EXTENSIONS="xxhash markupsafe crc32c ujson msgpack regex"
+ALL_EXTENSIONS="cxx_stl xxhash markupsafe crc32c ujson msgpack regex"
 
 # Parse arguments
 PYTHON=""
@@ -381,6 +382,130 @@ print(f'echo:{m.echo(\"hello\")}')
     pass "echo('hello') = 'hello'"
   else
     fail "echo function failed"
+  fi
+}
+
+###############################################################################
+# C++ STL test - std::sort, std::string
+###############################################################################
+
+test_cxx_stl() {
+  echo ""
+  echo "Building C++ STL test extension..."
+
+  # Check if cosmoc++ exists
+  if [[ ! -x "$COSMOCXX" ]]; then
+    skip "cosmoc++ not found at $COSMOCXX"
+    return 0
+  fi
+
+  # Check if libcxx-large archives exist
+  local LIBCXX_LARGE="$SCRIPT_DIR/../src/cosmoext/lib/libcxx-large-x86_64.a"
+  if [[ ! -f "$LIBCXX_LARGE" ]]; then
+    skip "libcxx-large archives not found (run scripts/libcxx-large.sh)"
+    return 0
+  fi
+
+  cat > "$TEST_DIR/stl_test.cpp" << 'EOF'
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+#include <algorithm>
+#include <vector>
+#include <string>
+
+static PyObject* sort_list(PyObject* self, PyObject* args) {
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) return NULL;
+
+    // Convert to std::vector
+    std::vector<long> vec;
+    Py_ssize_t size = PyList_Size(list);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        vec.push_back(PyLong_AsLong(PyList_GetItem(list, i)));
+    }
+
+    // Use STL algorithm
+    std::sort(vec.begin(), vec.end());
+
+    // Convert back to Python list
+    PyObject* result = PyList_New(size);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        PyList_SetItem(result, i, PyLong_FromLong(vec[i]));
+    }
+    return result;
+}
+
+static PyObject* reverse_string(PyObject* self, PyObject* args) {
+    const char* input;
+    if (!PyArg_ParseTuple(args, "s", &input)) return NULL;
+
+    std::string s(input);
+    std::reverse(s.begin(), s.end());
+    return PyUnicode_FromString(s.c_str());
+}
+
+static PyMethodDef methods[] = {
+    {"sort_list", sort_list, METH_VARARGS, "Sort a list using std::sort"},
+    {"reverse_string", reverse_string, METH_VARARGS, "Reverse a string using std::reverse"},
+    {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef module = {
+    PyModuleDef_HEAD_INIT, "_stltest", NULL, -1, methods
+};
+
+PyMODINIT_FUNC PyInit__stltest(void) {
+    return PyModule_Create(&module);
+}
+EOF
+
+  # Build with --cxx flag
+  if uv run --with pyelftools "$COSMOEXT_BUILD" \
+      --python "$PYTHON" \
+      --output "$TEST_DIR/_stltest.cosmoext" \
+      --cxx \
+      -I "$PY_SRC_INCLUDE" \
+      -I "$PY_BUILD_INCLUDE" \
+      "$TEST_DIR/stl_test.cpp" 2>/dev/null; then
+    local size
+    size=$(stat -f%z "$TEST_DIR/_stltest.cosmoext" 2>/dev/null || stat -c%s "$TEST_DIR/_stltest.cosmoext" 2>/dev/null)
+    pass "built _stltest.cosmoext (${size} bytes)"
+  else
+    fail "failed to build C++ STL extension"
+    return 1
+  fi
+
+  echo ""
+  echo "Testing C++ STL extension..."
+
+  local result
+  result=$(run_test "
+import _cosmoext
+m = _cosmoext.load('$TEST_DIR/_stltest.cosmoext')
+print(f'module:{m.__name__}')
+sorted_list = m.sort_list([5, 2, 8, 1, 9, 3])
+print(f'sorted:{sorted_list}')
+reversed_str = m.reverse_string('hello')
+print(f'reversed:{reversed_str}')
+")
+
+  if echo "$result" | grep -q "module:_stltest"; then
+    pass "loaded C++ module"
+  else
+    fail "failed to load C++ module: $result"
+    return 1
+  fi
+
+  if echo "$result" | grep -q "sorted:\[1, 2, 3, 5, 8, 9\]"; then
+    pass "std::sort works"
+  else
+    fail "std::sort failed: $result"
+  fi
+
+  if echo "$result" | grep -q "reversed:olleh"; then
+    pass "std::reverse works"
+  else
+    fail "std::reverse failed: $result"
   fi
 }
 
@@ -760,6 +885,7 @@ test_dummy
 # Run requested extension tests
 for ext in $EXTENSIONS; do
   case "$ext" in
+    cxx_stl)    test_cxx_stl ;;
     xxhash)     test_xxhash ;;
     markupsafe) test_markupsafe ;;
     crc32c)     test_crc32c ;;
