@@ -131,17 +131,59 @@ def find_linker(cosmo_root: Path, arch: str = "x86_64") -> Path | None:
     return None
 
 
-def find_libcxx_large(arch: str = "x86_64") -> Path | None:
+def find_libcxx_large(arch: str = "x86_64", auto_build: bool = True) -> Path | None:
     """Find our custom libcxx-large.a built with -mcmodel=large.
 
     These are required for C++ extensions because the standard libcxx.a
     uses PC32/PLT32 relocations that aren't compatible with our loader.
+
+    Args:
+        arch: Target architecture (x86_64 or aarch64)
+        auto_build: If True and archives don't exist, try to build them
+
+    Returns:
+        Path to libcxx-large archive, or None if not found/buildable
     """
     # Look in src/cosmoext/lib/ relative to this script
     script_dir = Path(__file__).parent
     libcxx = script_dir / "lib" / f"libcxx-large-{arch}.a"
     if libcxx.exists():
         return libcxx
+
+    if not auto_build:
+        return None
+
+    # Try to build the archives using scripts/libcxx-large.sh
+    # Find the scripts directory (../../scripts from src/cosmoext/)
+    repo_root = script_dir.parent.parent
+    build_script = repo_root / "scripts" / "libcxx-large.sh"
+
+    if not build_script.exists():
+        print(
+            "  Warning: libcxx-large archives not found and build script missing",
+            file=sys.stderr,
+        )
+        print(f"  Expected: {libcxx}", file=sys.stderr)
+        print("  Build with: ./scripts/libcxx-large.sh", file=sys.stderr)
+        return None
+
+    print("  Building libcxx-large archives (this may take a few minutes)...")
+    result = subprocess.run(
+        [str(build_script)],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print("  Failed to build libcxx-large archives:", file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        return None
+
+    # Check if it exists now
+    if libcxx.exists():
+        print(f"  Built: {libcxx}")
+        return libcxx
+
     return None
 
 
