@@ -542,8 +542,14 @@ def main() -> None:
             run_cmd(stubs_cmd, args.verbose)
 
             # Re-link with stubs
+            # cosmocc creates both x86_64 (main) and aarch64 (.aarch64/) versions
+            # Use the appropriate one for the target architecture
+            if args.arch == "aarch64":
+                stubs_obj_for_link = tmpdir / ".aarch64" / "libc_stubs.o"
+            else:
+                stubs_obj_for_link = stubs_obj
             new_combined = tmpdir / "combined_with_stubs.o"
-            cmd = [linker, "-r", "-o", new_combined, combined_obj, stubs_obj]
+            cmd = [linker, "-r", "-o", new_combined, combined_obj, stubs_obj_for_link]
             if args.verbose:
                 print("Linking with libc stubs...")
             run_cmd(cmd, args.verbose)

@@ -587,3 +587,135 @@ const void *_ZTISt16invalid_argument = 0;
 /* Vtable stubs - minimal vtables with null pointers */
 const void *_ZTVSt12out_of_range[4] = {0, 0, 0, 0};
 const void *_ZTVSt16invalid_argument[4] = {0, 0, 0, 0};
+
+/*
+ * Rust runtime stubs for PyO3 extensions.
+ * These provide minimal implementations for Rust runtime functions
+ * that may not be exported from python.com.
+ */
+
+/* Compare memory - same as memcmp but BSD name */
+int bcmp(const void *s1, const void *s2, unsigned long n)
+{
+    const unsigned char *p1 = s1;
+    const unsigned char *p2 = s2;
+    while (n--) {
+        if (*p1 != *p2) {
+            return *p1 - *p2;
+        }
+        p1++;
+        p2++;
+    }
+    return 0;
+}
+
+/* Aligned memory allocation */
+int posix_memalign(void **memptr, unsigned long alignment, unsigned long size)
+{
+    /* Simple implementation using malloc - alignment is ignored
+     * This works for most cases where alignment <= 16 */
+    void *ptr = __builtin_malloc(size);
+    if (ptr == 0) {
+        return 12; /* ENOMEM */
+    }
+    *memptr = ptr;
+    return 0;
+}
+
+/* Thread-safe strerror */
+int __xpg_strerror_r(int errnum, char *buf, unsigned long buflen)
+{
+    /* Minimal implementation - just format error number */
+    if (buflen < 20) {
+        return 34; /* ERANGE */
+    }
+    /* Simple number to string */
+    char *p = buf;
+    *p++ = 'E';
+    *p++ = 'r';
+    *p++ = 'r';
+    *p++ = 'o';
+    *p++ = 'r';
+    *p++ = ' ';
+    if (errnum < 0) {
+        *p++ = '-';
+        errnum = -errnum;
+    }
+    char tmp[12];
+    int i = 0;
+    do {
+        tmp[i++] = '0' + (errnum % 10);
+        errnum /= 10;
+    } while (errnum && i < 11);
+    while (i > 0) {
+        *p++ = tmp[--i];
+    }
+    *p = '\0';
+    return 0;
+}
+
+/* Rust unwinding stubs - these are needed for panic handling.
+ * Since we use panic=abort, these should never actually be called,
+ * but the linker needs them to resolve symbols. */
+
+typedef void *_Unwind_Context;
+typedef int _Unwind_Reason_Code;
+typedef unsigned long _Unwind_Word;
+typedef unsigned long _Unwind_Ptr;
+
+_Unwind_Reason_Code _Unwind_Backtrace(_Unwind_Reason_Code (*)(struct _Unwind_Context *, void *),
+                                      void *arg)
+{
+    return 0; /* _URC_NO_REASON */
+}
+
+_Unwind_Ptr _Unwind_GetDataRelBase(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
+
+_Unwind_Ptr _Unwind_GetTextRelBase(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
+
+_Unwind_Word _Unwind_GetIP(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
+
+_Unwind_Word _Unwind_GetIPInfo(_Unwind_Context *context, int *ip_before_insn)
+{
+    (void)context;
+    if (ip_before_insn)
+        *ip_before_insn = 0;
+    return 0;
+}
+
+_Unwind_Ptr _Unwind_GetLanguageSpecificData(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
+
+_Unwind_Ptr _Unwind_GetRegionStart(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
+
+void _Unwind_SetGR(_Unwind_Context *context, int reg, _Unwind_Word val)
+{
+    (void)context;
+    (void)reg;
+    (void)val;
+}
+
+void _Unwind_SetIP(_Unwind_Context *context, _Unwind_Ptr val)
+{
+    (void)context;
+    (void)val;
+}
