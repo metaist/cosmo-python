@@ -903,6 +903,33 @@ def build_cosmoext(
         "iscntrl": "__iscntrl",
         "ispunct": "__ispunct",
         "isspace": "__isspace",
+        # Wide character functions use .default suffix
+        "wcslen": "wcslen.default",
+        "wmemcmp": "wmemcmp.default",
+        # String conversion functions may have aliases
+        "strtol": "strtol.default",
+        "strtoll": "strtoll.default",
+        "strtoul": "strtoul.default",
+        "strtoull": "strtoull.default",
+        "strtod": "strtod.default",
+        "strtof": "strtof.default",
+        "strtold": "strtold.default",
+        "wcstol": "wcstol.default",
+        "wcstoll": "wcstoll.default",
+        "wcstoul": "wcstoul.default",
+        "wcstoull": "wcstoull.default",
+        "wcstod": "wcstod.default",
+        "wcstof": "wcstof.default",
+        "wcstold": "wcstold.default",
+        "swprintf": "swprintf.default",
+        # C++ destructor variants (D1 = complete, D2 = base - often interchangeable)
+        "_ZNSt12length_errorD1Ev": "_ZNSt12length_errorD2Ev",
+        "_ZNSt12out_of_rangeD1Ev": "_ZNSt12out_of_rangeD2Ev",
+        "_ZNSt13runtime_errorD1Ev": "_ZNSt13runtime_errorD2Ev",
+        "_ZNSt16invalid_argumentD1Ev": "_ZNSt16invalid_argumentD2Ev",
+        "_ZNSt9bad_allocD1Ev": "_ZNSt9bad_allocD2Ev",
+        "_ZNSt9exceptionD2Ev": "_ZNSt9exceptionD1Ev",
+        "_ZNSt20bad_array_new_lengthD1Ev": "_ZNSt20bad_array_new_lengthD2Ev",
     }
 
     # Identify external symbols and validate they exist

@@ -106,6 +106,44 @@ def find_linker(cosmo_root: Path, arch: str = "x86_64") -> Path | None:
     return None
 
 
+def find_libcxx(cosmo_root: Path, arch: str = "x86_64") -> Path | None:
+    """Find libcxx.a for the given architecture."""
+    # libcxx.a is in <arch>-linux-cosmo/lib/libcxx.a
+    triple = f"{arch}-linux-cosmo"
+    libcxx = cosmo_root / triple / "lib" / "libcxx.a"
+    if libcxx.exists():
+        return libcxx
+    return None
+
+
+def has_cpp_symbols(obj_path: Path, nm_path: Path | None = None) -> bool:
+    """Check if an object file has C++ mangled symbols (needs libcxx)."""
+    nm = nm_path or find_tool("nm")
+    if not nm:
+        return False
+
+    result = run_cmd([nm, "-u", obj_path], check=False, capture=True)
+    if result.returncode != 0:
+        return False
+
+    # Look for C++ mangled symbols (start with _Z) that are from libcxx
+    # These include things like std::sort, std::string methods, etc.
+    for line in result.stdout.strip().split("\n"):
+        parts = line.split()
+        if len(parts) >= 1:
+            sym = parts[-1]
+            # C++ mangled names start with _Z (Itanium ABI) or _ZN (namespace)
+            # Specifically look for std:: symbols (_ZNSt or _ZSt)
+            if sym.startswith("_ZNSt") or sym.startswith("_ZSt"):
+                return True
+            # Also check for operator new/delete variants we might need
+            if sym.startswith("_Znw") or sym.startswith("_Zna"):  # new
+                return True
+            if sym.startswith("_Zdl") or sym.startswith("_Zda"):  # delete
+                return True
+    return False
+
+
 def get_python_includes(python_path: Path) -> list[Path]:
     """Get include directories for Python headers."""
     includes = []
@@ -395,19 +433,24 @@ def main() -> None:
                 missing = undefined & STUB_SYMBOLS
                 print(f"Adding libc stubs for: {missing}")
 
-            # Compile the stubs
+            # Compile the stubs (always use C compiler, not C++)
             stubs_obj = tmpdir / "libc_stubs.o"
-            cmd = [
-                compiler,
+            c_compiler = find_tool("cosmocc")
+            if not c_compiler:
+                print("Error: cosmocc not found for compiling libc stubs", file=sys.stderr)
+                sys.exit(1)
+            assert c_compiler is not None  # for type checker
+            stubs_cmd: list[str | Path] = [
+                c_compiler,
                 "-c",
                 "-fno-stack-protector",
             ]
             if args.arch == "aarch64":
-                cmd.append("-mcmodel=large")
+                stubs_cmd.append("-mcmodel=large")
             else:
-                cmd.extend(["-fPIC", "-mcmodel=large"])
-            cmd.extend(["-o", stubs_obj, LIBC_STUBS])
-            run_cmd(cmd, args.verbose)
+                stubs_cmd.extend(["-fPIC", "-mcmodel=large"])
+            stubs_cmd.extend(["-o", stubs_obj, LIBC_STUBS])
+            run_cmd(stubs_cmd, args.verbose)
 
             # Re-link with stubs
             new_combined = tmpdir / "combined_with_stubs.o"
@@ -416,6 +459,33 @@ def main() -> None:
                 print("Linking with libc stubs...")
             run_cmd(cmd, args.verbose)
             combined_obj = new_combined
+
+        # Check if we need libcxx (C++ standard library)
+        # This is needed for C++ extensions that use STL templates
+        needs_libcxx = args.cxx and has_cpp_symbols(combined_obj)
+        if needs_libcxx:
+            arch = args.arch or "x86_64"
+            libcxx = find_libcxx(cosmo_root, arch)
+            if libcxx:
+                if args.verbose:
+                    print("Linking with libcxx.a for C++ STL support...")
+
+                # Link against libcxx.a to resolve C++ standard library symbols
+                # Don't use --whole-archive; let linker pull only what's needed
+                new_combined = tmpdir / "combined_with_libcxx.o"
+                cmd = [
+                    linker,
+                    "-r",
+                    "-o",
+                    new_combined,
+                    combined_obj,
+                    libcxx,
+                ]
+                run_cmd(cmd, args.verbose)
+                combined_obj = new_combined
+            else:
+                if args.verbose:
+                    print(f"Warning: libcxx.a not found for {arch}, C++ STL may not work")
 
         # For fat builds, also link aarch64 objects
         if build_fat:
@@ -449,8 +519,9 @@ def main() -> None:
 
                 # Add stubs if needed (stubs were already compiled for both archs by cosmocc)
                 aarch64_stubs = aarch64_dir / "libc_stubs.o"
-                aarch64_with_stubs = aarch64_dir / "combined_with_stubs.o"
+                aarch64_final = aarch64_combined
                 if needs_stubs and aarch64_stubs.exists():
+                    aarch64_with_stubs = aarch64_dir / "combined_with_stubs.o"
                     cmd = [
                         linker_aarch64,
                         "-r",
@@ -462,9 +533,30 @@ def main() -> None:
                     if args.verbose:
                         print("Linking aarch64 with libc stubs...")
                     run_cmd(cmd, args.verbose)
-                elif aarch64_combined != aarch64_with_stubs:
-                    # Copy combined to expected location for relocate.py
-                    shutil.copy(aarch64_combined, aarch64_with_stubs)
+                    aarch64_final = aarch64_with_stubs
+
+                # Add libcxx if needed for C++ STL support
+                if needs_libcxx:
+                    libcxx_aarch64 = find_libcxx(cosmo_root, "aarch64")
+                    if libcxx_aarch64:
+                        if args.verbose:
+                            print("Linking aarch64 with libcxx.a...")
+                        aarch64_with_libcxx = aarch64_dir / "combined_with_libcxx.o"
+                        cmd = [
+                            linker_aarch64,
+                            "-r",
+                            "-o",
+                            aarch64_with_libcxx,
+                            aarch64_final,
+                            libcxx_aarch64,
+                        ]
+                        run_cmd(cmd, args.verbose)
+                        aarch64_final = aarch64_with_libcxx
+
+                # Ensure final object is at expected location for relocate.py
+                expected_path = aarch64_dir / "combined_with_stubs.o"
+                if aarch64_final != expected_path:
+                    shutil.copy(aarch64_final, expected_path)
             else:
                 if args.verbose:
                     print("Note: No aarch64 objects found, building x86_64 only")
