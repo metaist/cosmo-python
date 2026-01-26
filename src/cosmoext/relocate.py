@@ -57,6 +57,14 @@ R_AARCH64_MOVW_UABS_G3 = 269  # S + A, bits 48-63
 R_AARCH64_LD64_GOT_LO12_NC = 312  # G(S) (low 12 bits of GOT entry)
 R_AARCH64_PREL32 = 261  # S + A - P (32-bit PC-relative)
 
+# TLS (Thread-Local Storage) relocation types - Local Exec model
+# x86_64
+R_X86_64_TPOFF32 = 23  # S + A (32-bit offset from thread pointer)
+
+# ARM64 TLS Local Exec (TLSLE) - uses TP register directly
+R_AARCH64_TLSLE_ADD_TPREL_HI12 = 549  # TP-relative, high 12 bits for ADD
+R_AARCH64_TLSLE_ADD_TPREL_LO12_NC = 551  # TP-relative, low 12 bits for ADD (binutils uses 551)
+
 RELOC_NAMES_X86_64 = {
     R_X86_64_NONE: "R_X86_64_NONE",
     R_X86_64_64: "R_X86_64_64",
@@ -64,6 +72,7 @@ RELOC_NAMES_X86_64 = {
     R_X86_64_PLT32: "R_X86_64_PLT32",
     R_X86_64_32: "R_X86_64_32",
     R_X86_64_32S: "R_X86_64_32S",
+    R_X86_64_TPOFF32: "R_X86_64_TPOFF32",
 }
 
 RELOC_NAMES_AARCH64 = {
@@ -83,6 +92,8 @@ RELOC_NAMES_AARCH64 = {
     R_AARCH64_MOVW_UABS_G1_NC: "R_AARCH64_MOVW_UABS_G1_NC",
     R_AARCH64_MOVW_UABS_G2_NC: "R_AARCH64_MOVW_UABS_G2_NC",
     R_AARCH64_MOVW_UABS_G3: "R_AARCH64_MOVW_UABS_G3",
+    R_AARCH64_TLSLE_ADD_TPREL_HI12: "R_AARCH64_TLSLE_ADD_TPREL_HI12",
+    R_AARCH64_TLSLE_ADD_TPREL_LO12_NC: "R_AARCH64_TLSLE_ADD_TPREL_LO12_NC",
 }
 
 # ARM64 trampoline: load address from literal pool and branch
@@ -904,6 +915,41 @@ def apply_relocations(
 
             elif reloc.type == R_AARCH64_NONE:
                 pass
+
+            # TLS relocations - Local Exec model
+            # These access thread-local variables via the thread pointer register
+            elif reloc.type == R_X86_64_TPOFF32:
+                # x86_64: 32-bit offset from thread pointer
+                # The TLS variable is accessed as %fs:offset
+                # For cosmoext, we allocate TLS at a fixed offset from TP
+                # TODO: Implement proper TLS allocation
+                # For now, use offset 0x1000 (4096) as base for extension TLS
+                tls_base_offset = 0x1000
+                tls_offset = tls_base_offset + reloc.addend
+                struct.pack_into("<i", target_sec.data, reloc.offset, tls_offset)
+                # No internal reloc needed - offset is fixed at build time
+
+            elif reloc.type == R_AARCH64_TLSLE_ADD_TPREL_HI12:
+                # ARM64: High 12 bits of TP-relative offset (shifted left by 12)
+                # Patches an ADD instruction: add xD, xN, #imm, lsl #12
+                tls_base_offset = 0x1000
+                tls_offset = tls_base_offset + reloc.addend
+                imm = (tls_offset >> 12) & 0xFFF
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                # ADD immediate format: imm12 is in bits 10-21
+                insn = (insn & 0xFFC003FF) | (imm << 10)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+            elif reloc.type == R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+                # ARM64: Low 12 bits of TP-relative offset (no shift)
+                # Patches an ADD instruction: add xD, xN, #imm
+                tls_base_offset = 0x1000
+                tls_offset = tls_base_offset + reloc.addend
+                imm = tls_offset & 0xFFF
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                # ADD immediate format: imm12 is in bits 10-21
+                insn = (insn & 0xFFC003FF) | (imm << 10)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
 
             else:
                 reloc_names = RELOC_NAMES_AARCH64 if arch == "aarch64" else RELOC_NAMES_X86_64
