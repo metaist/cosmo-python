@@ -457,6 +457,162 @@ PyMODINIT_FUNC PyInit_stltest(void) {
 }
 ```
 
+### Rust Extensions (Experimental)
+
+!!! warning "no_std only"
+    Full PyO3/Rust support is blocked by `compiler_builtins` requirements.
+    Only `#![no_std]` Rust extensions work currently. See [#116](https://github.com/metaist/cosmo-python/issues/116).
+
+**What works:**
+
+- `#![no_std]` Rust code with raw Python C API calls
+- Basic types (integers, floats, booleans)
+- Pure computation (no I/O, no threads, no allocator)
+
+**What doesn't work:**
+
+- PyO3 or other high-level Rust-Python bindings
+- Rust standard library (`std::`)
+- Panic unwinding
+- Any crate that depends on `std` or `compiler_builtins`
+
+**Example `no_std` Rust extension:**
+
+```rust
+// lib.rs
+#![no_std]
+#![allow(non_camel_case_types)]
+
+use core::ffi::{c_char, c_int, c_long};
+use core::ptr;
+
+// Must match CPython's exact struct layout (16 bytes)
+#[repr(C)]
+pub struct PyObject {
+    ob_refcnt: isize,
+    ob_type: *mut PyObject,
+}
+
+type Py_ssize_t = isize;
+
+#[repr(C)]
+pub struct PyMethodDef {
+    ml_name: *const c_char,
+    ml_meth: Option<unsafe extern "C" fn(*mut PyObject, *mut PyObject) -> *mut PyObject>,
+    ml_flags: c_int,
+    ml_doc: *const c_char,
+}
+
+#[repr(C)]
+pub struct PyModuleDef {
+    m_base: [u8; 64],  // PyModuleDef_HEAD_INIT
+    m_name: *const c_char,
+    m_doc: *const c_char,
+    m_size: Py_ssize_t,
+    m_methods: *const PyMethodDef,
+    m_slots: *const (),
+    m_traverse: *const (),
+    m_clear: *const (),
+    m_free: *const (),
+}
+
+extern "C" {
+    fn PyModule_Create2(def: *mut PyModuleDef, version: c_int) -> *mut PyObject;
+    fn PyLong_AsLong(obj: *mut PyObject) -> c_long;
+    fn PyLong_FromLong(val: c_long) -> *mut PyObject;
+    fn PyArg_ParseTuple(args: *mut PyObject, fmt: *const c_char, ...) -> c_int;
+}
+
+const METH_VARARGS: c_int = 0x0001;
+
+unsafe extern "C" fn add(
+    _self: *mut PyObject,
+    args: *mut PyObject,
+) -> *mut PyObject {
+    let mut a: c_long = 0;
+    let mut b: c_long = 0;
+    if PyArg_ParseTuple(args, b"ll\0".as_ptr() as *const c_char, &mut a, &mut b) == 0 {
+        return ptr::null_mut();
+    }
+    PyLong_FromLong(a + b)
+}
+
+static mut METHODS: [PyMethodDef; 2] = [
+    PyMethodDef {
+        ml_name: b"add\0".as_ptr() as *const c_char,
+        ml_meth: Some(add),
+        ml_flags: METH_VARARGS,
+        ml_doc: ptr::null(),
+    },
+    PyMethodDef {
+        ml_name: ptr::null(),
+        ml_meth: None,
+        ml_flags: 0,
+        ml_doc: ptr::null(),
+    },
+];
+
+static mut MODULE_DEF: PyModuleDef = PyModuleDef {
+    m_base: [0; 64],
+    m_name: b"rust_add\0".as_ptr() as *const c_char,
+    m_doc: ptr::null(),
+    m_size: -1,
+    m_methods: unsafe { METHODS.as_ptr() },
+    m_slots: ptr::null(),
+    m_traverse: ptr::null(),
+    m_clear: ptr::null(),
+    m_free: ptr::null(),
+};
+
+#[no_mangle]
+pub unsafe extern "C" fn PyInit_rust_add() -> *mut PyObject {
+    PyModule_Create2(&mut MODULE_DEF, 3)  // PYTHON_API_VERSION
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+**Cargo.toml:**
+
+```toml
+[package]
+name = "rust_add"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[profile.release]
+panic = "abort"
+lto = true
+```
+
+**Build steps:**
+
+```bash
+# 1. Build static library (requires nightly + custom target)
+cargo +nightly build --release --target x86_64-unknown-linux-musl \
+    -Z build-std=core -Z build-std-features=panic_immediate_abort
+
+# 2. Extract .o from .a
+ar x target/x86_64-unknown-linux-musl/release/librust_add.a rust_add*.o
+
+# 3. Process with cosmoext-build
+python3 cosmoext-build.py --python python.com -o rust_add.cosmoext rust_add*.o
+```
+
+**Usage:**
+
+```python
+import _cosmoext
+rust_add = _cosmoext.load("rust_add.cosmoext")
+print(rust_add.add(2, 3))  # 5
+```
+
 ### Symbol Availability
 
 Only symbols exported from python.com are available. If an extension needs a symbol
