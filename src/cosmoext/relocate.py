@@ -562,6 +562,7 @@ def apply_relocations(
     base_address: int,
     arch: str = "x86_64",
     trampolines: dict[str, int] | None = None,
+    symbol_name_map: dict[str, str] | None = None,
 ) -> tuple[list[str], list[InternalRelocation], list[ExternalSymbol]]:
     """Apply relocations, returning (errors, internal_relocs, external_syms).
 
@@ -639,8 +640,12 @@ def apply_relocations(
                     key = (reloc.symbol, patch_off)
                     if key not in seen_external:
                         seen_external.add(key)
+                        # Use aliased name if available
+                        resolved_name = reloc.symbol
+                        if symbol_name_map and reloc.symbol in symbol_name_map:
+                            resolved_name = symbol_name_map[reloc.symbol]
                         external_syms_list.append(
-                            ExternalSymbol(name=reloc.symbol, patch_offset=patch_off)
+                            ExternalSymbol(name=resolved_name, patch_offset=patch_off)
                         )
 
             elif reloc.type in (R_X86_64_PC32, R_X86_64_PLT32):
@@ -717,8 +722,12 @@ def apply_relocations(
                     key = (reloc.symbol, patch_off)
                     if key not in seen_external:
                         seen_external.add(key)
+                        # Use aliased name if available
+                        resolved_name = reloc.symbol
+                        if symbol_name_map and reloc.symbol in symbol_name_map:
+                            resolved_name = symbol_name_map[reloc.symbol]
                         external_syms_list.append(
-                            ExternalSymbol(name=reloc.symbol, patch_offset=patch_off)
+                            ExternalSymbol(name=resolved_name, patch_offset=patch_off)
                         )
 
             elif reloc.type in (R_AARCH64_CALL26, R_AARCH64_JUMP26):
@@ -916,17 +925,23 @@ def build_cosmoext(
     }
 
     # Identify external symbols and validate they exist
-    external_symbols: set[str] = set()
+    # Also track which symbols need to be resolved using their aliased names
+    external_symbols: set[str] = set()  # original symbol names
+    symbol_name_map: dict[str, str] = {}  # original -> resolved name (may be aliased)
     unresolved = []
     for reloc in relocations:
         if reloc.symbol and reloc.symbol not in local_symbols and not reloc.symbol.startswith("."):
             if reloc.symbol not in external_symbols:
                 # Check if symbol exists (for validation)
                 addr = st.lookup(reloc.symbol)
+                resolved_name = reloc.symbol
                 if not addr and reloc.symbol in symbol_aliases:
                     addr = st.lookup(symbol_aliases[reloc.symbol])
+                    if addr:
+                        resolved_name = symbol_aliases[reloc.symbol]
                 if addr:
-                    external_symbols.add(reloc.symbol)
+                    external_symbols.add(reloc.symbol)  # Keep original for lookups
+                    symbol_name_map[reloc.symbol] = resolved_name  # Map to resolved
                 else:
                     unresolved.append(reloc.symbol)
 
@@ -977,11 +992,14 @@ def build_cosmoext(
         load_address,
         arch=obj_arch,
         trampolines=trampolines if trampolines else None,
+        symbol_name_map=symbol_name_map,
     )
 
     # Add trampoline patch offsets to external symbols list
     for sym, patch_off in trampoline_patch_offsets.items():
-        external_syms.append(ExternalSymbol(name=sym, patch_offset=patch_off))
+        # Use aliased name if available
+        resolved_name = symbol_name_map.get(sym, sym) if symbol_name_map else sym
+        external_syms.append(ExternalSymbol(name=resolved_name, patch_offset=patch_off))
 
     if errors:
         print("\n  Relocation errors:")
