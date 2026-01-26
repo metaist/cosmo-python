@@ -131,9 +131,31 @@ def find_linker(cosmo_root: Path, arch: str = "x86_64") -> Path | None:
     return None
 
 
+def find_libcxx_large(arch: str = "x86_64") -> Path | None:
+    """Find our custom libcxx-large.a built with -mcmodel=large.
+
+    These are required for C++ extensions because the standard libcxx.a
+    uses PC32/PLT32 relocations that aren't compatible with our loader.
+    """
+    # Look in src/cosmoext/lib/ relative to this script
+    script_dir = Path(__file__).parent
+    libcxx = script_dir / "lib" / f"libcxx-large-{arch}.a"
+    if libcxx.exists():
+        return libcxx
+    return None
+
+
 def find_libcxx(cosmo_root: Path, arch: str = "x86_64") -> Path | None:
-    """Find libcxx.a for the given architecture."""
-    # libcxx.a is in <arch>-linux-cosmo/lib/libcxx.a
+    """Find libcxx.a for the given architecture.
+
+    Prefers our custom libcxx-large.a if available.
+    """
+    # First try our custom -mcmodel=large version
+    libcxx_large = find_libcxx_large(arch)
+    if libcxx_large:
+        return libcxx_large
+
+    # Fall back to standard libcxx.a (won't work for most C++ code)
     triple = f"{arch}-linux-cosmo"
     libcxx = cosmo_root / triple / "lib" / "libcxx.a"
     if libcxx.exists():
