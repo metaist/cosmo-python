@@ -199,6 +199,7 @@ class CosmoExtBlob:
     internal_relocs: list[InternalRelocation]  # Relocations to apply at load time
     external_symbols: list[ExternalSymbol] = field(default_factory=list)  # External symbols
     get_def_offset: int = 0  # Offset from init to _cosmoext_get_captured_def (0 if not using shim)
+    constructors: list[int] = field(default_factory=list)  # Offsets of .init_array constructors
 
     def write_arch_payload(self, f: BinaryIO) -> None:
         """Write the arch-specific payload (for embedding in v7 fat format).
@@ -229,23 +230,25 @@ class CosmoExtBlob:
                 string_table.extend(ext_sym.name.encode("utf-8"))
                 string_table.append(0)  # null terminator
 
-        # Calculate header size (arch header is 72 bytes: 9 * 8)
-        arch_header_size = 72
+        # Calculate header size (arch header is 80 bytes: 10 * 8)
+        arch_header_size = 80
         section_headers_size = len(self.sections) * 24
         reloc_data_size = len(self.internal_relocs) * 24
         external_sym_size = len(self.external_symbols) * 16
+        constructors_size = len(self.constructors) * 8  # 8 bytes per constructor offset
         header_total = (
             arch_header_size
             + section_headers_size
             + reloc_data_size
             + external_sym_size
+            + constructors_size
             + len(string_table)
         )
         # Round up to nearest 4096
         header_size = ((header_total + 4095) // 4096) * 4096
 
         header = struct.pack(
-            "<QQQQQQQQQ",  # spell-checker: disable-line
+            "<QQQQQQQQQQ",  # spell-checker: disable-line
             self.load_address,
             self.total_size,
             self.init_offset,
@@ -255,6 +258,7 @@ class CosmoExtBlob:
             len(self.external_symbols),
             len(string_table),
             self.get_def_offset,
+            len(self.constructors),
         )
 
         section_headers = b""
@@ -285,12 +289,18 @@ class CosmoExtBlob:
             name_off = name_offsets[ext_sym.name]
             external_sym_data += struct.pack("<QIxxxx", ext_sym.patch_offset, name_off)
 
+        # Constructor offsets (8 bytes each)
+        constructor_data = b""
+        for ctor_offset in self.constructors:
+            constructor_data += struct.pack("<Q", ctor_offset)
+
         # Pad to header_size
         actual_header = (
             len(header)
             + len(section_headers)
             + len(reloc_data)
             + len(external_sym_data)
+            + len(constructor_data)
             + len(string_table)
         )
         padding = header_size - actual_header
@@ -299,6 +309,7 @@ class CosmoExtBlob:
         f.write(section_headers)
         f.write(reloc_data)
         f.write(external_sym_data)
+        f.write(constructor_data)
         f.write(bytes(string_table))
         f.write(b"\x00" * padding)
 
@@ -387,11 +398,18 @@ class CosmoExtFatBlob:
 
 def parse_object_file(
     path: Path,
-) -> tuple[dict[str, LoadableSection], list[Relocation], dict[str, tuple[str, int]], str]:
+) -> tuple[
+    dict[str, LoadableSection],
+    list[Relocation],
+    dict[str, tuple[str, int]],
+    str,
+    list[tuple[str, int]],
+]:
     """Parse an ELF object file.
 
-    Returns: (sections, relocations, local_symbols, arch)
+    Returns: (sections, relocations, local_symbols, arch, init_array_entries)
     where arch is "x86_64" or "aarch64"
+    and init_array_entries is list of (section_name, offset) for constructors
     """
 
     with open(path, "rb") as f:
@@ -492,7 +510,29 @@ def parse_object_file(
                     )
                 )
 
-        return sections, relocations, local_symbols, arch
+        # Parse .init_array section for constructors
+        # .init_array contains function pointers that should be called before PyInit_*
+        init_array_entries: list[tuple[str, int]] = []
+        init_array_sec = elf.get_section_by_name(".init_array")
+        init_array_rela = elf.get_section_by_name(".rela.init_array")
+
+        if init_array_sec and init_array_rela and isinstance(init_array_rela, RelocationSection):
+            symtab = elf.get_section_by_name(".symtab")
+            if symtab and isinstance(symtab, SymbolTableSection):
+                for reloc in init_array_rela.iter_relocations():
+                    sym_idx = reloc["r_info_sym"]
+                    sym = symtab.get_symbol(sym_idx)
+                    addend = reloc["r_addend"] if reloc.is_RELA() else 0
+
+                    # The relocation points to a section + offset
+                    if sym and isinstance(sym["st_shndx"], int):
+                        sec_idx = sym["st_shndx"]
+                        if sec_idx < elf.num_sections():
+                            ref_sec = elf.get_section(sec_idx)
+                            # Constructor is at section + addend
+                            init_array_entries.append((ref_sec.name, addend))
+
+        return sections, relocations, local_symbols, arch, init_array_entries
 
 
 def layout_sections(sections: dict[str, LoadableSection], base_address: int) -> int:
@@ -997,12 +1037,14 @@ def build_cosmoext(
     from symtab import SymbolTable
 
     print(f"Parsing object file: {obj_path}")
-    sections, relocations, local_symbols, obj_arch = parse_object_file(obj_path)
+    sections, relocations, local_symbols, obj_arch, init_array_entries = parse_object_file(obj_path)
 
     print(f"  Architecture: {obj_arch}")
     print(f"  Sections: {list(sections.keys())}")
     print(f"  Relocations: {len(relocations)}")
     print(f"  Local symbols: {len(local_symbols)}")
+    if init_array_entries:
+        print(f"  Constructors (.init_array): {len(init_array_entries)}")
 
     # Normalize arch names (CLI uses amd64/arm64, internal uses x86_64/aarch64)
     arch_map = {"amd64": "x86_64", "arm64": "aarch64", "x86_64": "x86_64", "aarch64": "aarch64"}
@@ -1188,6 +1230,16 @@ def build_cosmoext(
         all_sections.append(tramp_section)
         print(f"  Trampolines section: offset={tramp_offset}, vaddr=0x{tramp_vaddr:x}")
 
+    # Calculate constructor offsets from init_array_entries
+    constructor_offsets: list[int] = []
+    if init_array_entries:
+        for sec_name, offset in init_array_entries:
+            if sec_name in sections:
+                ctor_vaddr = sections[sec_name].vaddr + offset
+                ctor_offset = ctor_vaddr - load_address
+                constructor_offsets.append(ctor_offset)
+                print(f"  Constructor: {sec_name}+0x{offset:x} -> offset 0x{ctor_offset:x}")
+
     # Create blob
     blob = CosmoExtBlob(
         sections=all_sections,
@@ -1197,6 +1249,7 @@ def build_cosmoext(
         internal_relocs=internal_relocs,
         external_symbols=external_syms,
         get_def_offset=get_def_offset,
+        constructors=constructor_offsets,
     )
 
     return blob

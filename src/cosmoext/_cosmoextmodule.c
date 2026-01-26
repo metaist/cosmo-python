@@ -97,6 +97,7 @@ typedef struct {
     uint64_t num_external_symbols;
     uint64_t string_table_size;
     uint64_t get_def_offset;
+    uint64_t num_constructors;
 } CosmoExtArchHeader;
 
 typedef struct {
@@ -411,6 +412,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
     size_t map_size = 0;
     CosmoExtReloc *relocs = NULL;
     CosmoExtExternalSym *ext_syms = NULL;
+    uint64_t *constructor_offsets = NULL;
     char *string_table = NULL;
     int verbose = 1; /* Set to 1 for debug output */
 
@@ -529,6 +531,24 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         if (fread(ext_syms, 16, header.num_external_symbols, f) != header.num_external_symbols) {
             PyErr_SetString(PyExc_ValueError, "Failed to read external symbols");
             goto error;
+        }
+
+        /* Read constructor offsets (.init_array) */
+        if (header.num_constructors > 0) {
+            constructor_offsets = PyMem_Malloc(header.num_constructors * 8);
+            if (!constructor_offsets) {
+                PyErr_NoMemory();
+                goto error;
+            }
+            if (fread(constructor_offsets, 8, header.num_constructors, f) !=
+                header.num_constructors) {
+                PyErr_SetString(PyExc_ValueError, "Failed to read constructor offsets");
+                goto error;
+            }
+            if (verbose) {
+                fprintf(stderr, "[cosmoext] Read %llu constructor offsets\n",
+                        (unsigned long long)header.num_constructors);
+            }
         }
 
         /* Read string table */
@@ -1175,6 +1195,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         PyMem_Free(ext_syms);
         ext_syms = NULL;
     }
+    /* Note: constructor_offsets freed after constructors are called */
     if (string_table) {
         PyMem_Free(string_table);
         string_table = NULL;
@@ -1230,6 +1251,38 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
         }
 
         fflush(stderr);
+    }
+
+    /* Call .init_array constructors before PyInit_* */
+    if (header.num_constructors > 0 && constructor_offsets) {
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] Calling %llu constructors (.init_array)\n",
+                    (unsigned long long)header.num_constructors);
+        }
+
+        for (uint64_t i = 0; i < header.num_constructors; i++) {
+            uint64_t ctor_offset = constructor_offsets[i];
+
+            typedef void (*ConstructorFunc)(void);
+            ConstructorFunc ctor = (ConstructorFunc)((char *)mapped + ctor_offset);
+
+            if (verbose) {
+                fprintf(stderr, "[cosmoext]   Constructor %llu: offset=0x%llx, addr=%p\n",
+                        (unsigned long long)i, (unsigned long long)ctor_offset, (void *)ctor);
+            }
+
+            ctor();
+        }
+
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] All constructors called\n");
+        }
+    }
+
+    /* Free constructor offsets now that they've been called */
+    if (constructor_offsets) {
+        PyMem_Free(constructor_offsets);
+        constructor_offsets = NULL;
     }
 
     /* Call the init function */
@@ -1436,6 +1489,8 @@ error:
         PyMem_Free(relocs);
     if (ext_syms)
         PyMem_Free(ext_syms);
+    if (constructor_offsets)
+        PyMem_Free(constructor_offsets);
     if (string_table)
         PyMem_Free(string_table);
     if (symtab)
