@@ -83,6 +83,20 @@ STUB_SYMBOLS = {
     "_ZTISt16invalid_argument",
     "_ZTVSt12out_of_range",
     "_ZTVSt16invalid_argument",
+    # Rust runtime stubs
+    "bcmp",
+    "posix_memalign",
+    "__xpg_strerror_r",
+    "dl_iterate_phdr",
+    "_Unwind_Backtrace",
+    "_Unwind_GetDataRelBase",
+    "_Unwind_GetTextRelBase",
+    "_Unwind_GetIP",
+    "_Unwind_GetIPInfo",
+    "_Unwind_GetLanguageSpecificData",
+    "_Unwind_GetRegionStart",
+    "_Unwind_SetGR",
+    "_Unwind_SetIP",
 }
 
 

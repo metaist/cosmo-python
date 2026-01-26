@@ -538,17 +538,48 @@ def parse_object_file(
 def layout_sections(sections: dict[str, LoadableSection], base_address: int) -> int:
     """Assign offsets and virtual addresses to sections. Returns total size."""
 
-    # Order: .text first (executable), then .rodata, then .data
-    order = [".text", ".rodata.str1.1", ".rodata.str1.8", ".data"]
-    ordered = []
-    for name in order:
-        if name in sections:
-            ordered.append(sections[name])
+    # Group sections by type for proper layout:
+    # 1. Main sections first (.text, .rodata, .data, .bss)
+    # 2. Linker sections (.ltext.*, .lrodata.*, .ldata.*, .lbss.*)
+    # 3. Thread-local storage (.tdata, .tbss, etc.)
+    # 4. LLVM metadata (.llvmbc, .llvmcmd)
+    # 5. Other sections
 
-    # Add any remaining sections
-    for name, sec in sections.items():
-        if sec not in ordered:
-            ordered.append(sec)
+    def section_order_key(name: str) -> tuple[int, int, str]:
+        """Return sort key: (category, subcategory, name) for proper ordering."""
+        # Main sections come first in each category
+        if name == ".text":
+            return (0, 0, name)
+        elif name.startswith(".text."):
+            return (0, 1, name)
+        elif name.startswith(".ltext"):
+            return (0, 2, name)
+        elif name == ".rodata":
+            return (1, 0, name)
+        elif name.startswith(".rodata."):
+            return (1, 1, name)
+        elif name.startswith(".lrodata"):
+            return (1, 2, name)
+        elif name.startswith((".tdata", ".tbss")):
+            return (2, 0, name)
+        elif name == ".data":
+            return (3, 0, name)
+        elif name.startswith(".data."):
+            return (3, 1, name)
+        elif name.startswith(".ldata"):
+            return (3, 2, name)
+        elif name == ".bss":
+            return (4, 0, name)
+        elif name.startswith(".bss."):
+            return (4, 1, name)
+        elif name.startswith(".lbss"):
+            return (4, 2, name)
+        elif name.startswith(".llvm"):
+            return (5, 0, name)  # LLVM metadata at end
+        else:
+            return (6, 0, name)  # Unknown sections at end
+
+    ordered = sorted(sections.values(), key=lambda s: section_order_key(s.name))
 
     offset = 0
     for sec in ordered:
@@ -1080,6 +1111,10 @@ def build_cosmoext(
         "_ZNSt9bad_allocD1Ev": "_ZNSt9bad_allocD2Ev",
         "_ZNSt9exceptionD2Ev": "_ZNSt9exceptionD1Ev",
         "_ZNSt20bad_array_new_lengthD1Ev": "_ZNSt20bad_array_new_lengthD2Ev",
+        # Rust/libc aliases
+        "bcmp": "memcmp",  # bcmp is equivalent to memcmp
+        "__xpg_strerror_r": "strerror_r",  # XPG variant
+        "fstat": "fstat64",  # 64-bit variant
     }
 
     # Identify external symbols and validate they exist

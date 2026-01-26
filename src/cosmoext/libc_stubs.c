@@ -793,3 +793,33 @@ void _Unwind_SetIP(_Unwind_Context *context, _Unwind_Ptr val)
     (void)context;
     (void)val;
 }
+
+/* dl_iterate_phdr - iterate over shared objects.
+ * This is used by Rust's backtrace library. We return 0 to indicate
+ * no shared objects (we're statically linked).
+ */
+struct dl_phdr_info;
+typedef int (*dl_iterate_phdr_callback)(struct dl_phdr_info *, unsigned long, void *);
+
+int dl_iterate_phdr(dl_iterate_phdr_callback callback, void *data)
+{
+    (void)callback;
+    (void)data;
+    return 0;  /* No shared objects */
+}
+
+/* fstat - get file status.
+ * Forward to the real fstat in cosmopolitan.
+ */
+struct stat;
+extern int fstat(int fd, struct stat *buf);
+
+/* If fstat isn't available, provide a stub that fails */
+#ifdef COSMOEXT_STUB_FSTAT
+int fstat(int fd, struct stat *buf)
+{
+    (void)fd;
+    (void)buf;
+    return -1;  /* ENOSYS */
+}
+#endif
