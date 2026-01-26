@@ -47,8 +47,9 @@ skip_if_exists "${DEPS_DIR}/lib/libncurses.a" "ncurses ${NCURSES_VERSION}"
 
 log_build "ncurses ${NCURSES_VERSION}"
 
-# Setup cosmocc
+# Setup cosmocc (sets COSMO_DIR)
 setup_cosmocc
+# shellcheck disable=SC2153  # COSMO_DIR is set by setup_cosmocc
 export RANLIB="${COSMO_DIR}/bin/cosmoar s"
 
 if [ ! -x "${COSMO_DIR}/bin/cosmocc" ]; then
@@ -201,24 +202,48 @@ ln -sf ncurses/panel.h panel.h 2>/dev/null || true
 ln -sf ncurses/term.h term.h 2>/dev/null || true
 
 # Handle aarch64 if objects exist
+# Unlike x86_64 where `make install` creates separate archives, we need to
+# manually create them from the aarch64 objects that cosmocc generates.
 if [ -d "${NCURSES_DIR}/objects/.aarch64" ]; then
   log_info "creating aarch64 libraries..."
   mkdir -p "${DEPS_DIR}/lib/.aarch64"
-  cd "${NCURSES_DIR}"
-  find objects/.aarch64 -name "*.o" -exec "${COSMO_DIR}/bin/aarch64-linux-cosmo-ar" rcs "${DEPS_DIR}/lib/.aarch64/libncursesw.a" {} +
-  cd "${DEPS_DIR}/lib/.aarch64"
-  # Create all the symlinks that x86_64 has
+  cd "${NCURSES_DIR}/objects/.aarch64"
+
+  COSMO_AR="${COSMO_DIR}/bin/aarch64-linux-cosmo-ar"
+  AARCH64_LIB="${DEPS_DIR}/lib/.aarch64"
+
+  # Panel library: p_*.o, panel.o
+  "$COSMO_AR" rcs "${AARCH64_LIB}/libpanelw.a" p_*.o panel.o 2>/dev/null || true
+
+  # Form library: fld_*.o, frm_*.o, fty_*.o
+  "$COSMO_AR" rcs "${AARCH64_LIB}/libformw.a" fld_*.o frm_*.o fty_*.o 2>/dev/null || true
+
+  # Menu library: m_*.o
+  "$COSMO_AR" rcs "${AARCH64_LIB}/libmenuw.a" m_*.o 2>/dev/null || true
+
+  # Tic library: tic.o and related
+  "$COSMO_AR" rcs "${AARCH64_LIB}/libticw.a" tic.o alloc_entry.o captoinfo.o \
+    comp_captab.o comp_error.o comp_expand.o comp_hash.o comp_parse.o \
+    comp_scan.o comp_userdefs.o entries.o parse_entry.o write_entry.o 2>/dev/null || true
+
+  # Main ncurses library: everything else (lib_*.o plus support files)
+  # We exclude panel, form, menu, and tic objects
+  find . -maxdepth 1 -name "*.o" \
+    ! -name "p_*.o" ! -name "panel.o" \
+    ! -name "fld_*.o" ! -name "frm_*.o" ! -name "fty_*.o" \
+    ! -name "m_*.o" \
+    ! -name "tic.o" \
+    -exec "$COSMO_AR" rcs "${AARCH64_LIB}/libncursesw.a" {} +
+
+  cd "${AARCH64_LIB}"
+  # Create compatibility symlinks (wide to non-wide)
   ln -sf libncursesw.a libncurses.a 2>/dev/null || true
   ln -sf libncursesw.a libtinfo.a 2>/dev/null || true
   ln -sf libncursesw.a libtinfow.a 2>/dev/null || true
   ln -sf libncursesw.a libtermcap.a 2>/dev/null || true  # Python 3.10 compat (#24)
-  ln -sf libncursesw.a libpanelw.a 2>/dev/null || true
-  ln -sf libncursesw.a libpanel.a 2>/dev/null || true
-  ln -sf libncursesw.a libformw.a 2>/dev/null || true
-  ln -sf libncursesw.a libform.a 2>/dev/null || true
-  ln -sf libncursesw.a libmenuw.a 2>/dev/null || true
-  ln -sf libncursesw.a libmenu.a 2>/dev/null || true
-  ln -sf libncursesw.a libticw.a 2>/dev/null || true
+  ln -sf libpanelw.a libpanel.a 2>/dev/null || true
+  ln -sf libformw.a libform.a 2>/dev/null || true
+  ln -sf libmenuw.a libmenu.a 2>/dev/null || true
 fi
 
 log_ok "ncurses ${NCURSES_VERSION} installed"
