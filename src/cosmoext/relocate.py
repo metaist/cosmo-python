@@ -1115,6 +1115,8 @@ def build_cosmoext(
         "bcmp": "memcmp",  # bcmp is equivalent to memcmp
         "__xpg_strerror_r": "strerror_r",  # XPG variant
         "fstat": "fstat64",  # 64-bit variant
+        "fseek": "fseeko",  # 64-bit offset variant
+        "ftell": "ftello",  # 64-bit offset variant
     }
 
     # Identify external symbols and validate they exist
