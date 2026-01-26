@@ -238,6 +238,27 @@ fi
 log_info "Step 1/4: Building Rust crate with nightly..."
 cd "$CRATE_DIR"
 
+# Check if Cargo.toml needs crate-type modification
+if grep -q 'crate-type.*=.*\["cdylib"\]' Cargo.toml; then
+    log_info "  Patching Cargo.toml: cdylib -> staticlib"
+    # Create backup
+    cp Cargo.toml Cargo.toml.bak
+    sed -i 's/crate-type *= *\["cdylib"\]/crate-type = ["staticlib"]/' Cargo.toml
+fi
+
+# Set up environment for C dependencies (cc-rs crate)
+# This allows building crates that have C code (like orjson's yyjson)
+COSMO_BIN_DIR="$(dirname "$COSMOCC")"
+export CC="$COSMOCC"
+export CXX="${COSMO_BIN_DIR}/cosmoc++"
+export AR="${COSMO_BIN_DIR}/cosmoar"
+export RANLIB="${COSMO_BIN_DIR}/cosmoar s"
+export CFLAGS="-mcmodel=large -fno-stack-protector"
+export CXXFLAGS="-mcmodel=large -fno-stack-protector -fno-exceptions -fno-rtti"
+
+# Copy target spec to crate directory (some build scripts expect it there)
+cp "$TARGET_SPEC" "$CRATE_DIR/"
+
 CARGO_ARGS=(
     +nightly build --release
     -Z "build-std=std,panic_abort"
@@ -248,6 +269,11 @@ if [[ $VERBOSE -eq 1 ]]; then
     cargo "${CARGO_ARGS[@]}"
 else
     cargo "${CARGO_ARGS[@]}" 2>&1 | tail -5
+fi
+
+# Restore Cargo.toml if we modified it
+if [[ -f Cargo.toml.bak ]]; then
+    mv Cargo.toml.bak Cargo.toml
 fi
 
 # Find the built library
