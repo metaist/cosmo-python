@@ -41,6 +41,10 @@ extern const char *_PyImport_SwapPackageContext(const char *newcontext);
 #define R_AARCH64_LDST32_ABS_LO12_NC  285
 #define R_AARCH64_LDST64_ABS_LO12_NC  286
 #define R_AARCH64_LDST128_ABS_LO12_NC 299
+#define R_AARCH64_MOVW_UABS_G0_NC     264
+#define R_AARCH64_MOVW_UABS_G1_NC     266
+#define R_AARCH64_MOVW_UABS_G2_NC     268
+#define R_AARCH64_MOVW_UABS_G3        269
 
 /* x86_64 relocation types */
 #define R_X86_64_64 1
@@ -400,7 +404,7 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
     CosmoExtReloc *relocs = NULL;
     CosmoExtExternalSym *ext_syms = NULL;
     char *string_table = NULL;
-    int verbose = 0; /* Set to 1 for debug output */
+    int verbose = 1; /* Set to 1 for debug output */
 
     f = fopen(path, "rb");
     if (!f) {
@@ -737,6 +741,37 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
                 break;
             }
 
+            case R_AARCH64_MOVW_UABS_G0_NC:
+            case R_AARCH64_MOVW_UABS_G1_NC:
+            case R_AARCH64_MOVW_UABS_G2_NC:
+            case R_AARCH64_MOVW_UABS_G3: {
+                /* MOVZ/MOVK with 16-bit immediate chunks of 64-bit address */
+                uint32_t insn;
+                memcpy(&insn, (char *)blob + r->blob_offset, 4);
+                uint32_t imm16;
+                switch (r->reloc_type) {
+                    case R_AARCH64_MOVW_UABS_G0_NC:
+                        imm16 = target & 0xFFFF; /* bits 0-15 */
+                        break;
+                    case R_AARCH64_MOVW_UABS_G1_NC:
+                        imm16 = (target >> 16) & 0xFFFF; /* bits 16-31 */
+                        break;
+                    case R_AARCH64_MOVW_UABS_G2_NC:
+                        imm16 = (target >> 32) & 0xFFFF; /* bits 32-47 */
+                        break;
+                    case R_AARCH64_MOVW_UABS_G3:
+                        imm16 = (target >> 48) & 0xFFFF; /* bits 48-63 */
+                        break;
+                    default:
+                        imm16 = 0;
+                        break;
+                }
+                /* imm16 goes into bits 5-20 of the instruction */
+                insn = (insn & 0xFFE0001F) | (imm16 << 5);
+                memcpy((char *)blob + r->blob_offset, &insn, 4);
+                break;
+            }
+
             default:
                 /* Fallback for unknown types: use size field */
                 if (r->size == 8) {
@@ -756,6 +791,50 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
                     (unsigned long long)header.num_external_symbols);
         }
 
+        /*
+         * On macOS ARM64, ASLR means the binary isn't loaded at addr_base.
+         * Calculate the slide by comparing a known symbol's table address
+         * to its actual runtime address.
+         */
+        int64_t slide = 0;
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] DEBUG: Checking ASLR slide...\n");
+        }
+#ifdef __COSMOPOLITAN__
+        if (verbose) {
+            fprintf(stderr, "[cosmoext] DEBUG: In __COSMOPOLITAN__ block, IsXnu=%d, IsAarch64=%d\n",
+                    IsXnu(), IsAarch64());
+        }
+        if (IsXnu() && IsAarch64()) {
+            /* Use PyModule_Create2 as reference - we have it linked in */
+            uint64_t table_addr = lookup_symbol_simple(symtab, "PyModule_Create2");
+            if (table_addr != 0) {
+                /* Get actual runtime address - PyModule_Create2 is a Python C API function */
+                /* Note: We need the ACTUAL runtime address, not the link-time address */
+                /* The & operator gives us the link-time address which is rebased at runtime */
+                void *func_ptr = (void *)PyModule_Create2;
+                uint64_t actual_addr = (uint64_t)func_ptr;
+
+                if (verbose) {
+                    fprintf(stderr, "[cosmoext] DEBUG: &PyModule_Create2 = %p\n",
+                            (void *)&PyModule_Create2);
+                    fprintf(stderr, "[cosmoext] DEBUG: (void*)PyModule_Create2 = %p\n", func_ptr);
+                    fprintf(stderr, "[cosmoext] DEBUG: symtab addr_base = 0x%llx\n",
+                            (unsigned long long)symtab->addr_base);
+                }
+
+                slide = (int64_t)actual_addr - (int64_t)table_addr;
+                if (verbose) {
+                    fprintf(stderr, "[cosmoext] ASLR slide: 0x%llx (table=0x%llx, actual=0x%llx)\n",
+                            (unsigned long long)slide, (unsigned long long)table_addr,
+                            (unsigned long long)actual_addr);
+                }
+            } else if (verbose) {
+                fprintf(stderr, "[cosmoext] WARNING: PyModule_Create2 not in symbol table\n");
+            }
+        }
+#endif
+
         for (uint64_t i = 0; i < header.num_external_symbols; i++) {
             CosmoExtExternalSym *es = &ext_syms[i];
             const char *sym_name = string_table + es->name_offset;
@@ -765,6 +844,9 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
                 PyErr_Format(PyExc_RuntimeError, "Failed to resolve symbol: %s", sym_name);
                 goto error;
             }
+
+            /* Apply ASLR slide */
+            addr = (uint64_t)((int64_t)addr + slide);
 
             if (verbose) {
                 fprintf(stderr, "[cosmoext]   %s -> 0x%llx (patch at 0x%llx)\n", sym_name,
@@ -868,6 +950,24 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
             if (verbose) {
                 fprintf(stderr, "[cosmoext] Copied %zu bytes of data (0x%zx-0x%zx) to heap at %p\n",
                         heap_data_size, data_start, data_end, heap_data);
+                /* Debug: print function pointers in METHODS array */
+                /* METHODS is at MODULE_DEF + 88, and ml_meth is at PyMethodDef + 8 */
+                size_t methods_off = 88; /* Offset from data section start to METHODS */
+                size_t first_ml_meth = methods_off + 8; /* First ml_meth */
+                size_t second_ml_meth =
+                    methods_off + 32 + 8; /* Second ml_meth (each PyMethodDef is 32 bytes) */
+                if (first_ml_meth + 8 <= heap_data_size) {
+                    uint64_t fp1, fp2;
+                    memcpy(&fp1, (char *)heap_data + first_ml_meth, 8);
+                    memcpy(&fp2, (char *)heap_data + second_ml_meth, 8);
+                    fprintf(stderr,
+                            "[cosmoext] DEBUG heap METHODS[0].ml_meth at heap+0x%zx = 0x%llx\n",
+                            first_ml_meth, (unsigned long long)fp1);
+                    fprintf(stderr,
+                            "[cosmoext] DEBUG heap METHODS[1].ml_meth at heap+0x%zx = 0x%llx\n",
+                            second_ml_meth, (unsigned long long)fp2);
+                    fprintf(stderr, "[cosmoext] DEBUG expected code base = %p\n", mapped);
+                }
             }
 
             /* Update internal pointers to point to heap copy instead of JIT region */
@@ -885,17 +985,94 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
                 /* Update pointer in JIT region (code references to data) */
                 if (!IS_WRITABLE(r->blob_offset)) {
-                    if (r->size == 8) {
-                        memcpy((char *)mapped + r->blob_offset, &new_value, 8);
-                    } else if (r->size == 4) {
-                        uint32_t val32 = (uint32_t)new_value;
-                        memcpy((char *)mapped + r->blob_offset, &val32, 4);
+                    /* Must handle instruction-embedded relocations specially */
+                    switch (r->reloc_type) {
+                        case R_AARCH64_ABS64:
+                            /* 64-bit absolute - direct value */
+                            memcpy((char *)mapped + r->blob_offset, &new_value, 8);
+                            break;
+
+                        case R_AARCH64_MOVW_UABS_G0_NC:
+                        case R_AARCH64_MOVW_UABS_G1_NC:
+                        case R_AARCH64_MOVW_UABS_G2_NC:
+                        case R_AARCH64_MOVW_UABS_G3: {
+                            /* MOVZ/MOVK: re-encode imm16 into instruction */
+                            uint32_t insn;
+                            memcpy(&insn, (char *)mapped + r->blob_offset, 4);
+                            uint32_t imm16;
+                            switch (r->reloc_type) {
+                                case R_AARCH64_MOVW_UABS_G0_NC:
+                                    imm16 = new_value & 0xFFFF;
+                                    break;
+                                case R_AARCH64_MOVW_UABS_G1_NC:
+                                    imm16 = (new_value >> 16) & 0xFFFF;
+                                    break;
+                                case R_AARCH64_MOVW_UABS_G2_NC:
+                                    imm16 = (new_value >> 32) & 0xFFFF;
+                                    break;
+                                case R_AARCH64_MOVW_UABS_G3:
+                                    imm16 = (new_value >> 48) & 0xFFFF;
+                                    break;
+                                default:
+                                    imm16 = 0;
+                                    break;
+                            }
+                            insn = (insn & 0xFFE0001F) | (imm16 << 5);
+                            memcpy((char *)mapped + r->blob_offset, &insn, 4);
+                            break;
+                        }
+
+                        case R_AARCH64_ADR_PREL_PG_HI21: {
+                            /* ADRP - must recalculate with new target */
+                            uintptr_t patch_addr = (uintptr_t)mapped + r->blob_offset;
+                            uint64_t page_s = new_value & ~0xFFFULL;
+                            uint64_t page_p = patch_addr & ~0xFFFULL;
+                            int64_t page_offset = (int64_t)(page_s - page_p);
+                            int64_t imm = page_offset >> 12;
+                            uint32_t immlo = imm & 0x3;
+                            uint32_t immhi = (imm >> 2) & 0x7FFFF;
+                            uint32_t insn;
+                            memcpy(&insn, (char *)mapped + r->blob_offset, 4);
+                            insn = (insn & 0x9F00001F) | (immlo << 29) | (immhi << 5);
+                            memcpy((char *)mapped + r->blob_offset, &insn, 4);
+                            break;
+                        }
+
+                        case R_AARCH64_ADD_ABS_LO12_NC: {
+                            /* ADD imm12: low 12 bits of target */
+                            uint32_t imm12 = new_value & 0xFFF;
+                            uint32_t insn;
+                            memcpy(&insn, (char *)mapped + r->blob_offset, 4);
+                            insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                            memcpy((char *)mapped + r->blob_offset, &insn, 4);
+                            break;
+                        }
+
+                        case R_AARCH64_LDST64_ABS_LO12_NC: {
+                            uint32_t imm12 = (new_value >> 3) & 0x1FF;
+                            uint32_t insn;
+                            memcpy(&insn, (char *)mapped + r->blob_offset, 4);
+                            insn = (insn & 0xFFC003FF) | (imm12 << 10);
+                            memcpy((char *)mapped + r->blob_offset, &insn, 4);
+                            break;
+                        }
+
+                        default:
+                            /* Fallback for other types: use size field */
+                            if (r->size == 8) {
+                                memcpy((char *)mapped + r->blob_offset, &new_value, 8);
+                            } else if (r->size == 4) {
+                                uint32_t val32 = (uint32_t)new_value;
+                                memcpy((char *)mapped + r->blob_offset, &val32, 4);
+                            }
+                            break;
                     }
                     if (verbose) {
-                        fprintf(stderr,
-                                "[cosmoext]   Redirected reloc at 0x%llx: 0x%llx -> 0x%llx\n",
-                                (unsigned long long)r->blob_offset, (unsigned long long)old_value,
-                                (unsigned long long)new_value);
+                        fprintf(
+                            stderr,
+                            "[cosmoext]   Redirected reloc type %u at 0x%llx: 0x%llx -> 0x%llx\n",
+                            r->reloc_type, (unsigned long long)r->blob_offset,
+                            (unsigned long long)old_value, (unsigned long long)new_value);
                     }
                 }
 
@@ -993,9 +1170,43 @@ static PyObject *cosmoext_load_internal(const char *path, PyObject *spec)
 
     if (verbose) {
         fprintf(stderr, "[cosmoext] About to call init at %p\n", (void *)init_func);
+
+        /* Dump trampoline contents for PyModule_Create2 */
+        /* The init function branches to 0x65700, which should have the trampoline */
+        unsigned char *tramp = (unsigned char *)mapped + 0x65700;
+        fprintf(stderr, "[cosmoext] DEBUG: Trampoline at %p (offset 0x65700):\n", (void *)tramp);
+        fprintf(stderr, "[cosmoext]   ");
+        for (int j = 0; j < 24; j++) {
+            fprintf(stderr, "%02x ", tramp[j]);
+        }
+        fprintf(stderr, "\n");
+
+        /* The address at offset 8 should be PyModule_Create2 */
+        uint64_t tramp_addr;
+        memcpy(&tramp_addr, tramp + 8, 8);
+        fprintf(stderr, "[cosmoext] DEBUG: Trampoline target addr = 0x%llx\n",
+                (unsigned long long)tramp_addr);
+
+        /* Test read from mapped memory to verify it's accessible */
+        fprintf(stderr, "[cosmoext] DEBUG: Testing read from mapped memory...\n");
+        volatile uint64_t test_val = *(volatile uint64_t *)mapped;
+        fprintf(stderr, "[cosmoext] DEBUG: Read from base succeeded: 0x%llx\n",
+                (unsigned long long)test_val);
+
+        /* Test read from 0x18f0 offset (where markupsafe's init LDRs from) */
+        if (header.total_size > 0x18f0) {
+            volatile uint64_t test_val2 = *(volatile uint64_t *)((char *)mapped + 0x18f0);
+            fprintf(stderr, "[cosmoext] DEBUG: Read from 0x18f0 succeeded: 0x%llx\n",
+                    (unsigned long long)test_val2);
+        }
+
         fflush(stderr);
     }
     void *init_result = init_func();
+    if (verbose) {
+        fprintf(stderr, "[cosmoext] Init returned: %p\n", init_result);
+        fflush(stderr);
+    }
 
     if (verbose) {
         fprintf(stderr, "[cosmoext] Init returned: %p\n", init_result);

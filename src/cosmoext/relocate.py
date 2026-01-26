@@ -48,6 +48,12 @@ R_AARCH64_LDST32_ABS_LO12_NC = 285  # S + A (low 12 bits for 32-bit load/store)
 R_AARCH64_LDST64_ABS_LO12_NC = 286  # S + A (low 12 bits for 64-bit load/store)
 R_AARCH64_LDST128_ABS_LO12_NC = 299  # S + A (low 12 bits for 128-bit load/store, SIMD)
 R_AARCH64_ADR_GOT_PAGE = 311  # Page(G(S)) - Page(P) (GOT page)
+
+# MOVW absolute relocations for large code model (used by Rust with -C code-model=large)
+R_AARCH64_MOVW_UABS_G0_NC = 264  # S + A, bits 0-15, no overflow check
+R_AARCH64_MOVW_UABS_G1_NC = 266  # S + A, bits 16-31, no overflow check
+R_AARCH64_MOVW_UABS_G2_NC = 268  # S + A, bits 32-47, no overflow check
+R_AARCH64_MOVW_UABS_G3 = 269  # S + A, bits 48-63
 R_AARCH64_LD64_GOT_LO12_NC = 312  # G(S) (low 12 bits of GOT entry)
 R_AARCH64_PREL32 = 261  # S + A - P (32-bit PC-relative)
 
@@ -73,6 +79,10 @@ RELOC_NAMES_AARCH64 = {
     R_AARCH64_LDST64_ABS_LO12_NC: "R_AARCH64_LDST64_ABS_LO12_NC",
     R_AARCH64_LDST128_ABS_LO12_NC: "R_AARCH64_LDST128_ABS_LO12_NC",
     R_AARCH64_PREL32: "R_AARCH64_PREL32",
+    R_AARCH64_MOVW_UABS_G0_NC: "R_AARCH64_MOVW_UABS_G0_NC",
+    R_AARCH64_MOVW_UABS_G1_NC: "R_AARCH64_MOVW_UABS_G1_NC",
+    R_AARCH64_MOVW_UABS_G2_NC: "R_AARCH64_MOVW_UABS_G2_NC",
+    R_AARCH64_MOVW_UABS_G3: "R_AARCH64_MOVW_UABS_G3",
 }
 
 # ARM64 trampoline: load address from literal pool and branch
@@ -852,6 +862,45 @@ def apply_relocations(
                     continue
                 value = (S + A - P) & 0xFFFFFFFF
                 struct.pack_into("<I", target_sec.data, reloc.offset, value)
+
+            elif reloc.type in (
+                R_AARCH64_MOVW_UABS_G0_NC,
+                R_AARCH64_MOVW_UABS_G1_NC,
+                R_AARCH64_MOVW_UABS_G2_NC,
+                R_AARCH64_MOVW_UABS_G3,
+            ):
+                # MOVW/MOVK with absolute address chunks (used by Rust large code model)
+                # These instructions load 16-bit chunks of a 64-bit address
+                if is_external:
+                    errors.append(f"MOVW_UABS for external symbol {reloc.symbol} not supported")
+                    continue
+
+                addr = S + A
+                # Extract the appropriate 16-bit chunk
+                if reloc.type == R_AARCH64_MOVW_UABS_G0_NC:
+                    imm16 = addr & 0xFFFF  # bits 0-15
+                elif reloc.type == R_AARCH64_MOVW_UABS_G1_NC:
+                    imm16 = (addr >> 16) & 0xFFFF  # bits 16-31
+                elif reloc.type == R_AARCH64_MOVW_UABS_G2_NC:
+                    imm16 = (addr >> 32) & 0xFFFF  # bits 32-47
+                else:  # R_AARCH64_MOVW_UABS_G3
+                    imm16 = (addr >> 48) & 0xFFFF  # bits 48-63
+
+                # Patch the instruction: imm16 goes into bits 5-20
+                insn = struct.unpack_from("<I", target_sec.data, reloc.offset)[0]
+                insn = (insn & 0xFFE0001F) | (imm16 << 5)
+                struct.pack_into("<I", target_sec.data, reloc.offset, insn)
+
+                # Record for load-time patching
+                target_offset = (S + A) - base_address
+                internal_relocs.append(
+                    InternalRelocation(
+                        section_offset=target_sec.offset + reloc.offset,
+                        size=4,
+                        target_offset=target_offset,
+                        reloc_type=reloc.type,
+                    )
+                )
 
             elif reloc.type == R_AARCH64_NONE:
                 pass
