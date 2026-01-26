@@ -57,6 +57,31 @@ STUB_SYMBOLS = {
     "toupper",
     "ceil",
     "Py_Version",  # Needed by Cython-generated code
+    # String conversion functions needed by libcxx
+    "strtol",
+    "strtoll",
+    "strtoull",
+    "strtof",
+    "strtold",
+    # Wide character functions needed by libcxx
+    "wcslen",
+    "wcstol",
+    "wcstoull",
+    "wcstod",
+    "wcstof",
+    "wcstold",
+    "swprintf",
+    # C++ ABI functions
+    "__cxa_call_terminate",
+    "_ZNSt20bad_array_new_lengthC1Ev",
+    "_ZNSt9bad_allocC1Ev",
+    # C++ exception class stubs
+    "_ZNSt12out_of_rangeD1Ev",
+    "_ZNSt16invalid_argumentD1Ev",
+    "_ZTISt12out_of_range",
+    "_ZTISt16invalid_argument",
+    "_ZTVSt12out_of_range",
+    "_ZTVSt16invalid_argument",
 }
 
 
