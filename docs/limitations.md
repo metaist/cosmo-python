@@ -191,6 +191,18 @@ For C/C++ extensions, see [cosmoext](cosmoext.md) which handles MAP_JIT properly
 3. **Fork and build**: Add C extensions at compile time in your own build
 4. **Alternative packages**: Often a pure-Python alternative exists
 
+**Rust/PyO3 Extensions:**
+
+Rust extensions (using PyO3, pyo3-macros, etc.) are **not currently supported**. The blocker is Rust's `compiler_builtins` crate, which provides ~385 intrinsic functions for 128-bit math, soft-float operations, etc. Cosmopolitan doesn't provide these symbols.
+
+See [#116](https://github.com/metaist/cosmo-python/issues/116) for details and potential future work.
+
+| Rust Extension | Alternative |
+|----------------|-------------|
+| orjson | ujson (C, works via cosmoext) |
+| pydantic-core | pydantic v1 (pure Python) |
+| tokenizers | tiktoken with fallback |
+
 ---
 
 ## Cryptography

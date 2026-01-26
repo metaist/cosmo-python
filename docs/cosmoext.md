@@ -165,6 +165,110 @@ sys_icache_invalidate(ptr, size); // Flush instruction cache
 **macOS x86_64**:
 Standard mmap works (no W^X enforcement).
 
+### Thread-Local Storage (TLS)
+
+Extensions can use thread-local variables (`__thread` in C, `thread_local` in C++).
+The cosmoext loader handles TLS sections automatically.
+
+**How it works:**
+
+1. **At build time**: The linker detects `.tdata` (initialized) and `.tbss` (uninitialized)
+   TLS sections and emits TLS relocations
+2. **At load time**: The loader:
+   - Identifies TLS sections via the `COSMOEXT_SECTION_TLS` flag (0x4)
+   - Allocates TLS space at offset 0x1000 from the thread pointer
+   - Copies `.tdata` content to initialize thread-local variables
+   - Patches TLS relocations to point to the correct offsets
+
+**TLS Layout:**
+```
+Thread Pointer (TP)
+  │
+  ├── 0x0000 - 0x0FFF: python.com's TLS (reserved)
+  │
+  └── 0x1000+: Extension TLS
+        ├── .tbss (uninitialized, zeroed)
+        └── .tdata (initialized from blob)
+```
+
+**Example:**
+```c
+__thread int counter = 0;      // Goes in .tbss (zero-initialized)
+__thread int magic = 42;       // Goes in .tdata (initialized to 42)
+
+static PyObject* increment(PyObject* self, PyObject* args) {
+    counter++;
+    return PyLong_FromLong(counter);
+}
+
+static PyObject* get_magic(PyObject* self, PyObject* args) {
+    return PyLong_FromLong(magic);  // Returns 42
+}
+```
+
+**Supported TLS relocation types:**
+
+| Architecture | Type | Description |
+|--------------|------|-------------|
+| x86_64 | `R_X86_64_TPOFF32` | 32-bit offset from thread pointer |
+| ARM64 | `R_AARCH64_TLSLE_ADD_TPREL_HI12` | High 12 bits of TP-relative offset |
+| ARM64 | `R_AARCH64_TLSLE_ADD_TPREL_LO12_NC` | Low 12 bits of TP-relative offset |
+
+**Limitations:**
+
+- Single extension TLS block (multiple extensions would need offset tracking)
+- Limited to ~4KB of TLS data per extension (can be increased if needed)
+- Local Exec model only (no dynamic TLS via `__tls_get_addr`)
+
+### Constructor Support (.init_array)
+
+Extensions can use constructor functions that run before `PyInit_*`. This is
+essential for C++ static initialization and Rust runtime setup.
+
+**How it works:**
+
+1. **At build time**: Constructors marked with `__attribute__((constructor))` or
+   C++ static initializers are placed in the `.init_array` section
+2. **The loader parses** `.rela.init_array` relocations to find constructor addresses
+3. **At load time**: All constructors are called in order before `PyInit_*`
+
+**Example:**
+```c
+static int initialized = 0;
+static int magic_value = 0;
+
+__attribute__((constructor))
+static void my_init(void) {
+    initialized = 1;
+    magic_value = 42;
+}
+
+static PyObject* check_init(PyObject* self, PyObject* args) {
+    if (initialized) {
+        return PyLong_FromLong(magic_value);  // Returns 42
+    }
+    Py_RETURN_NONE;
+}
+```
+
+**C++ static initialization:**
+```cpp
+#include <string>
+
+// This constructor runs before PyInit_*
+static std::string greeting = "Hello from C++!";
+
+static PyObject* get_greeting(PyObject* self, PyObject* args) {
+    return PyUnicode_FromString(greeting.c_str());
+}
+```
+
+**Format details:**
+
+The cosmoext v7 format includes constructor offsets in the header:
+- `num_constructors`: Number of constructor functions
+- Constructor offset table: Array of 8-byte offsets into the blob
+
 ## Building Extensions
 
 ### Prerequisites
@@ -514,3 +618,5 @@ Data sections that need to remain writable are copied to heap before the switch.
 2. **Symbol table optimization**: Faster lookup, smaller embedded table
 3. **More extensions**: Test and document additional popular extensions
 4. **libffi callbacks**: Fix `ffi_closure_alloc` crash on macOS (see [#112](https://github.com/metaist/cosmo-python/issues/112))
+5. **PyO3/Rust extensions**: Requires Rust `compiler_builtins` for Cosmopolitan (see [#116](https://github.com/metaist/cosmo-python/issues/116))
+6. **Multi-extension TLS**: Track TLS offsets across multiple loaded extensions
