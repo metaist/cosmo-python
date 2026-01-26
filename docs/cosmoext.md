@@ -176,8 +176,11 @@ Standard mmap works (no W^X enforcement).
 ### Using cosmoext-build
 
 ```bash
-# Basic usage - produces fat binary with both architectures
+# Basic C extension - produces fat binary with both architectures
 python.com cosmoext-build.py --python python.com -o myext.cosmoext myext.c
+
+# C++ extension with STL support
+python.com cosmoext-build.py --python python.com -o myext.cosmoext --cxx myext.cpp
 
 # With include paths
 python.com cosmoext-build.py --python python.com -o myext.cosmoext \
@@ -243,6 +246,7 @@ These extensions have been tested and work:
 | ujson | Single-phase init | Uses PyState_FindModule |
 | crc32c | Single-phase init | Pure C, uses SIMD |
 | msgpack | Single-phase init | Cython with relative imports |
+| C++ STL | C++ | `std::sort`, `std::string`, etc. via `--cxx` flag |
 
 ## Known Limitations
 
@@ -260,58 +264,94 @@ Cython extensions that do relative imports during init work thanks to
 
 ### C++ Extensions
 
-Simple C++ extensions **work**, but STL templates currently don't.
+C++ extensions work, including the full C++ Standard Library (STL).
 
 **What works:**
 
 - C++ classes with constructors/destructors
 - Member functions and virtual functions
 - Global/static objects
-- Basic exception handling (throw/catch)
+- Exception handling (throw/catch)
 - Operators new/delete
+- **STL algorithms**: `std::sort`, `std::find`, `std::transform`, etc.
+- **STL containers**: `std::string`, `std::vector`, `std::map`, etc.
+- **STL utilities**: `std::move`, `std::make_unique`, `std::optional`, etc.
 
-**What doesn't work (yet):**
+**Building C++ extensions:**
 
-- **STL algorithms**: `std::sort`, `std::find`, etc.
-- **STL container methods**: `std::string::append()`, `std::vector::push_back()`, etc.
-- Any C++ standard library templates
-
-**Why C is different from C++:**
-
-C extensions resolve symbols **at runtime**. When you call `PyModule_Create`, the
-cosmoext loader finds that symbol in python.com's symbol table and patches the address
-into your code. This works because `PyModule_Create` is actual compiled code sitting
-in python.com.
-
-C++ templates are different. When you write `std::sort<int>(...)`, the compiler generates
-code *in your object file* by instantiating the template from the headers. That generated
-code calls internal helper functions from the C++ runtime library (libcxx.a). Those helpers
-aren't in python.com because Python itself never used them.
-
-```
-C extension:           C++ extension:
-                       
-myext.o                myext.o
-  │                      │
-  │ PyModule_Create      │ PyModule_Create    ✓ in python.com
-  │ ───────────────►     │ std::sort<int>     ✗ NOT in python.com
-  │ resolved at          │ (needs libcxx.a)
-  │ runtime from         │
-  │ python.com           │
-  ▼                      ▼
-WORKS                  FAILS
+```bash
+# Use --cxx flag to enable C++ mode and link libcxx
+python.com cosmoext-build.py --python python.com -o myext.cosmoext --cxx myext.cpp
 ```
 
-**Future fix:**
+The `--cxx` flag:
+1. Uses `cosmoc++` instead of `cosmocc`
+2. Links against custom `libcxx-large.a` archives
+3. Includes C++ runtime stubs in `libc_stubs.c`
 
-The [cosmofy](https://github.com/metaist/cosmofy) tool will handle C++ extensions by
-linking against libcxx.a at build time (before creating the .cosmoext), so template
-instantiations get their dependencies resolved. The cosmocc toolchain includes both
-the C++ headers and libcxx.a needed for this.
+**Why custom libcxx archives are needed:**
 
-**Current workaround:**
+The standard `libcxx.a` from cosmocc uses `PC32` and `PLT32` relocations that assume
+code is within ±2GB of addresses. Our runtime loader places code at arbitrary addresses
+(0x7f0000000000), so we need `-mcmodel=large` which uses 64-bit absolute addressing.
 
-For now, avoid STL in cosmoext C++ extensions. Use C-style code or simple C++ classes.
+The `libcxx-large.a` archives in `src/cosmoext/lib/` are rebuilt with:
+```
+-mcmodel=large    # 64-bit addressing
+-std=c++23        # Full C++23 support
+-fexceptions      # Exception handling
+-frtti            # Runtime type information
+```
+
+See `src/cosmoext/lib/README.md` for build details, or rebuild with:
+```bash
+./scripts/libcxx-large.sh
+```
+
+**Example C++ extension:**
+
+```cpp
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+#include <algorithm>
+#include <vector>
+#include <string>
+
+static PyObject* sort_list(PyObject* self, PyObject* args) {
+    PyObject* list;
+    if (!PyArg_ParseTuple(args, "O", &list)) return NULL;
+
+    // Convert to std::vector
+    std::vector<long> vec;
+    Py_ssize_t size = PyList_Size(list);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        vec.push_back(PyLong_AsLong(PyList_GetItem(list, i)));
+    }
+
+    // Use STL algorithm
+    std::sort(vec.begin(), vec.end());
+
+    // Convert back to Python list
+    PyObject* result = PyList_New(size);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        PyList_SetItem(result, i, PyLong_FromLong(vec[i]));
+    }
+    return result;
+}
+
+static PyMethodDef methods[] = {
+    {"sort_list", sort_list, METH_VARARGS, "Sort a list using std::sort"},
+    {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef module = {
+    PyModuleDef_HEAD_INIT, "stltest", NULL, -1, methods
+};
+
+PyMODINIT_FUNC PyInit_stltest(void) {
+    return PyModule_Create(&module);
+}
+```
 
 ### Symbol Availability
 
@@ -378,6 +418,8 @@ with zipfile.ZipFile(sys.executable) as zf:
 | `src/cosmoext/cosmoext-build.py` | CLI: compile → link → convert pipeline |
 | `src/cosmoext/libc_stubs.c` | C: stub implementations for missing symbols |
 | `src/cosmoext/_cosmoext_importer.py` | Python: import hook (fallback) |
+| `src/cosmoext/lib/libcxx-large-*.a` | C++ runtime archives (built with `-mcmodel=large`) |
+| `scripts/libcxx-large.sh` | Build script for C++ runtime archives |
 
 ## Development Notes
 
@@ -468,7 +510,7 @@ Data sections that need to remain writable are copied to heap before the switch.
 
 ## Future Work
 
-1. **C++ support**: Test and fix C++ extension loading
-2. **Windows testing**: Verify VirtualAlloc-based loading works
-3. **Symbol table optimization**: Faster lookup, smaller embedded table
-4. **More extensions**: Test and document additional popular extensions
+1. **Windows testing**: Verify VirtualAlloc-based loading works
+2. **Symbol table optimization**: Faster lookup, smaller embedded table
+3. **More extensions**: Test and document additional popular extensions
+4. **libffi callbacks**: Fix `ffi_closure_alloc` crash on macOS (see [#112](https://github.com/metaist/cosmo-python/issues/112))
