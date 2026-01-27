@@ -350,11 +350,30 @@ fi
 
 # Find the built library based on architecture
 # Note: Cargo may use hyphens or underscores in lib names
+# For workspaces, target dir might be at workspace root, not crate dir
 CRATE_NAME_UNDERSCORE="${CRATE_NAME//-/_}"
+
+# Find the target directory - check both crate dir and workspace root
+TARGET_SUFFIX=""
 if [[ "$ARCH" == "x86_64" ]]; then
-    TARGET_DIR="$CRATE_DIR/target/x86_64-unknown-linux-musl/release"
+    TARGET_SUFFIX="target/x86_64-unknown-linux-musl/release"
 else
-    TARGET_DIR="$CRATE_DIR/target/aarch64-unknown-linux-musl/release"
+    TARGET_SUFFIX="target/aarch64-unknown-linux-musl/release"
+fi
+
+# Try crate dir first, then walk up to find workspace root
+TARGET_DIR=""
+SEARCH_DIR="$CRATE_DIR"
+for _ in 1 2 3 4 5; do  # Walk up to 5 levels
+    if [[ -d "$SEARCH_DIR/$TARGET_SUFFIX" ]]; then
+        TARGET_DIR="$SEARCH_DIR/$TARGET_SUFFIX"
+        break
+    fi
+    SEARCH_DIR="$(dirname "$SEARCH_DIR")"
+done
+
+if [[ -z "$TARGET_DIR" ]]; then
+    TARGET_DIR="$CRATE_DIR/$TARGET_SUFFIX"  # Fallback
 fi
 
 # Try various naming conventions
