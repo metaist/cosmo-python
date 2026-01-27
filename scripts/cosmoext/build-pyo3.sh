@@ -309,11 +309,13 @@ log_info "Step 1/4: Building Rust crate with nightly..."
 cd "$CRATE_DIR"
 
 # Check if Cargo.toml needs crate-type modification
-if grep -q 'crate-type.*=.*\["cdylib"\]' Cargo.toml; then
-    log_info "  Patching Cargo.toml: cdylib -> staticlib"
+# Patch crate-type to staticlib (handles cdylib, rlib, or combinations)
+if grep -q 'crate-type' Cargo.toml; then
+    log_info "  Patching Cargo.toml: crate-type -> staticlib"
     # Create backup
     cp Cargo.toml Cargo.toml.bak
-    sed -i 's/crate-type *= *\["cdylib"\]/crate-type = ["staticlib"]/' Cargo.toml
+    # Replace any crate-type line with staticlib only
+    sed -i 's/crate-type *= *\[.*\]/crate-type = ["staticlib"]/' Cargo.toml
 fi
 
 # Set up environment for C dependencies (cc-rs crate)
@@ -347,14 +349,27 @@ if [[ -f Cargo.toml.bak ]]; then
 fi
 
 # Find the built library based on architecture
+# Note: Cargo may use hyphens or underscores in lib names
+CRATE_NAME_UNDERSCORE="${CRATE_NAME//-/_}"
 if [[ "$ARCH" == "x86_64" ]]; then
-    LIB_PATH="$CRATE_DIR/target/x86_64-unknown-linux-musl/release/lib${CRATE_NAME}.a"
+    TARGET_DIR="$CRATE_DIR/target/x86_64-unknown-linux-musl/release"
 else
-    LIB_PATH="$CRATE_DIR/target/aarch64-unknown-linux-musl/release/lib${CRATE_NAME}.a"
+    TARGET_DIR="$CRATE_DIR/target/aarch64-unknown-linux-musl/release"
 fi
-if [[ ! -f "$LIB_PATH" ]]; then
-    # Try alternate path (target spec filename without .json)
-    LIB_PATH=$(find "$CRATE_DIR/target" -name "lib${CRATE_NAME}.a" -path "*/release/*" 2>/dev/null | head -1)
+
+# Try various naming conventions
+LIB_PATH=""
+for name in "lib${CRATE_NAME}.a" "lib${CRATE_NAME_UNDERSCORE}.a" "lib_${CRATE_NAME_UNDERSCORE}.a"; do
+    if [[ -f "$TARGET_DIR/$name" ]]; then
+        LIB_PATH="$TARGET_DIR/$name"
+        break
+    fi
+done
+
+# Fallback: search for any .a file in release directory
+if [[ -z "$LIB_PATH" || ! -f "$LIB_PATH" ]]; then
+    # shellcheck disable=SC2012
+    LIB_PATH=$(ls "$TARGET_DIR"/lib*.a 2>/dev/null | head -1)
 fi
 
 if [[ -z "$LIB_PATH" || ! -f "$LIB_PATH" ]]; then
