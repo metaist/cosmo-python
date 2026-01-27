@@ -326,7 +326,7 @@ export CXX="${COSMO_BIN_DIR}/cosmoc++"
 export AR="${COSMO_BIN_DIR}/cosmoar"
 export RANLIB="${COSMO_BIN_DIR}/cosmoar s"
 export CFLAGS="-mcmodel=large -fno-stack-protector"
-export CXXFLAGS="-mcmodel=large -fno-stack-protector -fno-exceptions -fno-rtti"
+export CXXFLAGS="-mcmodel=large -fno-stack-protector"
 
 # Copy target spec to crate directory (some build scripts expect it there)
 cp "$TARGET_SPEC" "$CRATE_DIR/"

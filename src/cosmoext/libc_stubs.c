@@ -974,3 +974,108 @@ _Unwind_Word _Unwind_GetCFA(_Unwind_Context *context)
     (void)context;
     return 0;
 }
+
+/* mlock/munlock - lock memory (for safetensors) */
+int mlock(const void *addr, unsigned long len)
+{
+    (void)addr;
+    (void)len;
+    return 0;  /* Silently succeed - cosmopolitan may not support this */
+}
+
+int munlock(const void *addr, unsigned long len)
+{
+    (void)addr;
+    (void)len;
+    return 0;
+}
+
+/* inotify functions (for watchfiles) - Linux file watching */
+int inotify_init1(int flags)
+{
+    (void)flags;
+    return -1;  /* Not supported on all platforms */
+}
+
+int inotify_add_watch(int fd, const char *pathname, unsigned int mask)
+{
+    (void)fd;
+    (void)pathname;
+    (void)mask;
+    return -1;
+}
+
+int inotify_rm_watch(int fd, int wd)
+{
+    (void)fd;
+    (void)wd;
+    return -1;
+}
+
+/* futimes/lutimes - set file times */
+struct timeval;
+int futimes(int fd, const struct timeval *times)
+{
+    (void)fd;
+    (void)times;
+    return -1;
+}
+
+int lutimes(const char *path, const struct timeval *times)
+{
+    (void)path;
+    (void)times;
+    return -1;
+}
+
+/* Linux epoll functions */
+int epoll_create1(int flags)
+{
+    (void)flags;
+    return -1;  /* Not supported */
+}
+
+int epoll_ctl(int epfd, int op, int fd, void *event)
+{
+    (void)epfd;
+    (void)op;
+    (void)fd;
+    (void)event;
+    return -1;
+}
+
+int epoll_wait(int epfd, void *events, int maxevents, int timeout)
+{
+    (void)epfd;
+    (void)events;
+    (void)maxevents;
+    (void)timeout;
+    return -1;
+}
+
+/* eventfd - event notification */
+int eventfd(unsigned int initval, int flags)
+{
+    (void)initval;
+    (void)flags;
+    return -1;
+}
+
+/* Signal functions */
+int __libc_current_sigrtmax(void)
+{
+    return 64;  /* Standard SIGRTMAX */
+}
+
+/* Terminal control */
+struct termios;
+int cfmakeraw(struct termios *termios_p)
+{
+    (void)termios_p;
+    return 0;
+}
+
+/* Math functions - forward to cosmopolitan's implementations */
+double exp(double x);
+double pow(double x, double y);
+/* These should already be in python.com, just need aliases */
