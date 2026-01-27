@@ -823,3 +823,154 @@ int fstat(int fd, struct stat *buf)
     return -1;  /* ENOSYS */
 }
 #endif
+
+/* Additional stubs for rpds-py and other extensions */
+
+/* _exit - terminate process immediately */
+void _exit(int status)
+{
+    extern void exit(int);
+    exit(status);
+}
+
+/* execvp - execute program searching PATH */
+int execvp(const char *file, char *const argv[])
+{
+    (void)file;
+    (void)argv;
+    return -1;  /* Not supported */
+}
+
+/* getauxval - get auxiliary vector value */
+unsigned long getauxval(unsigned long type)
+{
+    (void)type;
+    return 0;  /* Not available */
+}
+
+/* lstat - get file status (don't follow symlinks) */
+struct stat;
+extern int stat(const char *path, struct stat *buf);
+int lstat(const char *path, struct stat *buf)
+{
+    return stat(path, buf);  /* Fall back to stat */
+}
+
+/* mkfifo - make FIFO (named pipe) */
+int mkfifo(const char *path, unsigned int mode)
+{
+    (void)path;
+    (void)mode;
+    return -1;  /* Not supported */
+}
+
+/* openat - open file relative to directory fd */
+extern int open(const char *path, int flags, ...);
+int openat(int dirfd, const char *path, int flags, ...)
+{
+    (void)dirfd;
+    /* Ignore dirfd, just use regular open */
+    return open(path, flags);
+}
+
+/* pidfd functions - not supported */
+int pidfd_getpid(int pidfd)
+{
+    (void)pidfd;
+    return -1;
+}
+
+int pidfd_spawnp(int *pidfd, const char *path, void *file_actions,
+                 void *attrp, char *const argv[], char *const envp[])
+{
+    (void)pidfd;
+    (void)path;
+    (void)file_actions;
+    (void)attrp;
+    (void)argv;
+    (void)envp;
+    return -1;
+}
+
+/* posix_spawn_file_actions_addchdir_np - not available */
+int posix_spawn_file_actions_addchdir_np(void *file_actions, const char *path)
+{
+    (void)file_actions;
+    (void)path;
+    return -1;
+}
+
+/* pread - read from file at offset */
+extern long read(int fd, void *buf, unsigned long count);
+extern long lseek(int fd, long offset, int whence);
+long pread(int fd, void *buf, unsigned long count, long offset)
+{
+    long old_pos = lseek(fd, 0, 1);  /* SEEK_CUR */
+    if (old_pos < 0) return -1;
+    if (lseek(fd, offset, 0) < 0) return -1;  /* SEEK_SET */
+    long result = read(fd, buf, count);
+    lseek(fd, old_pos, 0);  /* Restore position */
+    return result;
+}
+
+/* pthread attribute functions - return defaults */
+typedef unsigned long pthread_attr_t;
+
+int pthread_attr_getguardsize(const pthread_attr_t *attr, unsigned long *guardsize)
+{
+    (void)attr;
+    *guardsize = 4096;  /* Default page size */
+    return 0;
+}
+
+int pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, unsigned long *stacksize)
+{
+    (void)attr;
+    *stackaddr = (void *)0;
+    *stacksize = 8 * 1024 * 1024;  /* 8MB default */
+    return 0;
+}
+
+int pthread_getattr_np(unsigned long thread, pthread_attr_t *attr)
+{
+    (void)thread;
+    (void)attr;
+    return 0;
+}
+
+int pthread_setname_np(unsigned long thread, const char *name)
+{
+    (void)thread;
+    (void)name;
+    return 0;  /* Silently succeed */
+}
+
+/* waitid - wait for process state change */
+typedef struct {
+    int si_pid;
+    int si_uid;
+    int si_status;
+    int si_code;
+} siginfo_t;
+
+int waitid(int idtype, int id, siginfo_t *infop, int options)
+{
+    (void)idtype;
+    (void)id;
+    (void)infop;
+    (void)options;
+    return -1;  /* Not supported */
+}
+
+/* Additional Unwind functions */
+_Unwind_Ptr _Unwind_FindEnclosingFunction(void *pc)
+{
+    (void)pc;
+    return 0;
+}
+
+_Unwind_Word _Unwind_GetCFA(_Unwind_Context *context)
+{
+    (void)context;
+    return 0;
+}
