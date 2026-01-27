@@ -1079,3 +1079,30 @@ int cfmakeraw(struct termios *termios_p)
 double exp(double x);
 double pow(double x, double y);
 /* These should already be in python.com, just need aliases */
+
+/* Math functions - implemented via asm to call actual functions */
+/* These exist in cosmopolitan but may not be exported with these exact names */
+
+/* Use compiler builtins which get lowered to the right calls */
+double cosmoext_exp(double x) { return __builtin_exp(x); }
+double cosmoext_pow(double x, double y) { return __builtin_pow(x, y); }
+double cosmoext_log(double x) { return __builtin_log(x); }
+double cosmoext_sqrt(double x) { return __builtin_sqrt(x); }
+double cosmoext_sin(double x) { return __builtin_sin(x); }
+double cosmoext_cos(double x) { return __builtin_cos(x); }
+float cosmoext_expf(float x) { return __builtin_expf(x); }
+float cosmoext_powf(float x, float y) { return __builtin_powf(x, y); }
+float cosmoext_logf(float x) { return __builtin_logf(x); }
+float cosmoext_sqrtf(float x) { return __builtin_sqrtf(x); }
+
+/* Provide the standard names as aliases */
+__attribute__((weak, alias("cosmoext_exp"))) double exp(double);
+__attribute__((weak, alias("cosmoext_pow"))) double pow(double, double);
+__attribute__((weak, alias("cosmoext_log"))) double log(double);
+__attribute__((weak, alias("cosmoext_sqrt"))) double sqrt(double);
+__attribute__((weak, alias("cosmoext_sin"))) double sin(double);
+__attribute__((weak, alias("cosmoext_cos"))) double cos(double);
+__attribute__((weak, alias("cosmoext_expf"))) float expf(float);
+__attribute__((weak, alias("cosmoext_powf"))) float powf(float, float);
+__attribute__((weak, alias("cosmoext_logf"))) float logf(float);
+__attribute__((weak, alias("cosmoext_sqrtf"))) float sqrtf(float);
