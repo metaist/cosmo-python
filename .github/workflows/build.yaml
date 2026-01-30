@@ -47,7 +47,7 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
       cosmocc_version: ${{ steps.versions.outputs.cosmocc_version }}
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7
@@ -70,7 +70,7 @@ jobs:
       WORK_DIR: ${{ github.workspace }}/work
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7
@@ -105,7 +105,7 @@ jobs:
       DIST_DIR: ${{ github.workspace }}/dist
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Restore deps from cache
         uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5
