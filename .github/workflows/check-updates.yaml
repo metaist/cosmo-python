@@ -63,7 +63,7 @@ jobs:
 
           # Create or switch to branch
           git checkout -B "$BRANCH"
-          git add upstream.cdx.json README.md
+          git add upstream.cdx.json README.md docs/*.md
           git commit -m "update: dependency versions"
           git push -f origin "$BRANCH"
 
@@ -79,7 +79,7 @@ jobs:
 
           ## Next Steps
 
-          1. Review the changes to \`upstream.cdx.json\` and \`README.md\`
+          1. Review the changes to \`upstream.cdx.json\`, \`README.md\`, and \`docs/\`
           2. CI will build all Python versions to verify compatibility
           3. If CI passes, merge to accept updates
           4. If CI fails, investigate which dependency caused the failure
