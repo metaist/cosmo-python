@@ -5,7 +5,7 @@ Usage: uv run -m ci.check_updates [--dry-run]
 
 Checks all upstreams (see ci/upstreams/) for newer versions, updates
 upstream.cdx.json with new versions and SHA256 hashes, and regenerates
-README.md with cog.
+README.md and docs/ with cog.
 """
 
 from __future__ import annotations
@@ -241,8 +241,8 @@ def check_dependencies(bom: cdx.Bom) -> list[tuple[str, str]]:
 
 
 def regenerate_readme() -> None:
-    """Regenerate README.md using cog."""
-    log.info("Regenerating README.md...")
+    """Regenerate README.md and docs/ using cog."""
+    log.info("Regenerating README.md and docs/...")
     try:
         subprocess.run(["uvx", "--from", "ds-run", "ds", "cog"], check=True)
     except FileNotFoundError:
@@ -296,6 +296,7 @@ def main() -> int:
             log.info("Files modified:")
             print("  - upstream.cdx.json")
             print("  - README.md")
+            print("  - docs/*.md")
     else:
         log.info("All dependencies are up to date.")
 
