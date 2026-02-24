@@ -2,7 +2,7 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "version": 2,
+  "version": 3,
   "metadata": {
     "timestamp": "2026-01-15T02:03:13Z",
     "component": { "type": "application", "name": "cosmo-python", "publisher": "metaist" },
@@ -13,7 +13,7 @@
       { "name": "cosmo:default:gdbm", "value": "1.26" },
       { "name": "cosmo:default:libffi", "value": "3.5.2" },
       { "name": "cosmo:default:ncurses", "value": "6.6" },
-      { "name": "cosmo:default:openssl", "value": "3.6.0" },
+      { "name": "cosmo:default:openssl", "value": "3.6.1" },
       { "name": "cosmo:default:python", "value": "3.14.2" },
       { "name": "cosmo:default:readline", "value": "8.3" },
       { "name": "cosmo:default:sqlite", "value": "3.51.2" },
@@ -22,8 +22,8 @@
       { "name": "cosmo:latest:python:3.10", "value": "3.10.19" },
       { "name": "cosmo:latest:python:3.11", "value": "3.11.14" },
       { "name": "cosmo:latest:python:3.12", "value": "3.12.12" },
-      { "name": "cosmo:latest:python:3.13", "value": "3.13.11" },
-      { "name": "cosmo:latest:python:3.14", "value": "3.14.2" }
+      { "name": "cosmo:latest:python:3.13", "value": "3.13.12" },
+      { "name": "cosmo:latest:python:3.14", "value": "3.14.3" }
     ]
   },
   "components": [
@@ -85,12 +85,40 @@
       ]
     }, {
       "type": "application",
+      "bom-ref": "python@3.13.12",
+      "name": "python",
+      "version": "3.13.12",
+      "hashes": [{ "alg": "SHA-256", "content": "12e7cb170ad2d1a69aee96a1cc7fc8de5b1e97a2bdac51683a3db016ec9a2996" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.13.12/Python-3.13.12.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2029-10" },
+        { "name": "cosmo:status", "value": "bugfix" },
+        { "name": "cosmo:sigstore:identity", "value": "thomas@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://accounts.google.com" }
+      ]
+    }, {
+      "type": "application",
       "bom-ref": "python@3.14.2",
       "name": "python",
       "version": "3.14.2",
       "hashes": [{ "alg": "SHA-256", "content": "c609e078adab90e2c6bacb6afafacd5eaf60cd94cf670f1e159565725fcd448d" }],
       "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.14.2/Python-3.14.2.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2030-10" },
+        { "name": "cosmo:status", "value": "bugfix" },
+        { "name": "cosmo:sigstore:identity", "value": "hugo@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://github.com/login/oauth" }
+      ]
+    }, {
+      "type": "application",
+      "bom-ref": "python@3.14.3",
+      "name": "python",
+      "version": "3.14.3",
+      "hashes": [{ "alg": "SHA-256", "content": "d7fe130d0501ae047ca318fa92aa642603ab6f217901015a1df6ce650d5470cd" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tgz" }],
       "properties": [
         { "name": "cosmo:eol", "value": "2030-10" },
         { "name": "cosmo:status", "value": "bugfix" },
@@ -220,6 +248,20 @@
       ]
     }, {
       "type": "library",
+      "bom-ref": "openssl@3.6.1",
+      "name": "openssl",
+      "version": "3.6.1",
+      "purl": "pkg:github/openssl/openssl@openssl-3.6.1",
+      "hashes": [{ "alg": "SHA-256", "content": "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-3.6.1/openssl-3.6.1.tar.gz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2026-11" },
+        { "name": "cosmo:status", "value": "supported" },
+        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
+      ]
+    }, {
+      "type": "library",
       "bom-ref": "sqlite@3.51.2",
       "name": "sqlite",
       "version": "3.51.2",
@@ -247,6 +289,16 @@
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.2/xz-5.8.2.tar.gz" }],
       "properties": [{ "name": "cosmo:gpg", "value": "3690C240CE51B4670D30AD1C38EE757D69184620" }]
     }, {
+      "type": "library",
+      "bom-ref": "zstd@1.5.7",
+      "name": "zstd",
+      "version": "1.5.7",
+      "purl": "pkg:github/facebook/zstd@v1.5.7",
+      "hashes": [{ "alg": "SHA-256", "content": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3" }],
+      "licenses": [{ "license": { "id": "BSD-3-Clause", "url": "https://github.com/facebook/zstd/blob/dev/LICENSE" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "4EF4AC63455FC9F4545D9B7DEF8FE99528B52FFD" }]
+    }, {
       "type": "data",
       "bom-ref": "cacert@2025-12-02",
       "name": "cacert",
@@ -264,16 +316,6 @@
       "hashes": [{ "alg": "SHA-256", "content": "85b8c37a406d862e656ad4ec14be9f6ce474c1b436b9615e91a55208aced3f44" }],
       "licenses": [{ "license": { "id": "ISC", "url": "https://github.com/jart/cosmopolitan/blob/master/LICENSE" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/jart/cosmopolitan/releases/download/4.0.2/cosmocc-4.0.2.zip" }]
-    }, {
-      "type": "library",
-      "bom-ref": "zstd@1.5.7",
-      "name": "zstd",
-      "version": "1.5.7",
-      "purl": "pkg:github/facebook/zstd@v1.5.7",
-      "hashes": [{ "alg": "SHA-256", "content": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3" }],
-      "licenses": [{ "license": { "id": "BSD-3-Clause", "url": "https://github.com/facebook/zstd/blob/dev/LICENSE" } }],
-      "externalReferences": [{ "type": "distribution", "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz" }],
-      "properties": [{ "name": "cosmo:gpg", "value": "4EF4AC63455FC9F4545D9B7DEF8FE99528B52FFD" }]
     }
   ],
   "dependencies": [
@@ -286,7 +328,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.6.0",
+        "openssl@3.6.1",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -300,7 +342,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.6.0",
+        "openssl@3.6.1",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -314,7 +356,7 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.6.0",
+        "openssl@3.6.1",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -328,7 +370,21 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.6.0",
+        "openssl@3.6.1",
+        "readline@8.3",
+        "sqlite@3.51.2",
+        "xz@5.8.2"
+      ]
+    }, {
+      "ref": "python@3.13.12",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2025-12-02",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.5.2",
+        "ncurses@6.6",
+        "openssl@3.6.1",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2"
@@ -342,7 +398,22 @@
         "gdbm@1.26",
         "libffi@3.5.2",
         "ncurses@6.6",
-        "openssl@3.6.0",
+        "openssl@3.6.1",
+        "readline@8.3",
+        "sqlite@3.51.2",
+        "xz@5.8.2",
+        "zstd@1.5.7"
+      ]
+    }, {
+      "ref": "python@3.14.3",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2025-12-02",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.5.2",
+        "ncurses@6.6",
+        "openssl@3.6.1",
         "readline@8.3",
         "sqlite@3.51.2",
         "xz@5.8.2",
@@ -355,6 +426,7 @@
     { "ref": "ncurses@6.6", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
     { "ref": "openssl@3.6.0", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
+    { "ref": "openssl@3.6.1", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
     { "ref": "readline@8.3", "dependsOn": ["ncurses@6.6"] },
     { "ref": "sqlite@3.51.2", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "xz@5.8.2", "dependsOn": ["cosmocc@4.0.2"] },
