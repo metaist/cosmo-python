@@ -446,8 +446,10 @@ if [ ! -f "${BUILD_DIR}/Modules/Setup.stdlib" ]; then
   log_info "adding _math.o to library..."
   ${COSMO_DIR}/bin/cosmoar rcs "libpython${PYTHON_MAJOR_MINOR}.a" Modules/_math.o
   # Now build python binary
-  # Note: On case-insensitive filesystems (macOS), configure sets BUILDEXE=.exe
-  timed run_python_make -j"$(nproc)" python.exe
+  # On case-insensitive filesystems (macOS), configure sets BUILDEXE=.exe
+  # On Linux (case-sensitive), BUILDEXE is empty, so the target is just "python"
+  BUILDEXE=$(sed -n 's/^BUILDEXE=[[:space:]]*//p' Makefile)
+  timed run_python_make -j"$(nproc)" "python${BUILDEXE}"
 else
   timed run_python_make -j"$(nproc)"
 fi
