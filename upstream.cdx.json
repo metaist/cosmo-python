@@ -2,28 +2,28 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "version": 4,
+  "version": 5,
   "metadata": {
     "timestamp": "2026-01-15T02:03:13Z",
     "component": { "type": "application", "name": "cosmo-python", "publisher": "metaist" },
     "properties": [
       { "name": "cosmo:default:bzip2", "value": "1.0.8" },
-      { "name": "cosmo:default:cacert", "value": "2025-12-02" },
+      { "name": "cosmo:default:cacert", "value": "2026-08-13" },
       { "name": "cosmo:default:cosmocc", "value": "4.0.2" },
       { "name": "cosmo:default:gdbm", "value": "1.26" },
-      { "name": "cosmo:default:libffi", "value": "3.5.2" },
+      { "name": "cosmo:default:libffi", "value": "3.8.0" },
       { "name": "cosmo:default:ncurses", "value": "6.6" },
-      { "name": "cosmo:default:openssl", "value": "3.6.1" },
+      { "name": "cosmo:default:openssl", "value": "4.0.2" },
       { "name": "cosmo:default:python", "value": "3.14.2" },
       { "name": "cosmo:default:readline", "value": "8.3" },
-      { "name": "cosmo:default:sqlite", "value": "3.51.3" },
-      { "name": "cosmo:default:xz", "value": "5.8.2" },
+      { "name": "cosmo:default:sqlite", "value": "3.53.4" },
+      { "name": "cosmo:default:xz", "value": "5.8.3" },
       { "name": "cosmo:default:zstd", "value": "1.5.7" },
-      { "name": "cosmo:latest:python:3.10", "value": "3.10.20" },
-      { "name": "cosmo:latest:python:3.11", "value": "3.11.15" },
-      { "name": "cosmo:latest:python:3.12", "value": "3.12.13" },
-      { "name": "cosmo:latest:python:3.13", "value": "3.13.12" },
-      { "name": "cosmo:latest:python:3.14", "value": "3.14.3" }
+      { "name": "cosmo:latest:python:3.10", "value": "3.10.21" },
+      { "name": "cosmo:latest:python:3.11", "value": "3.11.16" },
+      { "name": "cosmo:latest:python:3.12", "value": "3.12.14" },
+      { "name": "cosmo:latest:python:3.13", "value": "3.13.15" },
+      { "name": "cosmo:latest:python:3.14", "value": "3.14.7" }
     ]
   },
   "components": [
@@ -49,6 +49,20 @@
       "hashes": [{ "alg": "SHA-256", "content": "4ff5fd4c5bab803b935019f3e31d7219cebd6f870d00389cea53b88bbe935d1a" }],
       "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.10.20/Python-3.10.20.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2026-10" },
+        { "name": "cosmo:status", "value": "security" },
+        { "name": "cosmo:sigstore:identity", "value": "pablogsal@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://accounts.google.com" }
+      ]
+    }, {
+      "type": "application",
+      "bom-ref": "python@3.10.21",
+      "name": "python",
+      "version": "3.10.21",
+      "hashes": [{ "alg": "SHA-256", "content": "f276987f06270ae6c1fb4da620bd105edf78c31368c2f7e85e6c1d51c560b04b" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.10.21/Python-3.10.21.tgz" }],
       "properties": [
         { "name": "cosmo:eol", "value": "2026-10" },
         { "name": "cosmo:status", "value": "security" },
@@ -85,6 +99,20 @@
       ]
     }, {
       "type": "application",
+      "bom-ref": "python@3.11.16",
+      "name": "python",
+      "version": "3.11.16",
+      "hashes": [{ "alg": "SHA-256", "content": "6c0bd76ab0ec7d94ed400b1497f01ac6c7751c8822615ee0855a3eb2d893ea76" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.11.16/Python-3.11.16.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2027-10" },
+        { "name": "cosmo:status", "value": "security" },
+        { "name": "cosmo:sigstore:identity", "value": "pablogsal@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://accounts.google.com" }
+      ]
+    }, {
+      "type": "application",
       "bom-ref": "python@3.12.12",
       "name": "python",
       "version": "3.12.12",
@@ -105,6 +133,20 @@
       "hashes": [{ "alg": "SHA-256", "content": "0816c4761c97ecdb3f50a3924de0a93fd78cb63ee8e6c04201ddfaedca500b0b" }],
       "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.12.13/Python-3.12.13.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2028-10" },
+        { "name": "cosmo:status", "value": "security" },
+        { "name": "cosmo:sigstore:identity", "value": "thomas@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://accounts.google.com" }
+      ]
+    }, {
+      "type": "application",
+      "bom-ref": "python@3.12.14",
+      "name": "python",
+      "version": "3.12.14",
+      "hashes": [{ "alg": "SHA-256", "content": "6c6df908d2c3fd24e6d76869e92542abd0f33aec9dfc18df8875f89660286d43" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.12.14/Python-3.12.14.tgz" }],
       "properties": [
         { "name": "cosmo:eol", "value": "2028-10" },
         { "name": "cosmo:status", "value": "security" },
@@ -141,6 +183,20 @@
       ]
     }, {
       "type": "application",
+      "bom-ref": "python@3.13.15",
+      "name": "python",
+      "version": "3.13.15",
+      "hashes": [{ "alg": "SHA-256", "content": "c28d9d213c09b5b5ab2c29812950e12f746999e099b82894231be954b26baed9" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.13.15/Python-3.13.15.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2029-10" },
+        { "name": "cosmo:status", "value": "bugfix" },
+        { "name": "cosmo:sigstore:identity", "value": "thomas@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://accounts.google.com" }
+      ]
+    }, {
+      "type": "application",
       "bom-ref": "python@3.14.2",
       "name": "python",
       "version": "3.14.2",
@@ -161,6 +217,20 @@
       "hashes": [{ "alg": "SHA-256", "content": "d7fe130d0501ae047ca318fa92aa642603ab6f217901015a1df6ce650d5470cd" }],
       "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tgz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2030-10" },
+        { "name": "cosmo:status", "value": "bugfix" },
+        { "name": "cosmo:sigstore:identity", "value": "hugo@python.org" },
+        { "name": "cosmo:sigstore:issuer", "value": "https://github.com/login/oauth" }
+      ]
+    }, {
+      "type": "application",
+      "bom-ref": "python@3.14.7",
+      "name": "python",
+      "version": "3.14.7",
+      "hashes": [{ "alg": "SHA-256", "content": "62859805f6fdf25e2bcbf3fa3217801e1996887ca33e6a2af80674bdfa2dbe07" }],
+      "licenses": [{ "license": { "id": "PSF-2.0", "url": "https://docs.python.org/3/license.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tgz" }],
       "properties": [
         { "name": "cosmo:eol", "value": "2030-10" },
         { "name": "cosmo:status", "value": "bugfix" },
@@ -230,6 +300,15 @@
       "hashes": [{ "alg": "SHA-256", "content": "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc" }],
       "licenses": [{ "license": { "id": "MIT", "url": "https://github.com/libffi/libffi/blob/master/LICENSE" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz" }]
+    }, {
+      "type": "library",
+      "bom-ref": "libffi@3.8.0",
+      "name": "libffi",
+      "version": "3.8.0",
+      "purl": "pkg:github/libffi/libffi@v3.8.0",
+      "hashes": [{ "alg": "SHA-256", "content": "7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4" }],
+      "licenses": [{ "license": { "id": "MIT", "url": "https://github.com/libffi/libffi/blob/master/LICENSE" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz" }]
     }, {
       "type": "library",
       "bom-ref": "ncurses@6.4",
@@ -304,6 +383,20 @@
       ]
     }, {
       "type": "library",
+      "bom-ref": "openssl@4.0.2",
+      "name": "openssl",
+      "version": "4.0.2",
+      "purl": "pkg:github/openssl/openssl@openssl-4.0.2",
+      "hashes": [{ "alg": "SHA-256", "content": "736b467530f916737b7031310ccb21d8218c6229e61e8e160cd1d3458cd543a8" }],
+      "licenses": [{ "license": { "id": "Apache-2.0", "url": "https://github.com/openssl/openssl/blob/master/LICENSE.txt" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/openssl/openssl/releases/download/openssl-4.0.2/openssl-4.0.2.tar.gz" }],
+      "properties": [
+        { "name": "cosmo:eol", "value": "2027-05" },
+        { "name": "cosmo:status", "value": "supported" },
+        { "name": "cosmo:gpg", "value": "BA5473A2B0587B07FB27CF2D216094DFD0CB81EF" }
+      ]
+    }, {
+      "type": "library",
       "bom-ref": "sqlite@3.51.2",
       "name": "sqlite",
       "version": "3.51.2",
@@ -319,6 +412,15 @@
       "hashes": [{ "alg": "SHA-256", "content": "81f5be397049b0cae1b167f2225af7646fc0f82e4a9b3c48c9ea3a533e21d77a" }],
       "licenses": [{ "license": { "name": "Public Domain", "url": "https://www.sqlite.org/copyright.html" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://www.sqlite.org/2026/sqlite-autoconf-3510300.tar.gz" }]
+    }, {
+      "type": "library",
+      "bom-ref": "sqlite@3.53.4",
+      "name": "sqlite",
+      "version": "3.53.4",
+      "purl": "pkg:generic/sqlite@3.53.4",
+      "hashes": [{ "alg": "SHA-256", "content": "0e9483900e92cd5de8fd48d16bf9200145a61f7fd5be542a5ac81d8a9516eb9c" }],
+      "licenses": [{ "license": { "name": "Public Domain", "url": "https://www.sqlite.org/copyright.html" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz" }]
     }, {
       "type": "library",
       "bom-ref": "xz@5.4.5",
@@ -341,6 +443,16 @@
       "properties": [{ "name": "cosmo:gpg", "value": "3690C240CE51B4670D30AD1C38EE757D69184620" }]
     }, {
       "type": "library",
+      "bom-ref": "xz@5.8.3",
+      "name": "xz",
+      "version": "5.8.3",
+      "purl": "pkg:github/tukaani-project/xz@v5.8.3",
+      "hashes": [{ "alg": "SHA-256", "content": "3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0" }],
+      "licenses": [{ "license": { "name": "Public Domain", "url": "https://github.com/tukaani-project/xz/blob/master/COPYING" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.gz" }],
+      "properties": [{ "name": "cosmo:gpg", "value": "3690C240CE51B4670D30AD1C38EE757D69184620" }]
+    }, {
+      "type": "library",
       "bom-ref": "zstd@1.5.7",
       "name": "zstd",
       "version": "1.5.7",
@@ -359,6 +471,15 @@
       "licenses": [{ "license": { "id": "MPL-2.0", "url": "https://www.mozilla.org/en-US/MPL/2.0/" } }],
       "externalReferences": [{ "type": "distribution", "url": "https://curl.se/ca/cacert-2025-12-02.pem" }]
     }, {
+      "type": "data",
+      "bom-ref": "cacert@2026-08-13",
+      "name": "cacert",
+      "version": "2026-08-13",
+      "purl": "pkg:generic/ca-certificates@2026-08-13",
+      "hashes": [{ "alg": "SHA-256", "content": "f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9" }],
+      "licenses": [{ "license": { "id": "MPL-2.0", "url": "https://www.mozilla.org/en-US/MPL/2.0/" } }],
+      "externalReferences": [{ "type": "distribution", "url": "https://curl.se/ca/cacert-2026-08-13.pem" }]
+    }, {
       "type": "application",
       "bom-ref": "cosmocc@4.0.2",
       "name": "cosmocc",
@@ -374,156 +495,231 @@
       "ref": "python@3.10.19",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.10.20",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
+      ]
+    }, {
+      "ref": "python@3.10.21",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2026-08-13",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.8.0",
+        "ncurses@6.6",
+        "openssl@4.0.2",
+        "readline@8.3",
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.11.14",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.11.15",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
+      ]
+    }, {
+      "ref": "python@3.11.16",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2026-08-13",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.8.0",
+        "ncurses@6.6",
+        "openssl@4.0.2",
+        "readline@8.3",
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.12.12",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.12.13",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
+      ]
+    }, {
+      "ref": "python@3.12.14",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2026-08-13",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.8.0",
+        "ncurses@6.6",
+        "openssl@4.0.2",
+        "readline@8.3",
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.13.11",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.13.12",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2"
+        "sqlite@3.53.4",
+        "xz@5.8.3"
+      ]
+    }, {
+      "ref": "python@3.13.15",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2026-08-13",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.8.0",
+        "ncurses@6.6",
+        "openssl@4.0.2",
+        "readline@8.3",
+        "sqlite@3.53.4",
+        "xz@5.8.3"
       ]
     }, {
       "ref": "python@3.14.2",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2",
+        "sqlite@3.53.4",
+        "xz@5.8.3",
         "zstd@1.5.7"
       ]
     }, {
       "ref": "python@3.14.3",
       "dependsOn": [
         "bzip2@1.0.8",
-        "cacert@2025-12-02",
+        "cacert@2026-08-13",
         "cosmocc@4.0.2",
         "gdbm@1.26",
-        "libffi@3.5.2",
+        "libffi@3.8.0",
         "ncurses@6.6",
-        "openssl@3.6.1",
+        "openssl@4.0.2",
         "readline@8.3",
-        "sqlite@3.51.3",
-        "xz@5.8.2",
+        "sqlite@3.53.4",
+        "xz@5.8.3",
+        "zstd@1.5.7"
+      ]
+    }, {
+      "ref": "python@3.14.7",
+      "dependsOn": [
+        "bzip2@1.0.8",
+        "cacert@2026-08-13",
+        "cosmocc@4.0.2",
+        "gdbm@1.26",
+        "libffi@3.8.0",
+        "ncurses@6.6",
+        "openssl@4.0.2",
+        "readline@8.3",
+        "sqlite@3.53.4",
+        "xz@5.8.3",
         "zstd@1.5.7"
       ]
     },
     { "ref": "bzip2@1.0.8", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "gdbm@1.26", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "libffi@3.5.2", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "libffi@3.8.0", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "ncurses@6.6", "dependsOn": ["cosmocc@4.0.2"] },
-    { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
-    { "ref": "openssl@3.6.0", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
-    { "ref": "openssl@3.6.1", "dependsOn": ["cacert@2025-12-02", "cosmocc@4.0.2"] },
+    { "ref": "openssl@3.5.4", "dependsOn": ["cacert@2026-08-13", "cosmocc@4.0.2"] },
+    { "ref": "openssl@3.6.0", "dependsOn": ["cacert@2026-08-13", "cosmocc@4.0.2"] },
+    { "ref": "openssl@3.6.1", "dependsOn": ["cacert@2026-08-13", "cosmocc@4.0.2"] },
+    { "ref": "openssl@4.0.2", "dependsOn": ["cacert@2026-08-13", "cosmocc@4.0.2"] },
     { "ref": "readline@8.3", "dependsOn": ["ncurses@6.6"] },
     { "ref": "sqlite@3.51.2", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "sqlite@3.51.3", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "sqlite@3.53.4", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "xz@5.8.2", "dependsOn": ["cosmocc@4.0.2"] },
+    { "ref": "xz@5.8.3", "dependsOn": ["cosmocc@4.0.2"] },
     { "ref": "zstd@1.5.7", "dependsOn": ["cosmocc@4.0.2"] }
   ]
 }
